@@ -41,7 +41,8 @@ need to be added to close the gap.
   below on modern threaded comments) with author and text, deduplicating authors the same
   way shared strings are deduplicated. Written with the accompanying legacy VML drawing
   part real Excel-authored files pair every classic comment with, for the on-cell
-  indicator and hover-box position — see the caveat below on this specifically.
+  indicator and hover-box position — confirmed rendering correctly (indicator, hover
+  popup, position) in real Excel.
 
 ## Known gaps (documented, not silently "supported")
 
@@ -100,13 +101,6 @@ need to be added to close the gap.
 - **Data validation named-range list sources.** A dropdown sourced from a defined name
   (rather than a literal range or an inline list) degrades to a single-item literal list
   on read.
-- **Comment VML rendering is structurally verified, not visually confirmed.** The
-  accompanying VML drawing content (`Interpreter/Writer.fs: vmlDrawingContent`) is checked
-  for schema validity of the surrounding package and well-formedness of the VML XML itself
-  (see the test of the same name), matching the fixed boilerplate structure Excel itself
-  generates — but this was built without access to a real Excel install to confirm the
-  on-cell indicator and hover box actually render/position correctly. If you hit a comment
-  that doesn't display right, this is the first place to look.
 - **Comment position/size.** Only the comment's cell, author, and text are modeled - the
   VML anchor's box size and on-screen position are fixed defaults (matching a freshly
   inserted Excel comment), not configurable, and not read back from an existing file's
