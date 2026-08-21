@@ -30,6 +30,7 @@ module internal Writer =
     let private hyperlinkElement (worksheetPart: WorksheetPart) (entry: HyperlinkEntry) : Spreadsheet.Hyperlink =
         let hl = Spreadsheet.Hyperlink(Reference = StringValue(hyperlinkRangeReference entry.TopLeft entry.BottomRight))
         entry.Tooltip |> Option.iter (fun t -> hl.Tooltip <- StringValue(t))
+        entry.Display |> Option.iter (fun d -> hl.Display <- StringValue(d))
 
         match entry.Target with
         | ExternalHyperlink url ->
@@ -38,6 +39,101 @@ module internal Writer =
         | InternalHyperlink location -> hl.Location <- StringValue(location)
 
         hl
+
+    /// Builds the `comments1.xml`-equivalent `Comments` root: a deduplicated `Authors`
+    /// list (interned in order of first appearance, same dedup shape as shared strings)
+    /// plus one `comment` per entry referencing its author by index.
+    let private commentsRoot (entries: CommentEntry list) : Comments =
+        let authors = ResizeArray<string>()
+        let authorIndex = Dictionary<string, int>()
+
+        let internAuthor (name: string) =
+            match authorIndex.TryGetValue name with
+            | true, idx -> idx
+            | false, _ ->
+                let idx = authors.Count
+                authors.Add name
+                authorIndex.[name] <- idx
+                idx
+
+        let commentList = CommentList()
+
+        entries
+        |> List.iter (fun entry ->
+            let authorId = internAuthor entry.Author
+            let commentText = CommentText(Text = Spreadsheet.Text(entry.Text))
+
+            // No `shapeId` attribute here - the SpreadsheetML schema doesn't declare one
+            // on `comment` (unlike some other OOXML comment-ish elements). The link
+            // between a comment and its VML shape is purely by row/column match in the
+            // VML's own `x:ClientData` (`vmlDrawingContent`), not an id on this element.
+            let comment =
+                Spreadsheet.Comment(
+                    Reference = StringValue(CellRef.toA1 entry.Cell),
+                    AuthorId = UInt32Value(uint32 authorId),
+                    CommentText = commentText
+                )
+
+            commentList.AppendChild(comment) |> ignore)
+
+        let authorsEl = Authors()
+        authors |> Seq.iter (fun name -> authorsEl.AppendChild(Author(name)) |> ignore)
+
+        Comments(Authors = authorsEl, CommentList = commentList)
+
+    /// Builds the accompanying legacy VML drawing content Excel pairs with `Comments` for
+    /// the on-cell red-triangle indicator and the comment box's hover position. Only the
+    /// per-comment position/row/column varies - the wrapping namespaces, `shapelayout`,
+    /// and `shapetype` are the same fixed boilerplate Excel itself always emits, so
+    /// they're a template rather than built from typed elements (this is the one place in
+    /// the interpreter that isn't - VML predates OOXML's schema-driven object model, and
+    /// nothing here carries user-controlled text that would need escaping).
+    let private vmlDrawingContent (entries: CommentEntry list) : string =
+        let shape (idx: int) (entry: CommentEntry) : string =
+            let shapeId = 1025 + idx
+            let row = entry.Cell.Row
+            let col = entry.Cell.Col
+            let leftPt = float (col + 1) * 60.0
+            let topPt = float row * 15.0
+
+            sprintf
+                "<v:shape id=\"_x0000_s%d\" type=\"#_x0000_t202\" style='position:absolute;margin-left:%gpt;margin-top:%gpt;width:108pt;height:59.25pt;z-index:%d;visibility:hidden' fillcolor=\"#ffffe1\" o:insetmode=\"auto\">\n\
+                 <v:fill color2=\"#ffffe1\"/>\n\
+                 <v:shadow on=\"t\" color=\"black\" obscured=\"t\"/>\n\
+                 <v:path o:connecttype=\"none\"/>\n\
+                 <v:textbox style='mso-direction-alt:auto'><div style='text-align:left'></div></v:textbox>\n\
+                 <x:ClientData ObjectType=\"Note\">\n\
+                 <x:MoveWithCells/>\n\
+                 <x:SizeWithCells/>\n\
+                 <x:Anchor>%d, 15, %d, 2, %d, 31, %d, 4</x:Anchor>\n\
+                 <x:AutoFill>False</x:AutoFill>\n\
+                 <x:Row>%d</x:Row>\n\
+                 <x:Column>%d</x:Column>\n\
+                 </x:ClientData>\n\
+                 </v:shape>"
+                shapeId
+                leftPt
+                topPt
+                (idx + 1)
+                (col + 1)
+                row
+                (col + 3)
+                (row + 4)
+                row
+                col
+
+        let shapes = entries |> List.mapi shape |> String.concat "\n"
+
+        sprintf
+            "<xml xmlns:v=\"urn:schemas-microsoft-com:vml\" xmlns:o=\"urn:schemas-microsoft-com:office:office\" xmlns:x=\"urn:schemas-microsoft-com:office:excel\">\n\
+             <o:shapelayout v:ext=\"edit\"><o:idmap v:ext=\"edit\" data=\"1\"/></o:shapelayout>\n\
+             <v:shapetype id=\"_x0000_t202\" coordsize=\"21600,21600\" o:spt=\"202\" path=\"m,l,21600r21600,l21600,xe\">\n\
+             <v:stroke joinstyle=\"miter\"/>\n\
+             <v:path gradientshapeok=\"t\" o:connecttype=\"rect\"/>\n\
+             </v:shapetype>\n\
+             %s\n\
+             </xml>"
+            shapes
 
     let private comparisonOperatorToOpenXml (op: ComparisonOperator) : ConditionalFormattingOperatorValues =
         match op with
@@ -369,6 +465,20 @@ module internal Writer =
                 |> List.iter (fun entry -> hyperlinks.AppendChild(hyperlinkElement worksheetPart entry) |> ignore)
 
                 ws.AppendChild(hyperlinks) |> ignore
+
+            if not worksheet.Comments.IsEmpty then
+                let commentsPart = worksheetPart.AddNewPart<WorksheetCommentsPart>()
+                commentsPart.Comments <- commentsRoot worksheet.Comments
+                commentsPart.Comments.Save()
+
+                let vmlPart = worksheetPart.AddNewPart<VmlDrawingPart>()
+
+                use vmlStream = vmlPart.GetStream(FileMode.Create, FileAccess.Write)
+                use writer = new StreamWriter(vmlStream)
+                writer.Write(vmlDrawingContent worksheet.Comments)
+                writer.Flush()
+
+                ws.AppendChild(LegacyDrawing(Id = StringValue(worksheetPart.GetIdOfPart(vmlPart)))) |> ignore
 
             worksheetPart.Worksheet <- ws
             worksheetPart.Worksheet.Save()

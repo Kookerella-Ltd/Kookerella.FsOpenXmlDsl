@@ -11,8 +11,14 @@ type HyperlinkTarget =
 
 /// A hyperlink applied over a range (a single cell is the degenerate case where
 /// `TopLeft = BottomRight`), as it's stored on `Worksheet`.
+///
+/// `Display` is OOXML's fallback label - a handful of older Excel versions and some
+/// interop tools show it instead of the cell's own text; modern Excel always shows the
+/// cell's actual content and ignores it. Rarely worth setting, but preserved for
+/// round-trip fidelity when reading a file that has one.
 type HyperlinkEntry =
     { TopLeft: CellRef
       BottomRight: CellRef
       Target: HyperlinkTarget
-      Tooltip: string option }
+      Tooltip: string option
+      Display: string option }

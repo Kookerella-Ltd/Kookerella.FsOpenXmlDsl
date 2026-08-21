@@ -15,7 +15,8 @@ module Builders =
           FreezePane = None
           ConditionalFormats = []
           DataValidations = []
-          Hyperlinks = [] }
+          Hyperlinks = []
+          Comments = [] }
 
     /// Builds a `Worksheet` directly from a flat, pre-addressed cell list - for when your
     /// cells don't naturally arrive grouped by row (e.g. already `CellRef`-addressed data).
@@ -59,12 +60,13 @@ type CellEntry = Cell of col: int option * value: CellValue * style: CellStyle o
 /// resolves to an actual type, never to a union case (case names live in the value
 /// namespace, not the type namespace) - so those already meant the OOXML type unambiguously.
 /// `DocumentFormat.OpenXml.Spreadsheet` also defines types named `ConditionalFormatting`/
-/// `DataValidation`/`Hyperlink` (note: singular "ConditionalFormat" here vs. the OOXML
-/// type's plural/gerund "ConditionalFormatting", so those two don't actually collide by
-/// name; the `DataValidation` and `Hyperlink` cases genuinely do collide with the OOXML
-/// types of the same name, and `Writer` qualifies their construction as
-/// `Spreadsheet.DataValidation(...)`/`Spreadsheet.Hyperlink(...)` for exactly that reason,
-/// same as `Spreadsheet.Row`/`Spreadsheet.Cell` elsewhere.
+/// `DataValidation`/`Hyperlink`/`Comment` (note: singular "ConditionalFormat" here vs. the
+/// OOXML type's plural/gerund "ConditionalFormatting", so those two don't actually
+/// collide by name; the `DataValidation`, `Hyperlink`, and `Comment` cases genuinely do
+/// collide with the OOXML types of the same name, and `Writer` qualifies their
+/// construction as `Spreadsheet.DataValidation(...)`/`Spreadsheet.Hyperlink(...)`/
+/// `Spreadsheet.Comment(...)` for exactly that reason, same as `Spreadsheet.Row`/
+/// `Spreadsheet.Cell` elsewhere.
 type SheetItem =
     | Row of index: int option * cells: CellEntry list
     | ColumnWidth of index: int * width: float
@@ -73,7 +75,8 @@ type SheetItem =
     | Freeze of rows: int * columns: int
     | ConditionalFormat of topLeft: CellRef * bottomRight: CellRef * rule: ConditionalFormatRule
     | DataValidation of topLeft: CellRef * bottomRight: CellRef * kind: ValidationKind * alert: ValidationAlert
-    | Hyperlink of topLeft: CellRef * bottomRight: CellRef * target: HyperlinkTarget * tooltip: string option
+    | Hyperlink of topLeft: CellRef * bottomRight: CellRef * target: HyperlinkTarget * tooltip: string option * display: string option
+    | Comment of cell: CellRef * author: string * text: string
 
 /// Smart constructors for `CellEntry`/`SheetItem`, as members with real optional
 /// parameters (`?col`, `?style`, `?index`) rather than several separately-named functions
@@ -122,12 +125,23 @@ type SheetDsl =
         )
 
     /// Hyperlink over a single cell.
-    static member hyperlink(cell: CellRef, target: HyperlinkTarget, ?tooltip: string) : SheetItem =
-        Hyperlink(cell, cell, target, tooltip)
+    static member hyperlink(cell: CellRef, target: HyperlinkTarget, ?tooltip: string, ?display: string) : SheetItem =
+        Hyperlink(cell, cell, target, tooltip, display)
 
     /// Hyperlink over a range - every cell in it shares the same target.
-    static member hyperlink(topLeft: CellRef, bottomRight: CellRef, target: HyperlinkTarget, ?tooltip: string) : SheetItem =
-        Hyperlink(topLeft, bottomRight, target, tooltip)
+    static member hyperlink
+        (
+            topLeft: CellRef,
+            bottomRight: CellRef,
+            target: HyperlinkTarget,
+            ?tooltip: string,
+            ?display: string
+        ) : SheetItem =
+        Hyperlink(topLeft, bottomRight, target, tooltip, display)
+
+    /// `author` defaults to an empty (unnamed) author, matching Excel's own behavior.
+    static member comment(cell: CellRef, text: string, ?author: string) : SheetItem =
+        Comment(cell, defaultArg author "", text)
 
 [<AutoOpen>]
 module SheetItems =
@@ -217,8 +231,20 @@ module SheetItems =
     let private hyperlinksOf (items: SheetItem list) : HyperlinkEntry list =
         items
         |> List.choose (function
-            | Hyperlink(topLeft, bottomRight, target, tooltip) ->
-                Some { TopLeft = topLeft; BottomRight = bottomRight; Target = target; Tooltip = tooltip }
+            | Hyperlink(topLeft, bottomRight, target, tooltip, display) ->
+                Some
+                    { TopLeft = topLeft
+                      BottomRight = bottomRight
+                      Target = target
+                      Tooltip = tooltip
+                      Display = display }
+            | _ -> None)
+
+    /// Extracts `Comment` facts - order doesn't matter.
+    let private commentsOf (items: SheetItem list) : CommentEntry list =
+        items
+        |> List.choose (function
+            | Comment(cell, author, text) -> Some { Cell = cell; Author = author; Text = text }
             | _ -> None)
 
     /// Interprets a flat list of `SheetItem` facts into the canonical `Worksheet` record.
@@ -234,4 +260,5 @@ module SheetItems =
           FreezePane = freezePaneOf items
           ConditionalFormats = conditionalFormatsOf items
           DataValidations = dataValidationsOf items
-          Hyperlinks = hyperlinksOf items }
+          Hyperlinks = hyperlinksOf items
+          Comments = commentsOf items }

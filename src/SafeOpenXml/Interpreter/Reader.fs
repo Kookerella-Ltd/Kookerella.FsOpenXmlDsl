@@ -350,6 +350,7 @@ module internal Reader =
             let topLeft = CellRef.ofA1 parts.[0]
             let bottomRight = CellRef.ofA1 (if parts.Length > 1 then parts.[1] else parts.[0])
             let tooltip = hl.Tooltip |> Option.ofObj |> Option.map (fun t -> t.Value)
+            let display = hl.Display |> Option.ofObj |> Option.map (fun d -> d.Value)
 
             let target =
                 if not (isNull hl.Id) then
@@ -366,7 +367,38 @@ module internal Reader =
                 { TopLeft = topLeft
                   BottomRight = bottomRight
                   Target = t
-                  Tooltip = tooltip })
+                  Tooltip = tooltip
+                  Display = display })
+
+    /// Parses one `comment` element back into a `CommentEntry`. The VML drawing part
+    /// (the on-cell anchor/indicator) is never read - it isn't modeled data, just a
+    /// rendering side-effect `Writer` reconstructs deterministically from `Cell` each
+    /// time, so re-saving a round-tripped file regenerates a fresh one rather than
+    /// preserving whatever exact VML the original had.
+    let private commentOf (authors: string[]) (comment: Spreadsheet.Comment) : CommentEntry option =
+        match Option.ofObj comment.Reference with
+        | None -> None
+        | Some refVal ->
+            let author =
+                match Option.ofObj comment.AuthorId with
+                | Some aid when int aid.Value < authors.Length -> authors.[int aid.Value]
+                | _ -> ""
+
+            let text = if isNull comment.CommentText then "" else comment.CommentText.InnerText
+            Some { Cell = CellRef.ofA1 refVal.Value; Author = author; Text = text }
+
+    let private readComments (worksheetPart: WorksheetPart) : CommentEntry list =
+        match worksheetPart.WorksheetCommentsPart with
+        | null -> []
+        | commentsPart ->
+            let authors =
+                match commentsPart.Comments.Authors with
+                | null -> [||]
+                | authorsEl -> authorsEl.Elements<Author>() |> Seq.map (fun a -> a.Text) |> Array.ofSeq
+
+            match commentsPart.Comments.CommentList with
+            | null -> []
+            | commentList -> commentList.Elements<Spreadsheet.Comment>() |> Seq.choose (commentOf authors) |> List.ofSeq
 
     let private readSharedStrings (workbookPart: WorkbookPart) : string[] =
         match workbookPart.SharedStringTablePart with
@@ -518,6 +550,8 @@ module internal Reader =
             |> Seq.choose (fun hl -> hyperlinkOf worksheetPart hl)
             |> List.ofSeq
 
+        let comments = readComments worksheetPart
+
         { Name = name
           Cells = cells
           ColumnProps = columnProps
@@ -526,7 +560,8 @@ module internal Reader =
           FreezePane = freezePane
           ConditionalFormats = conditionalFormats
           DataValidations = dataValidations
-          Hyperlinks = hyperlinks }
+          Hyperlinks = hyperlinks
+          Comments = comments }
 
     let load (document: SpreadsheetDocument) : Workbook =
         let workbookPart = document.WorkbookPart

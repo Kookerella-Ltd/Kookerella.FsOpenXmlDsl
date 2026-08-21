@@ -51,6 +51,7 @@ module Model =
           FreezePane: FreezePane option
           ConditionalFormats: ConditionalFormatEntry list
           DataValidations: DataValidationEntry list
-          Hyperlinks: HyperlinkEntry list }
+          Hyperlinks: HyperlinkEntry list
+          Comments: CommentEntry list }
 
     type Workbook = { Sheets: Worksheet list }

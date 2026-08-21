@@ -36,7 +36,12 @@ need to be added to close the gap.
   alert messages.
 - Hyperlinks: external (any URL, including `mailto:`) and internal (same-workbook,
   `"Sheet2!A1"`-style or a defined name) targets, over a single cell or a range, with an
-  optional tooltip.
+  optional tooltip and an optional fallback display label.
+- Comments: classic cell comments (what current Excel's UI calls "Notes" - see the gap
+  below on modern threaded comments) with author and text, deduplicating authors the same
+  way shared strings are deduplicated. Written with the accompanying legacy VML drawing
+  part real Excel-authored files pair every classic comment with, for the on-cell
+  indicator and hover-box position — see the caveat below on this specifically.
 
 ## Known gaps (documented, not silently "supported")
 
@@ -95,10 +100,21 @@ need to be added to close the gap.
 - **Data validation named-range list sources.** A dropdown sourced from a defined name
   (rather than a literal range or an inline list) degrades to a single-item literal list
   on read.
-- **Hyperlink display text.** OOXML's `display` attribute (a fallback label some older
-  Excel versions show instead of the cell's own content) isn't modeled - the cell's actual
-  text is what's displayed regardless, which is how most real workbooks use hyperlinks
-  anyway.
+- **Comment VML rendering is structurally verified, not visually confirmed.** The
+  accompanying VML drawing content (`Interpreter/Writer.fs: vmlDrawingContent`) is checked
+  for schema validity of the surrounding package and well-formedness of the VML XML itself
+  (see the test of the same name), matching the fixed boilerplate structure Excel itself
+  generates — but this was built without access to a real Excel install to confirm the
+  on-cell indicator and hover box actually render/position correctly. If you hit a comment
+  that doesn't display right, this is the first place to look.
+- **Comment position/size.** Only the comment's cell, author, and text are modeled - the
+  VML anchor's box size and on-screen position are fixed defaults (matching a freshly
+  inserted Excel comment), not configurable, and not read back from an existing file's
+  VML (which isn't parsed on read at all - see `Interpreter/Reader.fs: readComments`).
+- **Threaded comments.** Modern Excel's actual "Comments" (2016+, `@mentions`, replies,
+  resolved state) are a completely different part format (`WorksheetThreadedCommentsPart`)
+  not modeled here at all - what this library calls a `CommentEntry` is what current
+  Excel's UI now labels a "Note".
 
 ## Out of scope for Core (candidates for a future extension)
 
@@ -110,7 +126,6 @@ real files the same way Core was:
 - Charts
 - Images / drawings
 - Pivot tables
-- Comments / threaded comments
 - Sheet/workbook protection
 - Print settings and page setup
 - Tables (`ListObject`s / structured references) and autofilter

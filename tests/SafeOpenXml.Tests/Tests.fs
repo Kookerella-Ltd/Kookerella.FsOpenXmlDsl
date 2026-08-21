@@ -55,6 +55,8 @@ let private assertWorksheetRoundTrips (original: Worksheet) (path: string) =
     Assert.Equal<FreezePane option>(original.FreezePane, actual.FreezePane)
     Assert.Equal<ConditionalFormatEntry list>(original.ConditionalFormats, actual.ConditionalFormats)
     Assert.Equal<DataValidationEntry list>(original.DataValidations, actual.DataValidations)
+    Assert.Equal<HyperlinkEntry list>(original.Hyperlinks, actual.Hyperlinks)
+    Assert.Equal<CommentEntry list>(original.Comments, actual.Comments)
 
 /// Saves `wb` to `Examples/<name>/output.xlsx`, asserts the file is schema-valid, and
 /// asserts every sheet round-trips exactly back through the DSL.
@@ -373,7 +375,8 @@ let ``example: hyperlink external`` () =
               hyperlink (
                   CellRef.ofA1 "A1",
                   ExternalHyperlink "https://github.com/dotnet/Open-XML-SDK",
-                  tooltip = "Open in browser"
+                  tooltip = "Open in browser",
+                  display = "dotnet/Open-XML-SDK"
               ) ]
 
     verifyScenario "Hyperlink_External" (workbook [ data ])
@@ -389,3 +392,38 @@ let ``example: hyperlink internal`` () =
     let sheet2 = sheet "Sheet2" [ row [ cell (Text "You made it!") ] ]
 
     verifyScenario "Hyperlink_Internal" (workbook [ sheet1; sheet2 ])
+
+// --- Comments -------------------------------------------------------------------------
+
+[<Fact>]
+let ``example: comments`` () =
+    let data =
+        sheet
+            "Sheet1"
+            [ row [ cell (Text "Revenue"); cell (Number 1250.0) ]
+              row [ cell (Text "Costs"); cell (Number 900.0) ]
+              comment (CellRef.ofA1 "B1", "Figure is provisional pending audit.", author = "Alex")
+              comment (CellRef.ofA1 "B2", "Includes one-off relocation costs.", author = "Alex")
+              comment (CellRef.ofA1 "A1", "Double check this label.") ]
+
+    verifyScenario "Comments" (workbook [ data ])
+
+[<Fact>]
+let ``comments VML drawing part is well-formed XML`` () =
+    // vmlDrawingContent is hand-templated raw XML (see the comment in Writer.fs on why -
+    // VML predates OOXML's typed object model), so unlike everything else this feature
+    // touches, it isn't schema-checked by assertSchemaValid. This is the narrower check
+    // that actually applies to it: independent of any other test, confirm the string it
+    // produces at least parses as well-formed XML.
+    let data = sheet "Sheet1" [ row [ cell (Text "X") ]; comment (CellRef.ofA1 "A1", "A note") ]
+    use stream = new MemoryStream()
+    Workbook.saveToStream stream (workbook [ data ])
+    stream.Position <- 0L
+
+    use document = SpreadsheetDocument.Open(stream, false)
+    let worksheetPart = document.WorkbookPart.WorksheetParts |> Seq.head
+    let vmlPart = worksheetPart.VmlDrawingParts |> Seq.head
+    use reader = new StreamReader(vmlPart.GetStream())
+    let content = reader.ReadToEnd()
+    let xml = System.Xml.Linq.XDocument.Parse(content)
+    Assert.NotNull(xml.Root)

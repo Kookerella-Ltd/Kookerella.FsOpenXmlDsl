@@ -20,17 +20,19 @@ approximated, and which aren't modeled yet.
     `ConditionalFormatEntry`/`DataValidationEntry` records stored on `Worksheet`.
   - `Hyperlinks.fs` — `HyperlinkTarget` (external URL/`mailto:` vs. internal same-workbook
     reference) and the `HyperlinkEntry` record stored on `Worksheet`.
+  - `Comments.fs` — `CommentEntry` (classic cell comments, i.e. current Excel's "Notes" -
+    see MAPPING.md for the modern threaded-comments gap).
   - `Model.fs` — `CellValue`, `Cell`, `Worksheet`, `Workbook`.
   - `Builders.fs` — ergonomic helpers: plain functional constructors (`cellA1`, ...) for
     the canonical model, plus the `SheetItem`/`CellEntry` types (each a single simple DU
     case with optional fields) and the `sheet` fold function - a small tree-shaped "AST
     for building a sheet" (rows of cells, plus sheet-level facts like column widths,
-    merges, conditional formats, data validations, and hyperlinks) that mirrors how
-    SpreadsheetML itself nests. `SheetDsl` is what you actually write against: `cell`/
-    `row`/`conditionalFormat`/`dataValidation`/`hyperlink` members with real optional
-    parameters (`?col`, `?style`, `?index`, the data validation alert fields, `?tooltip`)
-    - no builder objects, no separate "styled" function, no `None`-noise for the common
-    case.
+    merges, conditional formats, data validations, hyperlinks, and comments) that mirrors
+    how SpreadsheetML itself nests. `SheetDsl` is what you actually write against: `cell`/
+    `row`/`conditionalFormat`/`dataValidation`/`hyperlink`/`comment` members with real
+    optional parameters (`?col`, `?style`, `?index`, the data validation alert fields,
+    `?tooltip`, `?author`) - no builder objects, no separate "styled" function, no
+    `None`-noise for the common case.
   - `Interpreter/StyleRegistry.fs` — interns fonts/fills/borders/number formats into a
     shared OOXML stylesheet (internal).
   - `Interpreter/Writer.fs` — DSL → OOXML (internal).
