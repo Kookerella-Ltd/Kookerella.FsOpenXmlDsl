@@ -1,0 +1,85 @@
+# SafeOpenXml
+
+A typesafe F# DSL for building Excel workbooks, interpreted into calls against the
+[DocumentFormat.OpenXml](https://github.com/dotnet/Open-XML-SDK) SDK. The DSL is a plain
+data model (records/DUs with structural equality) — the interpreter (`Writer`) compiles it
+to OOXML, and the reverse transform (`Reader`) parses an existing `.xlsx` back into the
+same DSL.
+
+See [MAPPING.md](MAPPING.md) for exactly which SpreadsheetML features map 1:1, which are
+approximated, and which aren't modeled yet.
+
+## Layout
+
+- `src/SafeOpenXml` — the library.
+  - `Reference.fs` — `CellRef` and `"A1"`-style address conversions.
+  - `Styles.fs` — cell formatting: `Color`, `FontStyle`, `FillStyle`, `BorderStyle`,
+    `AlignmentStyle`, `NumberFormat`, `CellStyle`.
+  - `Model.fs` — `CellValue`, `Cell`, `Worksheet`, `Workbook`.
+  - `Builders.fs` — ergonomic helpers: plain functional constructors (`cellA1`, ...) for
+    the canonical model, plus the `SheetItem`/`CellEntry` types (each a single simple DU
+    case with optional fields) and the `sheet` fold function - a small tree-shaped "AST
+    for building a sheet" (rows of cells, plus sheet-level facts like column widths and
+    merges) that mirrors how SpreadsheetML itself nests. `SheetDsl` is what you actually
+    write against: `cell`/`row` members with real optional parameters (`?col`,
+    `?style`, `?index`) - no builder objects, no separate "styled" function, no
+    `None`-noise for the common case.
+  - `Interpreter/StyleRegistry.fs` — interns fonts/fills/borders/number formats into a
+    shared OOXML stylesheet (internal).
+  - `Interpreter/Writer.fs` — DSL → OOXML (internal).
+  - `Interpreter/Reader.fs` — OOXML → DSL, the reverse transform (internal).
+  - `Api.fs` — the public `Workbook.save` / `saveToStream` / `load` / `loadFromStream`
+    entry points.
+- `tests/SafeOpenXml.Tests` — round-trip tests, including validating the produced file
+  against the OOXML schema with `DocumentFormat.OpenXml.Validation.OpenXmlValidator`.
+- `samples/SafeOpenXml.Sample` — a small console app that builds a workbook, saves it,
+  and reads it back.
+
+## Quick start
+
+```fsharp
+open SafeOpenXml
+open type SafeOpenXml.SheetDsl
+
+let headerStyle =
+    { CellStyle.Default with
+        Font = Some { FontStyle.Default with Bold = true }
+        Fill = Some { Color = Rgb(220uy, 220uy, 220uy) } }
+
+let data =
+    sheet
+        "Sheet1"
+        [ row [ cell (Text "Name", style = headerStyle)
+                cell (Text "Amount", style = headerStyle) ]
+          row [ cell (Text "Widgets")
+                cell (Number 42.5, style = { CellStyle.Default with NumberFormat = Some TwoDecimal }) ]
+          Freeze(1, 0) ]
+
+workbook [ data ] |> Workbook.save "out.xlsx"
+
+// Reverse transform:
+let roundTripped = Workbook.load "out.xlsx"
+```
+
+`CellEntry` and `SheetItem`'s row case are each a single simple DU case with optional
+fields (`Col`/`Index`) rather than separate "styled" or "explicit position" cases - `None`
+means "the next column/row after the previous entry" (starting at 0), `Some n` jumps there
+explicitly and sequential numbering resumes right after it. You don't construct the case
+directly, though: `SheetDsl.cell`/`SheetDsl.row` are members with real optional
+parameters (`?col`/`?style` on `cell`, `?index` on `row`) that hide the `None`s for
+the common case - plain `let` functions can't have optional parameters in F#, which is why
+this one bit of the DSL is a type. `open type SafeOpenXml.SheetDsl` (alongside `open SafeOpenXml`) brings `cell`/`row`
+into scope unqualified, same as a module. Explicit column/row jumps go through the same
+two members, just with the optional argument supplied: `cell (value, col = 2)` and
+`row (cells, index = 4)`. `sheet` is the one fold that interprets the resulting item
+list into the canonical `Worksheet` (the same relationship `Writer` has to OOXML). If you
+already have cells pre-addressed by `CellRef` rather than grouped by row, `sheetOfCells`
+builds a `Worksheet` directly from a flat `Cell list` instead.
+
+## Building and testing
+
+```bash
+dotnet build
+dotnet test
+dotnet run --project samples/SafeOpenXml.Sample
+```

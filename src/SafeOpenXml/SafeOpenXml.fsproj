@@ -1,0 +1,23 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="Reference.fs" />
+    <Compile Include="Styles.fs" />
+    <Compile Include="Model.fs" />
+    <Compile Include="Builders.fs" />
+    <Compile Include="Interpreter\StyleRegistry.fs" />
+    <Compile Include="Interpreter\Writer.fs" />
+    <Compile Include="Interpreter\Reader.fs" />
+    <Compile Include="Api.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="DocumentFormat.OpenXml" Version="3.5.1" />
+  </ItemGroup>
+
+</Project>
