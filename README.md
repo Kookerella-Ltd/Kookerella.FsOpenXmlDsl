@@ -34,8 +34,12 @@ approximated, and which aren't modeled yet.
   - `Interpreter/Reader.fs` — OOXML → DSL, the reverse transform (internal).
   - `Api.fs` — the public `Workbook.save` / `saveToStream` / `load` / `loadFromStream`
     entry points.
-- `tests/SafeOpenXml.Tests` — round-trip tests, including validating the produced file
-  against the OOXML schema with `DocumentFormat.OpenXml.Validation.OpenXmlValidator`.
+- `tests/SafeOpenXml.Tests` — one test per feature, each validating the produced file
+  against the OOXML schema (`DocumentFormat.OpenXml.Validation.OpenXmlValidator`) and
+  asserting an exact round trip back through the DSL. Each test also writes the workbook
+  it builds to `Examples/<test name>/output.xlsx` (checked into the repo), so every
+  feature has a real, openable `.xlsx` demonstrating it - a browsable gallery, not just
+  assertions.
 - `samples/SafeOpenXml.Sample` — a small console app that builds a workbook, saves it,
   and reads it back.
 

@@ -10,6 +10,13 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Not compiled - these are the per-scenario example workbooks each test in
+         Tests.fs generates. Listed explicitly so Solution Explorer shows them; F#'s SDK
+         doesn't auto-include files the way C#'s does. -->
+    <None Include="Examples\**\*.xlsx" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="coverlet.collector" Version="6.0.4" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
     <PackageReference Include="xunit" Version="2.9.3" />
