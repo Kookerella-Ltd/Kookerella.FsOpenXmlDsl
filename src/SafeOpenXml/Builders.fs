@@ -12,7 +12,9 @@ module Builders =
           ColumnProps = Map.empty
           RowProps = Map.empty
           MergedRanges = []
-          FreezePane = None }
+          FreezePane = None
+          ConditionalFormats = []
+          DataValidations = [] }
 
     /// Builds a `Worksheet` directly from a flat, pre-addressed cell list - for when your
     /// cells don't naturally arrive grouped by row (e.g. already `CellRef`-addressed data).
@@ -55,12 +57,20 @@ type CellEntry = Cell of col: int option * value: CellValue * style: CellStyle o
 /// `Elements<Row>()` calls need no such qualification: a type-argument position only ever
 /// resolves to an actual type, never to a union case (case names live in the value
 /// namespace, not the type namespace) - so those already meant the OOXML type unambiguously.
+/// `DocumentFormat.OpenXml.Spreadsheet` also defines types named `ConditionalFormatting`/
+/// `DataValidation` (note: singular "ConditionalFormat" here vs. the OOXML type's plural/
+/// gerund "ConditionalFormatting", so those two don't actually collide by name; the
+/// `DataValidation` case genuinely does collide with the OOXML type of the same name, and
+/// `Writer` qualifies its construction as `Spreadsheet.DataValidation(...)` for exactly
+/// that reason, same as `Spreadsheet.Row`/`Spreadsheet.Cell` elsewhere.
 type SheetItem =
     | Row of index: int option * cells: CellEntry list
     | ColumnWidth of index: int * width: float
     | RowHeight of index: int * height: float
     | Merge of topLeft: CellRef * bottomRight: CellRef
     | Freeze of rows: int * columns: int
+    | ConditionalFormat of topLeft: CellRef * bottomRight: CellRef * rule: ConditionalFormatRule
+    | DataValidation of topLeft: CellRef * bottomRight: CellRef * kind: ValidationKind * alert: ValidationAlert
 
 /// Smart constructors for `CellEntry`/`SheetItem`, as members with real optional
 /// parameters (`?col`, `?style`, `?index`) rather than several separately-named functions
@@ -77,6 +87,36 @@ type SheetDsl =
     /// `index` defaults to the next row after the previous row in the sheet.
     static member row(cells: CellEntry list, ?index: int) : SheetItem =
         Row(index, cells)
+
+    static member conditionalFormat(topLeft: CellRef, bottomRight: CellRef, rule: ConditionalFormatRule) : SheetItem =
+        ConditionalFormat(topLeft, bottomRight, rule)
+
+    /// `allowBlank` defaults to `true`; `errorStyle` defaults to `Stop`. The remaining
+    /// optional parameters are the input prompt / error alert shown to the user - omit
+    /// them all for a plain validation rule with no custom messaging.
+    static member dataValidation
+        (
+            topLeft: CellRef,
+            bottomRight: CellRef,
+            kind: ValidationKind,
+            ?allowBlank: bool,
+            ?errorStyle: ErrorAlertStyle,
+            ?errorTitle: string,
+            ?errorMessage: string,
+            ?inputTitle: string,
+            ?inputMessage: string
+        ) : SheetItem =
+        DataValidation(
+            topLeft,
+            bottomRight,
+            kind,
+            { AllowBlank = defaultArg allowBlank true
+              ErrorStyle = defaultArg errorStyle Stop
+              ErrorTitle = errorTitle
+              ErrorMessage = errorMessage
+              InputTitle = inputTitle
+              InputMessage = inputMessage }
+        )
 
 [<AutoOpen>]
 module SheetItems =
@@ -146,6 +186,22 @@ module SheetItems =
             | _ -> None)
         |> List.tryLast
 
+    /// Extracts `ConditionalFormat` facts, in order - order matters here (it becomes rule
+    /// priority when writing), unlike `Merge`/`DataValidation`.
+    let private conditionalFormatsOf (items: SheetItem list) : ConditionalFormatEntry list =
+        items
+        |> List.choose (function
+            | ConditionalFormat(topLeft, bottomRight, rule) -> Some { TopLeft = topLeft; BottomRight = bottomRight; Rule = rule }
+            | _ -> None)
+
+    /// Extracts `DataValidation` facts - order doesn't matter.
+    let private dataValidationsOf (items: SheetItem list) : DataValidationEntry list =
+        items
+        |> List.choose (function
+            | DataValidation(topLeft, bottomRight, kind, alert) ->
+                Some { TopLeft = topLeft; BottomRight = bottomRight; Kind = kind; Alert = alert }
+            | _ -> None)
+
     /// Interprets a flat list of `SheetItem` facts into the canonical `Worksheet` record.
     /// Each concern above is a small pure function over the same `items` list - no shared
     /// mutable state - so adding a new kind of fact later means adding a new function and
@@ -156,4 +212,6 @@ module SheetItems =
           ColumnProps = columnWidthsOf items
           RowProps = rowHeightsOf items
           MergedRanges = mergedRangesOf items
-          FreezePane = freezePaneOf items }
+          FreezePane = freezePaneOf items
+          ConditionalFormats = conditionalFormatsOf items
+          DataValidations = dataValidationsOf items }

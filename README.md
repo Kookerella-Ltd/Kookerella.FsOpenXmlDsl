@@ -15,15 +15,19 @@ approximated, and which aren't modeled yet.
   - `Reference.fs` — `CellRef` and `"A1"`-style address conversions.
   - `Styles.fs` — cell formatting: `Color`, `FontStyle`, `FillStyle`, `BorderStyle`,
     `AlignmentStyle`, `NumberFormat`, `CellStyle`.
+  - `Validation.fs` — conditional formatting and data validation: `ComparisonOperator`
+    (shared by both), `ConditionalFormatRule`, `ValidationKind`, `ValidationAlert`, and the
+    `ConditionalFormatEntry`/`DataValidationEntry` records stored on `Worksheet`.
   - `Model.fs` — `CellValue`, `Cell`, `Worksheet`, `Workbook`.
   - `Builders.fs` — ergonomic helpers: plain functional constructors (`cellA1`, ...) for
     the canonical model, plus the `SheetItem`/`CellEntry` types (each a single simple DU
     case with optional fields) and the `sheet` fold function - a small tree-shaped "AST
-    for building a sheet" (rows of cells, plus sheet-level facts like column widths and
-    merges) that mirrors how SpreadsheetML itself nests. `SheetDsl` is what you actually
-    write against: `cell`/`row` members with real optional parameters (`?col`,
-    `?style`, `?index`) - no builder objects, no separate "styled" function, no
-    `None`-noise for the common case.
+    for building a sheet" (rows of cells, plus sheet-level facts like column widths,
+    merges, conditional formats, and data validations) that mirrors how SpreadsheetML
+    itself nests. `SheetDsl` is what you actually write against: `cell`/`row`/
+    `conditionalFormat`/`dataValidation` members with real optional parameters (`?col`,
+    `?style`, `?index`, and the data validation alert fields) - no builder objects, no
+    separate "styled" function, no `None`-noise for the common case.
   - `Interpreter/StyleRegistry.fs` — interns fonts/fills/borders/number formats into a
     shared OOXML stylesheet (internal).
   - `Interpreter/Writer.fs` — DSL → OOXML (internal).
@@ -75,6 +79,19 @@ two members, just with the optional argument supplied: `cell (value, col = 2)` a
 list into the canonical `Worksheet` (the same relationship `Writer` has to OOXML). If you
 already have cells pre-addressed by `CellRef` rather than grouped by row, `sheetOfCells`
 builds a `Worksheet` directly from a flat `Cell list` instead.
+
+Conditional formatting and data validation are `SheetItem`s too:
+
+```fsharp
+[ conditionalFormat (
+    CellRef.ofA1 "A1",
+    CellRef.ofA1 "A10",
+    CellValueRule(GreaterThan, "100", None, { CellStyle.Default with Fill = Some { Color = Rgb(255uy, 199uy, 206uy) } })
+  )
+  dataValidation (CellRef.ofA1 "B1", CellRef.ofA1 "B10", ListValidation [ "Small"; "Medium"; "Large" ]) ]
+```
+
+See [MAPPING.md](MAPPING.md) for exactly which rule kinds of each are covered.
 
 ## Building and testing
 

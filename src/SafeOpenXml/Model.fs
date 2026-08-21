@@ -48,6 +48,8 @@ module Model =
           ColumnProps: Map<int, ColumnProps>
           RowProps: Map<int, RowProps>
           MergedRanges: MergedRange list
-          FreezePane: FreezePane option }
+          FreezePane: FreezePane option
+          ConditionalFormats: ConditionalFormatEntry list
+          DataValidations: DataValidationEntry list }
 
     type Workbook = { Sheets: Worksheet list }

@@ -107,6 +107,12 @@ type internal StyleRegistry() =
     // (fontId, fillId, borderId, numFmtId, alignment)
     let cellFormats = ResizeArray<uint32 * uint32 * uint32 * uint32 * AlignmentStyle option>()
     let cellFormatIndex = Dictionary<CellStyle, uint32>()
+    // Differential formats (`dxfs`) - used by conditional formatting rules that apply a
+    // style. Unlike cellXfs, a dxf embeds its font/fill/border/numFmt/alignment directly
+    // rather than referencing the shared Fonts/Fills/Borders/NumberingFormats collections,
+    // so this only needs a single interned list, not the font/fill/border sub-registries.
+    let dxfList = ResizeArray<CellStyle>()
+    let dxfIndex = Dictionary<CellStyle, uint32>()
 
     do
         fontList.Add(FontStyle.Default)
@@ -160,17 +166,24 @@ type internal StyleRegistry() =
             customNumFmts.[code] <- id
             id
 
+    /// Resolves a `NumberFormat` to both its numFmtId and its format code string - the
+    /// cellXfs path (`InternNumberFormat`) only needs the id, but a `dxf`'s `numFmt` child
+    /// (used by conditional formatting) is inline and needs both.
+    member this.ResolveNumberFormat(nf: NumberFormat) : uint32 * string =
+        match nf with
+        | General -> NumberFormatMapping.GeneralId, "General"
+        | Integer -> NumberFormatMapping.IntegerId, "0"
+        | TwoDecimal -> NumberFormatMapping.TwoDecimalId, "0.00"
+        | Percentage -> NumberFormatMapping.PercentageId, "0.00%"
+        | ShortDate -> NumberFormatMapping.ShortDateId, "mm-dd-yy"
+        | DateAndTime -> NumberFormatMapping.DateTimeId, "m/d/yy h:mm"
+        | Currency -> this.InternCustomFormat NumberFormatMapping.CurrencyFormatCode, NumberFormatMapping.CurrencyFormatCode
+        | Custom code -> this.InternCustomFormat code, code
+
     member this.InternNumberFormat(nfOpt: NumberFormat option) : uint32 =
         match nfOpt with
         | None -> NumberFormatMapping.GeneralId
-        | Some General -> NumberFormatMapping.GeneralId
-        | Some Integer -> NumberFormatMapping.IntegerId
-        | Some TwoDecimal -> NumberFormatMapping.TwoDecimalId
-        | Some Percentage -> NumberFormatMapping.PercentageId
-        | Some Currency -> this.InternCustomFormat NumberFormatMapping.CurrencyFormatCode
-        | Some ShortDate -> NumberFormatMapping.ShortDateId
-        | Some DateAndTime -> NumberFormatMapping.DateTimeId
-        | Some(Custom code) -> this.InternCustomFormat code
+        | Some nf -> fst (this.ResolveNumberFormat nf)
 
     /// Returns the CellFormat ("style") index to put in a cell's `s` attribute.
     member this.GetCellFormatIndex(styleOpt: CellStyle option) : uint32 =
@@ -185,6 +198,17 @@ type internal StyleRegistry() =
             let idx = uint32 cellFormats.Count
             cellFormats.Add(fontId, fillId, borderId, numFmtId, style.Alignment)
             cellFormatIndex.[style] <- idx
+            idx
+
+    /// Returns the dxfId for a conditional-formatting rule's style, interning it into the
+    /// `dxfs` collection (deduplicated by structural equality, same as `GetCellFormatIndex`).
+    member _.InternDxf(style: CellStyle) : uint32 =
+        match dxfIndex.TryGetValue style with
+        | true, idx -> idx
+        | false, _ ->
+            let idx = uint32 dxfList.Count
+            dxfList.Add style
+            dxfIndex.[style] <- idx
             idx
 
     member private _.FontToOpenXml(f: FontStyle) : Font =
@@ -255,7 +279,21 @@ type internal StyleRegistry() =
 
         border
 
-    member private _.CellFormatToOpenXml
+    member private _.AlignmentToOpenXml(a: AlignmentStyle) : Alignment =
+        let al = Alignment()
+
+        a.Horizontal
+        |> Option.iter (fun h -> al.Horizontal <- EnumValue<HorizontalAlignmentValues>(AlignmentMapping.horizontalToOpenXml h))
+
+        a.Vertical
+        |> Option.iter (fun v -> al.Vertical <- EnumValue<VerticalAlignmentValues>(AlignmentMapping.verticalToOpenXml v))
+
+        if a.WrapText then
+            al.WrapText <- BooleanValue(true)
+
+        al
+
+    member private this.CellFormatToOpenXml
         (fontId: uint32, fillId: uint32, borderId: uint32, numFmtId: uint32, alignment: AlignmentStyle option)
         : CellFormat =
         let cf =
@@ -274,23 +312,27 @@ type internal StyleRegistry() =
         match alignment with
         | Some a ->
             cf.ApplyAlignment <- BooleanValue(true)
-            let al = Alignment()
-
-            a.Horizontal
-            |> Option.iter (fun h ->
-                al.Horizontal <- EnumValue<HorizontalAlignmentValues>(AlignmentMapping.horizontalToOpenXml h))
-
-            a.Vertical
-            |> Option.iter (fun v ->
-                al.Vertical <- EnumValue<VerticalAlignmentValues>(AlignmentMapping.verticalToOpenXml v))
-
-            if a.WrapText then
-                al.WrapText <- BooleanValue(true)
-
-            cf.AppendChild(al) |> ignore
+            cf.AppendChild(this.AlignmentToOpenXml a) |> ignore
         | None -> ()
 
         cf
+
+    /// Builds a `dxf` element (font/numFmt/fill/alignment/border, in schema order) from a
+    /// `CellStyle` - unlike `CellFormatToOpenXml`, everything is embedded directly rather
+    /// than referenced by index, and there's no font/fill/border sub-registry involved.
+    member private this.DxfToOpenXml(style: CellStyle) : DifferentialFormat =
+        let dxf = DifferentialFormat()
+        style.Font |> Option.iter (fun f -> dxf.AppendChild(this.FontToOpenXml f) |> ignore)
+
+        style.NumberFormat
+        |> Option.iter (fun nf ->
+            let id, code = this.ResolveNumberFormat nf
+            dxf.AppendChild(NumberingFormat(NumberFormatId = UInt32Value(id), FormatCode = StringValue(code))) |> ignore)
+
+        style.Fill |> Option.iter (fun f -> dxf.AppendChild(this.FillToOpenXml f) |> ignore)
+        style.Alignment |> Option.iter (fun a -> dxf.AppendChild(this.AlignmentToOpenXml a) |> ignore)
+        style.Border |> Option.iter (fun b -> dxf.AppendChild(this.BorderToOpenXml b) |> ignore)
+        dxf
 
     /// Assembles everything interned so far into a single OOXML `Stylesheet`.
     member this.BuildStylesheet() : Stylesheet =
@@ -344,5 +386,10 @@ type internal StyleRegistry() =
         |> ignore
 
         stylesheet.AppendChild(cellStyles) |> ignore
+
+        if dxfList.Count > 0 then
+            let dxfs = DifferentialFormats(Count = UInt32Value(uint32 dxfList.Count))
+            dxfList |> Seq.iter (fun style -> dxfs.AppendChild(this.DxfToOpenXml style) |> ignore)
+            stylesheet.AppendChild(dxfs) |> ignore
 
         stylesheet

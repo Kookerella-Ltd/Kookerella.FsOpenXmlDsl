@@ -163,6 +163,182 @@ module internal Reader =
 
                 if style = CellStyle.Default then None else Some style
 
+    /// Parses a `dxf` (differential format) entry back into a `CellStyle`. Unlike
+    /// `cellStyleOf`, everything is a direct child of the `dxf` element rather than an
+    /// index into the shared Fonts/Fills/Borders/NumberingFormats collections, so there's
+    /// no font/fill/border sub-registry to consult - and no null-guarding for granted, since
+    /// (unlike `cellStyleOf`'s by-index lookups, which only ever see present elements)
+    /// these direct child properties are `null` whenever that child is simply absent.
+    let private dxfStyleOf (stylesheet: Stylesheet) (dxfId: uint32) : CellStyle option =
+        match stylesheet.DifferentialFormats with
+        | null -> None
+        | dxfs ->
+            match dxfs.Elements<DifferentialFormat>() |> Seq.tryItem (int dxfId) with
+            | None -> None
+            | Some dxf ->
+                let font = if isNull dxf.Font then None else Some(fontOfOpenXml dxf.Font)
+                let fill = if isNull dxf.Fill then None else fillOfOpenXml dxf.Fill
+                let border = if isNull dxf.Border then None else Some(borderOfOpenXml dxf.Border)
+                let alignment = alignmentOf dxf.Alignment
+
+                let numFmt =
+                    if isNull dxf.NumberingFormat then
+                        None
+                    else
+                        let nf = dxf.NumberingFormat
+                        let localFormats = Map.ofList [ nf.NumberFormatId.Value, nf.FormatCode.Value ]
+                        numberFormatOf nf.NumberFormatId.Value localFormats
+
+                let style =
+                    { Font = font
+                      Fill = fill
+                      Border = border
+                      NumberFormat = numFmt
+                      Alignment = alignment }
+
+                if style = CellStyle.Default then None else Some style
+
+    let private comparisonOperatorOf (op: ConditionalFormattingOperatorValues) : ComparisonOperator option =
+        if op = ConditionalFormattingOperatorValues.Equal then Some Equal
+        elif op = ConditionalFormattingOperatorValues.NotEqual then Some NotEqual
+        elif op = ConditionalFormattingOperatorValues.GreaterThan then Some GreaterThan
+        elif op = ConditionalFormattingOperatorValues.LessThan then Some LessThan
+        elif op = ConditionalFormattingOperatorValues.GreaterThanOrEqual then Some GreaterThanOrEqual
+        elif op = ConditionalFormattingOperatorValues.LessThanOrEqual then Some LessThanOrEqual
+        elif op = ConditionalFormattingOperatorValues.Between then Some Between
+        elif op = ConditionalFormattingOperatorValues.NotBetween then Some NotBetween
+        // ContainsText/NotContains/BeginsWith/EndsWith are only used by rule kinds Core
+        // doesn't parse (text/blank/error-contains rules) - never reached from CellIs.
+        else None
+
+    /// Parses a `cfRule` element back into a `ConditionalFormatRule`, or `None` for rule
+    /// kinds Core doesn't model (icon sets, top/bottom N, text/blank/error-contains,
+    /// above-average, time-period) - dropped rather than failing, per this module's
+    /// best-effort philosophy.
+    let private conditionalFormatRuleOf (stylesheet: Stylesheet option) (rule: ConditionalFormattingRule) : ConditionalFormatRule option =
+        let styleOf () =
+            match stylesheet, Option.ofObj rule.FormatId with
+            | Some s, Some fid -> dxfStyleOf s fid.Value |> Option.defaultValue CellStyle.Default
+            | _ -> CellStyle.Default
+
+        let formulas = rule.Elements<Spreadsheet.Formula>() |> Seq.map (fun f -> f.Text) |> List.ofSeq
+
+        if isNull rule.Type then
+            None
+        else
+            let t = rule.Type.Value
+
+            if t = ConditionalFormatValues.CellIs then
+                match Option.ofObj rule.Operator |> Option.bind (fun o -> comparisonOperatorOf o.Value), formulas with
+                | Some op, f1 :: rest -> Some(CellValueRule(op, f1, List.tryHead rest, styleOf ()))
+                | _ -> None
+            elif t = ConditionalFormatValues.Expression then
+                match formulas with
+                | f :: _ -> Some(FormulaRule(f, styleOf ()))
+                | [] -> None
+            elif t = ConditionalFormatValues.ColorScale then
+                match rule.Elements<ColorScale>() |> Seq.tryHead with
+                | None -> None
+                | Some cs ->
+                    let colors = cs.Elements<Spreadsheet.Color>() |> Seq.choose (fun c -> colorOf c) |> List.ofSeq
+
+                    match colors with
+                    | [ minC; maxC ] -> Some(ColorScale2(minC, maxC))
+                    | [ minC; midC; maxC ] -> Some(ColorScale3(minC, midC, maxC))
+                    | _ -> None
+            elif t = ConditionalFormatValues.DataBar then
+                rule.Elements<DataBar>()
+                |> Seq.tryHead
+                |> Option.bind (fun db -> db.Elements<Spreadsheet.Color>() |> Seq.tryHead)
+                |> Option.bind (fun c -> colorOf c)
+                |> Option.map DataBarRule
+            elif t = ConditionalFormatValues.DuplicateValues then
+                Some(DuplicateValuesRule(styleOf ()))
+            elif t = ConditionalFormatValues.UniqueValues then
+                Some(UniqueValuesRule(styleOf ()))
+            else
+                None
+
+    let private dataValidationOperatorOf (op: DataValidationOperatorValues) : ComparisonOperator =
+        if op = DataValidationOperatorValues.Equal then Equal
+        elif op = DataValidationOperatorValues.NotEqual then NotEqual
+        elif op = DataValidationOperatorValues.GreaterThan then GreaterThan
+        elif op = DataValidationOperatorValues.LessThan then LessThan
+        elif op = DataValidationOperatorValues.GreaterThanOrEqual then GreaterThanOrEqual
+        elif op = DataValidationOperatorValues.LessThanOrEqual then LessThanOrEqual
+        elif op = DataValidationOperatorValues.NotBetween then NotBetween
+        else Between
+
+    let private errorAlertStyleOf (s: DataValidationErrorStyleValues) : ErrorAlertStyle =
+        if s = DataValidationErrorStyleValues.Warning then Warning
+        elif s = DataValidationErrorStyleValues.Information then Information
+        else Stop
+
+    /// Reverses `Writer.listFormula`: strips the surrounding quotes and un-escapes doubled
+    /// `"` characters. If `formula1` isn't a quoted literal, it's treated as a range
+    /// reference (`ListFromRangeValidation`) instead - falling back to a single-item
+    /// literal list only if it doesn't parse as a range either (e.g. a defined name,
+    /// which isn't modeled).
+    let private parseListFormula (formula1: string) : ValidationKind =
+        if formula1.StartsWith("\"") && formula1.EndsWith("\"") && formula1.Length >= 2 then
+            let inner = formula1.Substring(1, formula1.Length - 2)
+
+            let items =
+                inner.Replace("\"\"", "").Split(',')
+                |> Array.map (fun s -> s.Replace("", "\""))
+                |> List.ofArray
+
+            ListValidation items
+        else
+            match formula1.Split(':') with
+            | [| a; b |] ->
+                try
+                    ListFromRangeValidation(CellRef.ofA1 a, CellRef.ofA1 b)
+                with _ ->
+                    ListValidation [ formula1 ]
+            | _ -> ListValidation [ formula1 ]
+
+    let private dataValidationOf (dv: Spreadsheet.DataValidation) : DataValidationEntry option =
+        match Option.ofObj dv.SequenceOfReferences |> Option.bind Seq.tryHead with
+        | None -> None
+        | Some refText ->
+            let parts = refText.Value.Split(':')
+            let topLeft = CellRef.ofA1 parts.[0]
+            let bottomRight = CellRef.ofA1 (if parts.Length > 1 then parts.[1] else parts.[0])
+            let formula1 = if isNull dv.Formula1 then "" else dv.Formula1.Text
+            let formula2 = if isNull dv.Formula2 then None else Some dv.Formula2.Text
+            let operator () = Option.ofObj dv.Operator |> Option.map (fun o -> dataValidationOperatorOf o.Value) |> Option.defaultValue Between
+
+            let kind =
+                if isNull dv.Type then
+                    CustomValidation formula1
+                elif dv.Type.Value = DataValidationValues.List then
+                    parseListFormula formula1
+                elif dv.Type.Value = DataValidationValues.Whole then
+                    WholeNumberValidation(operator (), formula1, formula2)
+                elif dv.Type.Value = DataValidationValues.Decimal then
+                    DecimalValidation(operator (), formula1, formula2)
+                elif dv.Type.Value = DataValidationValues.TextLength then
+                    TextLengthValidation(operator (), formula1, formula2)
+                else
+                    // Custom, and the unmodeled Date/Time/None types, all fall back to the
+                    // raw formula text rather than being dropped.
+                    CustomValidation formula1
+
+            let alert =
+                { AllowBlank = not (isNull dv.AllowBlank) && dv.AllowBlank.Value
+                  ErrorStyle = Option.ofObj dv.ErrorStyle |> Option.map (fun s -> errorAlertStyleOf s.Value) |> Option.defaultValue Stop
+                  ErrorTitle = dv.ErrorTitle |> Option.ofObj |> Option.map (fun s -> s.Value)
+                  ErrorMessage = dv.Error |> Option.ofObj |> Option.map (fun s -> s.Value)
+                  InputTitle = dv.PromptTitle |> Option.ofObj |> Option.map (fun s -> s.Value)
+                  InputMessage = dv.Prompt |> Option.ofObj |> Option.map (fun s -> s.Value) }
+
+            Some
+                { TopLeft = topLeft
+                  BottomRight = bottomRight
+                  Kind = kind
+                  Alert = alert }
+
     let private readSharedStrings (workbookPart: WorkbookPart) : string[] =
         match workbookPart.SharedStringTablePart with
         | null -> [||]
@@ -286,12 +462,35 @@ module internal Reader =
                 else
                     None)
 
+        let conditionalFormats =
+            ws.Elements<ConditionalFormatting>()
+            |> Seq.collect (fun cf ->
+                match Option.ofObj cf.SequenceOfReferences |> Option.bind Seq.tryHead with
+                | None -> Seq.empty
+                | Some refText ->
+                    let parts = refText.Value.Split(':')
+                    let topLeft = CellRef.ofA1 parts.[0]
+                    let bottomRight = CellRef.ofA1 (if parts.Length > 1 then parts.[1] else parts.[0])
+
+                    cf.Elements<ConditionalFormattingRule>()
+                    |> Seq.choose (fun r -> conditionalFormatRuleOf stylesheet r)
+                    |> Seq.map (fun rule -> { TopLeft = topLeft; BottomRight = bottomRight; Rule = rule }))
+            |> List.ofSeq
+
+        let dataValidations =
+            ws.Elements<DataValidations>()
+            |> Seq.collect (fun dvs -> dvs.Elements<Spreadsheet.DataValidation>())
+            |> Seq.choose dataValidationOf
+            |> List.ofSeq
+
         { Name = name
           Cells = cells
           ColumnProps = columnProps
           RowProps = rowProps
           MergedRanges = mergedRanges
-          FreezePane = freezePane }
+          FreezePane = freezePane
+          ConditionalFormats = conditionalFormats
+          DataValidations = dataValidations }
 
     let load (document: SpreadsheetDocument) : Workbook =
         let workbookPart = document.WorkbookPart

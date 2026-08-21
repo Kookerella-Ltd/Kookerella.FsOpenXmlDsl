@@ -25,6 +25,15 @@ need to be added to close the gap.
   losslessly as opaque references for read-then-write round trips, but Core does not
   *resolve* them to actual RGB values (that requires parsing the workbook's theme part,
   which Core does not model) — see below.
+- Conditional formatting: `CellValueRule` (comparison operators, incl. `Between`/
+  `NotBetween`), `FormulaRule`, 2-color and 3-color scales, a single-color data bar
+  (automatic min/max thresholds), and duplicate/unique-value highlighting. Styles for
+  these reuse `CellStyle` directly, written into the stylesheet's `dxfs` (differential
+  formats) collection — see `Interpreter/StyleRegistry.fs: InternDxf`.
+- Data validation: whole-number/decimal/text-length rules (with the same comparison
+  operators as conditional formatting), inline dropdown lists, range-sourced dropdown
+  lists, and arbitrary custom-formula rules — plus the optional input prompt and error
+  alert messages.
 
 ## Known gaps (documented, not silently "supported")
 
@@ -66,6 +75,23 @@ need to be added to close the gap.
   independent-scroll "Split" pane state is not.
 - **Workbook-level metadata.** Defined names/named ranges, active sheet/tab selection, and
   window sizing are not modeled.
+- **Conditional formatting rule kinds.** Icon sets, "top/bottom N (or %)", above-average,
+  time-period, and the text/blank/error-contains rule kinds are not modeled — a `cfRule`
+  of one of these kinds is silently dropped on read (per this project's "drop what isn't
+  modeled" round-trip philosophy) rather than causing a failure.
+- **Conditional formatting ranges.** Each `ConditionalFormatEntry` covers exactly one
+  rectangular range. OOXML's `sqref` actually accepts a space-separated list of ranges per
+  rule; Core always writes/reads just the first one.
+- **Data bar/color scale details.** Excel's richer data-bar options (gradient vs. solid
+  fill, explicit min/max thresholds instead of automatic, axis position, border, negative-
+  value color, direction) aren't modeled — `DataBarRule` only covers a single-color bar
+  with automatic thresholds, matching Excel's own "quick" default.
+- **Data validation `Date`/`Time` types.** Not modeled; a `dataValidation` of type `date` or
+  `time` round-trips as `CustomValidation` of its raw formula text instead of a dedicated
+  case.
+- **Data validation named-range list sources.** A dropdown sourced from a defined name
+  (rather than a literal range or an inline list) degrades to a single-item literal list
+  on read.
 
 ## Out of scope for Core (candidates for a future extension)
 
@@ -77,8 +103,6 @@ real files the same way Core was:
 - Charts
 - Images / drawings
 - Pivot tables
-- Conditional formatting
-- Data validation
 - Comments / threaded comments
 - Hyperlinks
 - Sheet/workbook protection
