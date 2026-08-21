@@ -18,6 +18,27 @@ module internal Writer =
     let private rangeReference (topLeft: CellRef) (bottomRight: CellRef) : string =
         sprintf "%s:%s" (CellRef.toA1 topLeft) (CellRef.toA1 bottomRight)
 
+    /// Same as `rangeReference`, but a single-cell range (`TopLeft = BottomRight`) writes
+    /// as just `"A1"` rather than `"A1:A1"`, matching how Excel itself writes a
+    /// single-cell hyperlink's `ref` attribute.
+    let private hyperlinkRangeReference (topLeft: CellRef) (bottomRight: CellRef) : string =
+        if topLeft = bottomRight then CellRef.toA1 topLeft else rangeReference topLeft bottomRight
+
+    /// Builds a `hyperlink` element. External targets need a relationship on the
+    /// worksheet part (the `r:id` that `.Id` refers to); internal (same-workbook)
+    /// targets just go straight into `.Location`, no relationship involved.
+    let private hyperlinkElement (worksheetPart: WorksheetPart) (entry: HyperlinkEntry) : Spreadsheet.Hyperlink =
+        let hl = Spreadsheet.Hyperlink(Reference = StringValue(hyperlinkRangeReference entry.TopLeft entry.BottomRight))
+        entry.Tooltip |> Option.iter (fun t -> hl.Tooltip <- StringValue(t))
+
+        match entry.Target with
+        | ExternalHyperlink url ->
+            let relationship = worksheetPart.AddHyperlinkRelationship(Uri(url, UriKind.RelativeOrAbsolute), true)
+            hl.Id <- StringValue(relationship.Id)
+        | InternalHyperlink location -> hl.Location <- StringValue(location)
+
+        hl
+
     let private comparisonOperatorToOpenXml (op: ComparisonOperator) : ConditionalFormattingOperatorValues =
         match op with
         | Equal -> ConditionalFormattingOperatorValues.Equal
@@ -340,6 +361,14 @@ module internal Writer =
                 let dvs = DataValidations(Count = UInt32Value(uint32 worksheet.DataValidations.Length))
                 worksheet.DataValidations |> List.iter (fun entry -> dvs.AppendChild(dataValidationElement entry) |> ignore)
                 ws.AppendChild(dvs) |> ignore
+
+            if not worksheet.Hyperlinks.IsEmpty then
+                let hyperlinks = Hyperlinks()
+
+                worksheet.Hyperlinks
+                |> List.iter (fun entry -> hyperlinks.AppendChild(hyperlinkElement worksheetPart entry) |> ignore)
+
+                ws.AppendChild(hyperlinks) |> ignore
 
             worksheetPart.Worksheet <- ws
             worksheetPart.Worksheet.Save()

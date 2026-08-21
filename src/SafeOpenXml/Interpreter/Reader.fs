@@ -339,6 +339,35 @@ module internal Reader =
                   Kind = kind
                   Alert = alert }
 
+    /// Parses a `hyperlink` element back into a `HyperlinkEntry`. An external target's
+    /// `Id` is a relationship id, not a URL - the URL itself lives on the worksheet
+    /// part's own `HyperlinkRelationships`, so `worksheetPart` is needed to look it up.
+    let private hyperlinkOf (worksheetPart: WorksheetPart) (hl: Spreadsheet.Hyperlink) : HyperlinkEntry option =
+        match Option.ofObj hl.Reference with
+        | None -> None
+        | Some refVal ->
+            let parts = refVal.Value.Split(':')
+            let topLeft = CellRef.ofA1 parts.[0]
+            let bottomRight = CellRef.ofA1 (if parts.Length > 1 then parts.[1] else parts.[0])
+            let tooltip = hl.Tooltip |> Option.ofObj |> Option.map (fun t -> t.Value)
+
+            let target =
+                if not (isNull hl.Id) then
+                    worksheetPart.HyperlinkRelationships
+                    |> Seq.tryFind (fun r -> r.Id = hl.Id.Value)
+                    |> Option.map (fun r -> ExternalHyperlink(r.Uri.OriginalString))
+                elif not (isNull hl.Location) then
+                    Some(InternalHyperlink(hl.Location.Value))
+                else
+                    None
+
+            target
+            |> Option.map (fun t ->
+                { TopLeft = topLeft
+                  BottomRight = bottomRight
+                  Target = t
+                  Tooltip = tooltip })
+
     let private readSharedStrings (workbookPart: WorkbookPart) : string[] =
         match workbookPart.SharedStringTablePart with
         | null -> [||]
@@ -483,6 +512,12 @@ module internal Reader =
             |> Seq.choose dataValidationOf
             |> List.ofSeq
 
+        let hyperlinks =
+            ws.Elements<Hyperlinks>()
+            |> Seq.collect (fun hls -> hls.Elements<Spreadsheet.Hyperlink>())
+            |> Seq.choose (fun hl -> hyperlinkOf worksheetPart hl)
+            |> List.ofSeq
+
         { Name = name
           Cells = cells
           ColumnProps = columnProps
@@ -490,7 +525,8 @@ module internal Reader =
           MergedRanges = mergedRanges
           FreezePane = freezePane
           ConditionalFormats = conditionalFormats
-          DataValidations = dataValidations }
+          DataValidations = dataValidations
+          Hyperlinks = hyperlinks }
 
     let load (document: SpreadsheetDocument) : Workbook =
         let workbookPart = document.WorkbookPart

@@ -14,7 +14,8 @@ module Builders =
           MergedRanges = []
           FreezePane = None
           ConditionalFormats = []
-          DataValidations = [] }
+          DataValidations = []
+          Hyperlinks = [] }
 
     /// Builds a `Worksheet` directly from a flat, pre-addressed cell list - for when your
     /// cells don't naturally arrive grouped by row (e.g. already `CellRef`-addressed data).
@@ -58,11 +59,12 @@ type CellEntry = Cell of col: int option * value: CellValue * style: CellStyle o
 /// resolves to an actual type, never to a union case (case names live in the value
 /// namespace, not the type namespace) - so those already meant the OOXML type unambiguously.
 /// `DocumentFormat.OpenXml.Spreadsheet` also defines types named `ConditionalFormatting`/
-/// `DataValidation` (note: singular "ConditionalFormat" here vs. the OOXML type's plural/
-/// gerund "ConditionalFormatting", so those two don't actually collide by name; the
-/// `DataValidation` case genuinely does collide with the OOXML type of the same name, and
-/// `Writer` qualifies its construction as `Spreadsheet.DataValidation(...)` for exactly
-/// that reason, same as `Spreadsheet.Row`/`Spreadsheet.Cell` elsewhere.
+/// `DataValidation`/`Hyperlink` (note: singular "ConditionalFormat" here vs. the OOXML
+/// type's plural/gerund "ConditionalFormatting", so those two don't actually collide by
+/// name; the `DataValidation` and `Hyperlink` cases genuinely do collide with the OOXML
+/// types of the same name, and `Writer` qualifies their construction as
+/// `Spreadsheet.DataValidation(...)`/`Spreadsheet.Hyperlink(...)` for exactly that reason,
+/// same as `Spreadsheet.Row`/`Spreadsheet.Cell` elsewhere.
 type SheetItem =
     | Row of index: int option * cells: CellEntry list
     | ColumnWidth of index: int * width: float
@@ -71,6 +73,7 @@ type SheetItem =
     | Freeze of rows: int * columns: int
     | ConditionalFormat of topLeft: CellRef * bottomRight: CellRef * rule: ConditionalFormatRule
     | DataValidation of topLeft: CellRef * bottomRight: CellRef * kind: ValidationKind * alert: ValidationAlert
+    | Hyperlink of topLeft: CellRef * bottomRight: CellRef * target: HyperlinkTarget * tooltip: string option
 
 /// Smart constructors for `CellEntry`/`SheetItem`, as members with real optional
 /// parameters (`?col`, `?style`, `?index`) rather than several separately-named functions
@@ -117,6 +120,14 @@ type SheetDsl =
               InputTitle = inputTitle
               InputMessage = inputMessage }
         )
+
+    /// Hyperlink over a single cell.
+    static member hyperlink(cell: CellRef, target: HyperlinkTarget, ?tooltip: string) : SheetItem =
+        Hyperlink(cell, cell, target, tooltip)
+
+    /// Hyperlink over a range - every cell in it shares the same target.
+    static member hyperlink(topLeft: CellRef, bottomRight: CellRef, target: HyperlinkTarget, ?tooltip: string) : SheetItem =
+        Hyperlink(topLeft, bottomRight, target, tooltip)
 
 [<AutoOpen>]
 module SheetItems =
@@ -202,6 +213,14 @@ module SheetItems =
                 Some { TopLeft = topLeft; BottomRight = bottomRight; Kind = kind; Alert = alert }
             | _ -> None)
 
+    /// Extracts `Hyperlink` facts - order doesn't matter.
+    let private hyperlinksOf (items: SheetItem list) : HyperlinkEntry list =
+        items
+        |> List.choose (function
+            | Hyperlink(topLeft, bottomRight, target, tooltip) ->
+                Some { TopLeft = topLeft; BottomRight = bottomRight; Target = target; Tooltip = tooltip }
+            | _ -> None)
+
     /// Interprets a flat list of `SheetItem` facts into the canonical `Worksheet` record.
     /// Each concern above is a small pure function over the same `items` list - no shared
     /// mutable state - so adding a new kind of fact later means adding a new function and
@@ -214,4 +233,5 @@ module SheetItems =
           MergedRanges = mergedRangesOf items
           FreezePane = freezePaneOf items
           ConditionalFormats = conditionalFormatsOf items
-          DataValidations = dataValidationsOf items }
+          DataValidations = dataValidationsOf items
+          Hyperlinks = hyperlinksOf items }

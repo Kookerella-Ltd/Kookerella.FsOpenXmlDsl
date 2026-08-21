@@ -50,6 +50,7 @@ module Model =
           MergedRanges: MergedRange list
           FreezePane: FreezePane option
           ConditionalFormats: ConditionalFormatEntry list
-          DataValidations: DataValidationEntry list }
+          DataValidations: DataValidationEntry list
+          Hyperlinks: HyperlinkEntry list }
 
     type Workbook = { Sheets: Worksheet list }

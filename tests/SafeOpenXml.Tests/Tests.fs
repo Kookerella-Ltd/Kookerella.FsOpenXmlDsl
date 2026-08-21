@@ -361,3 +361,31 @@ let ``example: data validation custom formula`` () =
               ) ]
 
     verifyScenario "DataValidation_Custom" (workbook [ data ])
+
+// --- Hyperlinks ---------------------------------------------------------------------
+
+[<Fact>]
+let ``example: hyperlink external`` () =
+    let data =
+        sheet
+            "Sheet1"
+            [ row [ cell (Text "Open-XML-SDK on GitHub") ]
+              hyperlink (
+                  CellRef.ofA1 "A1",
+                  ExternalHyperlink "https://github.com/dotnet/Open-XML-SDK",
+                  tooltip = "Open in browser"
+              ) ]
+
+    verifyScenario "Hyperlink_External" (workbook [ data ])
+
+[<Fact>]
+let ``example: hyperlink internal`` () =
+    let sheet1 =
+        sheet
+            "Sheet1"
+            [ row [ cell (Text "Go to Sheet2") ]
+              hyperlink (CellRef.ofA1 "A1", InternalHyperlink "Sheet2!A1") ]
+
+    let sheet2 = sheet "Sheet2" [ row [ cell (Text "You made it!") ] ]
+
+    verifyScenario "Hyperlink_Internal" (workbook [ sheet1; sheet2 ])

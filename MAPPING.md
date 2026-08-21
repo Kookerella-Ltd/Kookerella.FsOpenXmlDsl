@@ -34,6 +34,9 @@ need to be added to close the gap.
   operators as conditional formatting), inline dropdown lists, range-sourced dropdown
   lists, and arbitrary custom-formula rules — plus the optional input prompt and error
   alert messages.
+- Hyperlinks: external (any URL, including `mailto:`) and internal (same-workbook,
+  `"Sheet2!A1"`-style or a defined name) targets, over a single cell or a range, with an
+  optional tooltip.
 
 ## Known gaps (documented, not silently "supported")
 
@@ -92,6 +95,10 @@ need to be added to close the gap.
 - **Data validation named-range list sources.** A dropdown sourced from a defined name
   (rather than a literal range or an inline list) degrades to a single-item literal list
   on read.
+- **Hyperlink display text.** OOXML's `display` attribute (a fallback label some older
+  Excel versions show instead of the cell's own content) isn't modeled - the cell's actual
+  text is what's displayed regardless, which is how most real workbooks use hyperlinks
+  anyway.
 
 ## Out of scope for Core (candidates for a future extension)
 
@@ -104,7 +111,6 @@ real files the same way Core was:
 - Images / drawings
 - Pivot tables
 - Comments / threaded comments
-- Hyperlinks
 - Sheet/workbook protection
 - Print settings and page setup
 - Tables (`ListObject`s / structured references) and autofilter
