@@ -99,6 +99,14 @@ let private verifyScenario (name: string) (wb: Workbook) =
     let roundTripped = Workbook.load path
     Assert.Equal<DefinedNameEntry list>(wb.DefinedNames, roundTripped.DefinedNames)
 
+    // Password never round-trips (see WorkbookProtection's own doc comment), same
+    // normalize-rather-than-skip approach as `assertWorksheetRoundTrips`'s sheet-level
+    // protection check.
+    Assert.Equal<WorkbookProtection option>(
+        wb.Protection |> Option.map (fun p -> { p with Password = None }),
+        roundTripped.Protection |> Option.map (fun p -> { p with Password = None })
+    )
+
     let script = Workbook.generateScript codeGenReferenceLines "output.xlsx" wb
     File.WriteAllText(Path.Combine(dir, "script.fsx"), script)
 
@@ -507,6 +515,16 @@ let ``example: sheet protection with password`` () =
                       AutoFilter = Some true } ]
 
     verifyScenario "SheetProtectionWithPassword" (workbook [ data ])
+
+[<Fact>]
+let ``example: workbook structure protection`` () =
+    let data = sheet "Sheet1" [ row [ cell (Text "Sheets can't be added, removed, or renamed") ] ]
+
+    let wb =
+        workbook [ data ]
+        |> withProtection { WorkbookProtection.Default with Password = Some "hunter2"; LockStructure = Some true }
+
+    verifyScenario "WorkbookProtection" wb
 
 // --- Defined names ----------------------------------------------------------------------
 

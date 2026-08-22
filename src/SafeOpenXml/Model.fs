@@ -68,4 +68,5 @@ module Model =
 
     type Workbook =
         { Sheets: Worksheet list
-          DefinedNames: DefinedNameEntry list }
+          DefinedNames: DefinedNameEntry list
+          Protection: WorkbookProtection option }

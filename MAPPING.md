@@ -59,6 +59,13 @@ need to be added to close the gap.
   (`DefinedNameEntry`, stored on `Workbook` rather than `Worksheet` - the one DSL concept
   that's genuinely workbook-level, not per-sheet). `SheetScope` is expressed by sheet name
   and translated to/from OOXML's index-based `localSheetId` automatically.
+- Workbook-level protection: protects the workbook's *structure* (adding/removing/hiding/
+  reordering sheets) and/or window layout, as distinct from the per-sheet `SheetProtection`
+  above (`WorkbookProtection`, stored on `Workbook`). A thin, direct pass-through of the two
+  commonly used `workbookProtection` flags (`lockStructure`/`lockWindows`), same shape and
+  reasoning as `SheetProtection` - see the gap below on the legacy shared-workbook
+  revision-tracking flags this doesn't model. Password handling (legacy XOR hash, never
+  reads back) is identical to `SheetProtection.Password`.
 - Print settings and page setup: orientation, paper size (`PaperSize`, a small named set
   plus `OtherPaperSize` for any other OOXML `ST_PaperSize` code), scaling (either a
   percentage or "fit to N pages wide by M tall", `0` meaning unconstrained in that
@@ -226,6 +233,13 @@ need to be added to close the gap.
   the same sheet as the sparkline itself - a foreign file with a sparkline pointing at
   another sheet's data has that sheet qualifier silently discarded on read (the range
   itself still parses, just interpreted against the sparkline's own sheet).
+- **Shared-workbook revision-tracking protection.** `workbookProtection`'s legacy
+  `lockRevision`/`revisionsPassword`/etc. flags (for the old "shared workbook" co-authoring
+  feature, largely superseded by modern cloud co-authoring) aren't modeled - only
+  `lockStructure`/`lockWindows`.
+- **Newer, stronger workbook password hash.** Same gap as `SheetProtection` - only the
+  classic weak hash is supported for `WorkbookProtection.Password`, not the modern salted
+  SHA-512 scheme.
 
 ## Out of scope for Core (candidates for a future extension)
 
@@ -237,8 +251,6 @@ real files the same way Core was:
 - Charts
 - Images / drawings
 - Pivot tables
-- Workbook-level protection (protecting the workbook structure itself - sheet ordering,
-  visibility - as distinct from the per-sheet protection Core already models)
 - Macros / VBA
 
 ## A note on style interning

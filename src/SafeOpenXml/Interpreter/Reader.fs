@@ -891,8 +891,21 @@ module internal Reader =
                 let printArea = printAreaBySheetIndex |> Map.tryFind i |> Option.defaultValue []
                 readWorksheet sharedStrings stylesheet customFormats sheetEl.Name.Value printArea worksheetPart)
 
+        // Password never round-trips here either, same reason as `SheetProtection`'s own
+        // doc comment: the hash isn't reversible.
+        let protection =
+            workbookPart.Workbook.WorkbookProtection
+            |> Option.ofObj
+            |> Option.map (fun wp ->
+                let flag (v: BooleanValue) = if isNull v then None else Some v.Value
+
+                { Password = None
+                  LockStructure = flag wp.LockStructure
+                  LockWindows = flag wp.LockWindows })
+
         { Sheets = sheets
-          DefinedNames = definedNames }
+          DefinedNames = definedNames
+          Protection = protection }
 
     let loadFromStream (stream: Stream) : Workbook =
         use document = SpreadsheetDocument.Open(stream, false)

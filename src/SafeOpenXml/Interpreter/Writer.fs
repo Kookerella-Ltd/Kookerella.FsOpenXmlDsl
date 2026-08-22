@@ -78,6 +78,16 @@ module internal Writer =
         sp.SelectUnlockedCells |> Option.iter (fun v -> el.SelectUnlockedCells <- BooleanValue(v))
         el
 
+    /// Builds a `workbookProtection` element - same thin pass-through shape as
+    /// `sheetProtectionElement`, just for the two workbook-level flags Core models (see
+    /// `WorkbookProtection`'s own doc comment).
+    let private workbookProtectionElement (wp: WorkbookProtection) : Spreadsheet.WorkbookProtection =
+        let el = Spreadsheet.WorkbookProtection()
+        wp.Password |> Option.iter (fun pwd -> el.WorkbookPassword <- HexBinaryValue(legacyPasswordHash pwd))
+        wp.LockStructure |> Option.iter (fun v -> el.LockStructure <- BooleanValue(v))
+        wp.LockWindows |> Option.iter (fun v -> el.LockWindows <- BooleanValue(v))
+        el
+
     /// Builds a `definedName` element. `sheetIndex` maps sheet name to its 0-based
     /// position for `SheetScope`'s translation to OOXML's `localSheetId`; a `SheetScope`
     /// naming a sheet not in this workbook is a genuine caller mistake, not something to
@@ -550,6 +560,12 @@ module internal Writer =
     let private populate (document: SpreadsheetDocument) (wb: Workbook) =
         let workbookPart = document.AddWorkbookPart()
         workbookPart.Workbook <- Spreadsheet.Workbook()
+
+        // `workbookProtection` must precede `sheets` in schema order, so this has to be
+        // set before anything else is appended to the workbook root.
+        wb.Protection
+        |> Option.iter (fun p -> workbookPart.Workbook.WorkbookProtection <- workbookProtectionElement p)
+
         let registry = StyleRegistry()
 
         let sharedStrings = ResizeArray<string>()

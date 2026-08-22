@@ -462,6 +462,25 @@ module internal CodeGen =
                 (renderString d.Formula)
                 (renderDefinedNameScope d.Scope)
 
+    /// No smart constructor exists for `WorkbookProtection` (see `Builders.fs`) - it's a
+    /// plain record built the usual way, `{ WorkbookProtection.Default with ... }`.
+    let private renderWorkbookProtection (p: WorkbookProtection) : string =
+        let parts =
+            [ match p.Password with
+              | Some pw -> yield sprintf "Password = %s" (renderOption renderString (Some pw))
+              | None -> ()
+              match p.LockStructure with
+              | Some v -> yield sprintf "LockStructure = %s" (renderOption renderBool (Some v))
+              | None -> ()
+              match p.LockWindows with
+              | Some v -> yield sprintf "LockWindows = %s" (renderOption renderBool (Some v))
+              | None -> () ]
+
+        if parts.IsEmpty then
+            "WorkbookProtection.Default"
+        else
+            parts |> String.concat "; " |> sprintf "{ WorkbookProtection.Default with %s }"
+
     /// Groups `ws.Cells` back into `row`/`cell` item source text, threading the same
     /// "next row"/"next column" cursor `SheetItems.cellsOf` folds over at interpretation
     /// time - so a row/cell only gets an explicit `index`/`col` where the source file
@@ -578,11 +597,21 @@ module internal CodeGen =
 
         let sheetsListStr = sheetVarNames |> String.concat "; "
 
-        if wb.DefinedNames.IsEmpty then
-            sb.AppendLine(sprintf "let wb = workbook [ %s ]" sheetsListStr) |> ignore
-        else
-            let namesStr = wb.DefinedNames |> List.map renderDefinedNameEntry |> String.concat "; "
-            sb.AppendLine(sprintf "let wb = workbook [ %s ] |> withDefinedNames [ %s ]" sheetsListStr namesStr) |> ignore
+        let pipes =
+            [ if not wb.DefinedNames.IsEmpty then
+                  let namesStr = wb.DefinedNames |> List.map renderDefinedNameEntry |> String.concat "; "
+                  yield sprintf "withDefinedNames [ %s ]" namesStr
+              match wb.Protection with
+              | Some p -> yield sprintf "withProtection (%s)" (renderWorkbookProtection p)
+              | None -> () ]
+
+        // Kept on one line, like every other generated statement in this function - see
+        // `generate`'s own doc comment on why (sidesteps F#'s indentation-sensitive
+        // offside rule entirely rather than trying to pretty-print a multi-line pipe).
+        let wbExpr =
+            (sprintf "workbook [ %s ]" sheetsListStr :: pipes) |> String.concat " |> "
+
+        sb.AppendLine(sprintf "let wb = %s" wbExpr) |> ignore
 
         sb.AppendLine() |> ignore
         sb.AppendLine(sprintf "wb |> Workbook.save %s" (renderString outputFileName)) |> ignore

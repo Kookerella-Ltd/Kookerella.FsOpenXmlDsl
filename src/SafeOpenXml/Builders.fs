@@ -29,7 +29,10 @@ module Builders =
     let sheetOfCells (name: string) (cells: Cell list) : Worksheet =
         { emptySheet name with Cells = cells }
 
-    let workbook (sheets: Worksheet list) : Workbook = { Sheets = sheets; DefinedNames = [] }
+    let workbook (sheets: Worksheet list) : Workbook =
+        { Sheets = sheets
+          DefinedNames = []
+          Protection = None }
 
     let cellA1 (a1: string) value : Cell =
         { Ref = CellRef.ofA1 a1; Value = value; Style = None }
@@ -50,6 +53,10 @@ module Builders =
 
     /// Attaches defined names to a workbook - pipe-friendly: `workbook [...] |> withDefinedNames [...]`.
     let withDefinedNames (names: DefinedNameEntry list) (wb: Workbook) : Workbook = { wb with DefinedNames = names }
+
+    /// Attaches workbook-level protection - pipe-friendly:
+    /// `workbook [...] |> withProtection { WorkbookProtection.Default with LockStructure = Some true }`.
+    let withProtection (protection: WorkbookProtection) (wb: Workbook) : Workbook = { wb with Protection = Some protection }
 
 /// A single cell placed within a `Row` - one simple shape, no separate "styled" or
 /// "explicit position" case. `Col = None` means "the next column after the previous entry

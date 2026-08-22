@@ -23,7 +23,9 @@ approximated, and which aren't modeled yet.
   - `Comments.fs` — `CommentEntry` (classic cell comments, i.e. current Excel's "Notes" -
     see MAPPING.md for the modern threaded-comments gap).
   - `Protection.fs` — `SheetProtection`, the sheet-level protection flags stored on
-    `Worksheet` (pairs with `CellStyle.Protection` for per-cell locking).
+    `Worksheet` (pairs with `CellStyle.Protection` for per-cell locking), and
+    `WorkbookProtection`, the workbook-level structure/window protection flags stored on
+    `Workbook`.
   - `DefinedNames.fs` — `DefinedNameScope`/`DefinedNameEntry`, stored on `Workbook` rather
     than `Worksheet` - the one DSL concept that's genuinely workbook-level.
   - `PageSetup.fs` — print settings: `PageOrientation`, `PaperSize`, `PrintScaling`,
@@ -127,6 +129,16 @@ workbook [ data ]
     [ definedName "TaxRate" "Sheet1!$A$1"
       sheetScopedDefinedName "Sheet1" "LocalTotal" "Sheet1!$A$2" ]
 ```
+
+Workbook-level protection (as distinct from a `Worksheet`'s own `SheetProtection`) is
+also workbook-level, same pipe-friendly shape:
+
+```fsharp
+workbook [ data ]
+|> withProtection { WorkbookProtection.Default with LockStructure = Some true }
+```
+
+`withDefinedNames`/`withProtection` compose - pipe both onto the same `workbook [...]`.
 
 Print settings are a `SheetItem` too - `PageSetup` (the DU case) takes a plain
 `PageSetup` record (the type), no smart constructor, same as `Protect`/`SheetProtection`.

@@ -57,3 +57,30 @@ type SheetProtection =
           AutoFilter = None
           PivotTables = None
           SelectUnlockedCells = None }
+
+/// Workbook-level protection - protects the workbook's *structure* (sheet order,
+/// visibility, adding/removing sheets) and/or window layout, as distinct from per-sheet
+/// `SheetProtection` (which protects one sheet's own cell editing). Stored on `Workbook`
+/// rather than `Worksheet` - the one other DSL concept, alongside `DefinedNameEntry`,
+/// that's genuinely workbook-level.
+///
+/// Simpler than `SheetProtection`: both flags here are plain "true means protected", with
+/// no inverted-meaning trap to guard against - but they're still `bool option`, only
+/// written when the caller sets them explicitly, for the same reason as everywhere else
+/// in this DSL: don't guess what "unspecified" should mean when Excel's own default
+/// (unprotected) is right there and always safe.
+type WorkbookProtection =
+    { /// Plaintext password. Hashed with the same legacy XOR algorithm as
+      /// `SheetProtection.Password`, for the same reasons (broadest compatibility, not
+      /// real security) - never round-trips back to plaintext.
+      Password: string option
+      /// Prevents adding, deleting, hiding, unhiding, renaming, or reordering sheets.
+      LockStructure: bool option
+      /// Prevents moving or resizing the workbook's window - a legacy setting from when
+      /// each workbook had its own window; rarely meaningful in modern Excel.
+      LockWindows: bool option }
+
+    static member Default =
+        { Password = None
+          LockStructure = None
+          LockWindows = None }
