@@ -18,6 +18,51 @@ module internal Writer =
     let private rangeReference (topLeft: CellRef) (bottomRight: CellRef) : string =
         sprintf "%s:%s" (CellRef.toA1 topLeft) (CellRef.toA1 bottomRight)
 
+    /// The classic Excel worksheet-password hash (widely documented, e.g. [MS-OFFCRYPTO]
+    /// §2.3.3, and reproduced identically across independent third-party spreadsheet
+    /// libraries) - a weak XOR/rotate checksum, not real security, chosen over the newer
+    /// salted SHA-512 scheme for the broadest possible Excel-version compatibility.
+    /// Passwords longer than 15 characters are truncated, matching Excel's own limit for
+    /// this scheme.
+    let private legacyPasswordHash (password: string) : string =
+        let truncated = if password.Length > 15 then password.Substring(0, 15) else password
+        let mutable hash = 0
+
+        for i in truncated.Length - 1 .. -1 .. 0 do
+            hash <- ((hash <<< 1) &&& 0x7FFF) ||| ((hash >>> 14) &&& 0x01)
+            hash <- hash ^^^ int truncated.[i]
+
+        hash <- ((hash <<< 1) &&& 0x7FFF) ||| ((hash >>> 14) &&& 0x01)
+        hash <- hash ^^^ truncated.Length
+        hash <- hash ^^^ 0xCE4B
+        sprintf "%04X" hash
+
+    /// Builds a `sheetProtection` element - a thin, direct pass-through of `SheetProtection`
+    /// (see that type's own doc comment for why: several of these flags aren't "true means
+    /// allowed", and guessing a default backwards would be a silent, schema-valid, but
+    /// wrong-behavior bug). Only `Sheet` is always written; every other flag is written
+    /// only when the caller gave it explicitly, leaving Excel's own default to apply
+    /// otherwise.
+    let private sheetProtectionElement (sp: SheetProtection) : Spreadsheet.SheetProtection =
+        let el = Spreadsheet.SheetProtection(Sheet = BooleanValue(sp.Sheet))
+        sp.Password |> Option.iter (fun pwd -> el.Password <- HexBinaryValue(legacyPasswordHash pwd))
+        sp.Objects |> Option.iter (fun v -> el.Objects <- BooleanValue(v))
+        sp.Scenarios |> Option.iter (fun v -> el.Scenarios <- BooleanValue(v))
+        sp.FormatCells |> Option.iter (fun v -> el.FormatCells <- BooleanValue(v))
+        sp.FormatColumns |> Option.iter (fun v -> el.FormatColumns <- BooleanValue(v))
+        sp.FormatRows |> Option.iter (fun v -> el.FormatRows <- BooleanValue(v))
+        sp.InsertColumns |> Option.iter (fun v -> el.InsertColumns <- BooleanValue(v))
+        sp.InsertRows |> Option.iter (fun v -> el.InsertRows <- BooleanValue(v))
+        sp.InsertHyperlinks |> Option.iter (fun v -> el.InsertHyperlinks <- BooleanValue(v))
+        sp.DeleteColumns |> Option.iter (fun v -> el.DeleteColumns <- BooleanValue(v))
+        sp.DeleteRows |> Option.iter (fun v -> el.DeleteRows <- BooleanValue(v))
+        sp.SelectLockedCells |> Option.iter (fun v -> el.SelectLockedCells <- BooleanValue(v))
+        sp.Sort |> Option.iter (fun v -> el.Sort <- BooleanValue(v))
+        sp.AutoFilter |> Option.iter (fun v -> el.AutoFilter <- BooleanValue(v))
+        sp.PivotTables |> Option.iter (fun v -> el.PivotTables <- BooleanValue(v))
+        sp.SelectUnlockedCells |> Option.iter (fun v -> el.SelectUnlockedCells <- BooleanValue(v))
+        el
+
     /// Same as `rangeReference`, but a single-cell range (`TopLeft = BottomRight`) writes
     /// as just `"A1"` rather than `"A1:A1"`, matching how Excel itself writes a
     /// single-cell hyperlink's `ref` attribute.
@@ -434,6 +479,9 @@ module internal Writer =
                 sheetData.AppendChild(row) |> ignore
 
             ws.AppendChild(sheetData) |> ignore
+
+            worksheet.Protection
+            |> Option.iter (fun sp -> ws.AppendChild(sheetProtectionElement sp) |> ignore)
 
             worksheet.AutoFilter
             |> Option.iter (fun range ->

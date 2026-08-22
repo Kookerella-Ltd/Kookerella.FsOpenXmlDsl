@@ -14,6 +14,7 @@ module Builders =
           MergedRanges = []
           FreezePane = None
           AutoFilter = None
+          Protection = None
           ConditionalFormats = []
           DataValidations = []
           Hyperlinks = []
@@ -75,6 +76,7 @@ type SheetItem =
     | Merge of topLeft: CellRef * bottomRight: CellRef
     | Freeze of rows: int * columns: int
     | AutoFilter of topLeft: CellRef * bottomRight: CellRef
+    | Protect of settings: SheetProtection
     | ConditionalFormat of topLeft: CellRef * bottomRight: CellRef * rule: ConditionalFormatRule
     | DataValidation of topLeft: CellRef * bottomRight: CellRef * kind: ValidationKind * alert: ValidationAlert
     | Hyperlink of topLeft: CellRef * bottomRight: CellRef * target: HyperlinkTarget * tooltip: string option * display: string option
@@ -228,6 +230,16 @@ module SheetItems =
             | _ -> None)
         |> List.tryLast
 
+    /// Extracts the (at most one) `Protect` fact - a later entry overwrites an earlier
+    /// one, same rule as `freezePaneOf`/`autoFilterOf` (only one `sheetProtection` element
+    /// is allowed per sheet).
+    let private sheetProtectionOf (items: SheetItem list) : SheetProtection option =
+        items
+        |> List.choose (function
+            | Protect settings -> Some settings
+            | _ -> None)
+        |> List.tryLast
+
     /// Extracts `ConditionalFormat` facts, in order - order matters here (it becomes rule
     /// priority when writing), unlike `Merge`/`DataValidation`.
     let private conditionalFormatsOf (items: SheetItem list) : ConditionalFormatEntry list =
@@ -276,6 +288,7 @@ module SheetItems =
           MergedRanges = mergedRangesOf items
           FreezePane = freezePaneOf items
           AutoFilter = autoFilterOf items
+          Protection = sheetProtectionOf items
           ConditionalFormats = conditionalFormatsOf items
           DataValidations = dataValidationsOf items
           Hyperlinks = hyperlinksOf items

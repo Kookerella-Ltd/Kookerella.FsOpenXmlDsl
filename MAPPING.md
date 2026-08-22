@@ -45,6 +45,16 @@ need to be added to close the gap.
   popup, position) in real Excel.
 - AutoFilter: the range showing filter dropdown arrows (see the gap below on active
   filter criteria).
+- Protection: per-cell `Locked`/`Hidden` flags (`CellStyle.Protection`, reused by
+  conditional-formatting dxfs the same way the rest of `CellStyle` is) and sheet-level
+  `SheetProtection` - a thin, direct pass-through of the OOXML `sheetProtection` flags
+  (see that type's own doc comment for why: several of them are "true blocks the action",
+  not "true allows it", and this deliberately never guesses a default for an unset flag).
+  Passwords are hashed with the classic weak XOR algorithm on write for broad
+  compatibility, and never round-trip back to plaintext (hashes aren't reversible) - see
+  the gap below. Confirmed in real Excel: per-cell unlock behaves correctly (all other
+  cells stay locked, as Excel itself defaults), and the password hash is correct - Excel
+  accepts the intended password when unprotecting.
 
 ## Known gaps (documented, not silently "supported")
 
@@ -115,6 +125,13 @@ need to be added to close the gap.
   filter conditions (`filterColumn` children: value lists, custom conditions, top-10,
   color/icon filters) a user or a foreign file may have configured on top of it. Reading
   a file with active criteria preserves the range but drops the criteria.
+- **Password round-trip.** `SheetProtection.Password` always reads back as `None` - the
+  hash isn't reversible, so re-saving a round-tripped protected file loses password
+  enforcement unless the caller re-supplies the password. This is a deliberate consequence
+  of not modeling raw hash/salt data as a DSL-level concept, not an oversight.
+- **Newer, stronger password hash.** Only the classic weak hash is supported, not the
+  modern salted-SHA-512 scheme (`algorithmName`/`hashValue`/`saltValue`/`spinCount`) newer
+  Excel versions can also use - not modeled at all, on either the read or write side.
 
 ## Out of scope for Core (candidates for a future extension)
 

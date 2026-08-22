@@ -14,7 +14,7 @@ approximated, and which aren't modeled yet.
 - `src/SafeOpenXml` — the library.
   - `Reference.fs` — `CellRef` and `"A1"`-style address conversions.
   - `Styles.fs` — cell formatting: `Color`, `FontStyle`, `FillStyle`, `BorderStyle`,
-    `AlignmentStyle`, `NumberFormat`, `CellStyle`.
+    `AlignmentStyle`, `NumberFormat`, `CellProtection`, `CellStyle`.
   - `Validation.fs` — conditional formatting and data validation: `ComparisonOperator`
     (shared by both), `ConditionalFormatRule`, `ValidationKind`, `ValidationAlert`, and the
     `ConditionalFormatEntry`/`DataValidationEntry` records stored on `Worksheet`.
@@ -22,17 +22,21 @@ approximated, and which aren't modeled yet.
     reference) and the `HyperlinkEntry` record stored on `Worksheet`.
   - `Comments.fs` — `CommentEntry` (classic cell comments, i.e. current Excel's "Notes" -
     see MAPPING.md for the modern threaded-comments gap).
+  - `Protection.fs` — `SheetProtection`, the sheet-level protection flags stored on
+    `Worksheet` (pairs with `CellStyle.Protection` for per-cell locking).
   - `Model.fs` — `CellValue`, `Cell`, `Worksheet`, `Workbook`.
   - `Builders.fs` — ergonomic helpers: plain functional constructors (`cellA1`, ...) for
     the canonical model, plus the `SheetItem`/`CellEntry` types (each a single simple DU
     case with optional fields) and the `sheet` fold function - a small tree-shaped "AST
     for building a sheet" (rows of cells, plus sheet-level facts like column widths,
-    merges, conditional formats, data validations, hyperlinks, comments, and autofilter)
-    that mirrors how SpreadsheetML itself nests. `SheetDsl` is what you actually write
-    against: `cell`/`row`/`autoFilter`/`conditionalFormat`/`dataValidation`/`hyperlink`/
-    `comment` members with real optional parameters (`?col`, `?style`, `?index`, the data
-    validation alert fields, `?tooltip`, `?author`) - no builder objects, no separate
-    "styled" function, no `None`-noise for the common case.
+    merges, conditional formats, data validations, hyperlinks, comments, autofilter, and
+    sheet protection) that mirrors how SpreadsheetML itself nests. `SheetDsl` is what you
+    actually write against: `cell`/`row`/`autoFilter`/`conditionalFormat`/
+    `dataValidation`/`hyperlink`/`comment` members with real optional parameters (`?col`,
+    `?style`, `?index`, the data validation alert fields, `?tooltip`, `?author`) - no
+    builder objects, no separate "styled" function, no `None`-noise for the common case.
+    (`Protect` is the one `SheetItem` case with no smart constructor - `SheetProtection`
+    is a plain record you build the usual F# way, `{ SheetProtection.Default with ... }`.)
   - `Interpreter/StyleRegistry.fs` — interns fonts/fills/borders/number formats into a
     shared OOXML stylesheet (internal).
   - `Interpreter/Writer.fs` — DSL → OOXML (internal).

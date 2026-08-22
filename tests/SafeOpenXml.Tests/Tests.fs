@@ -54,6 +54,14 @@ let private assertWorksheetRoundTrips (original: Worksheet) (path: string) =
     Assert.Equal<MergedRange list>(original.MergedRanges, actual.MergedRanges)
     Assert.Equal<FreezePane option>(original.FreezePane, actual.FreezePane)
     Assert.Equal<AutoFilterRange option>(original.AutoFilter, actual.AutoFilter)
+
+    // Password never round-trips (the hash isn't reversible - see SheetProtection's own
+    // doc comment), so compare with it normalized away on both sides rather than skipping
+    // this check entirely.
+    Assert.Equal<SheetProtection option>(
+        original.Protection |> Option.map (fun p -> { p with Password = None }),
+        actual.Protection |> Option.map (fun p -> { p with Password = None })
+    )
     Assert.Equal<ConditionalFormatEntry list>(original.ConditionalFormats, actual.ConditionalFormats)
     Assert.Equal<DataValidationEntry list>(original.DataValidations, actual.DataValidations)
     Assert.Equal<HyperlinkEntry list>(original.Hyperlinks, actual.Hyperlinks)
@@ -444,3 +452,34 @@ let ``example: autofilter`` () =
               autoFilter (CellRef.ofA1 "A1", CellRef.ofA1 "C3") ]
 
     verifyScenario "AutoFilter" (workbook [ data ])
+
+// --- Protection -----------------------------------------------------------------------
+
+[<Fact>]
+let ``example: cell locking`` () =
+    // Unlocked so it stays editable once the sheet is protected; the label cell keeps the
+    // implicit Locked = true default (Excel locks every cell unless told otherwise).
+    let unlocked = { CellStyle.Default with Protection = Some { Locked = false; Hidden = false } }
+
+    let data =
+        sheet
+            "Sheet1"
+            [ row [ cell (Text "Enter quantity:"); cell (Number 0.0, style = unlocked) ]
+              Protect SheetProtection.Default ]
+
+    verifyScenario "CellLocking" (workbook [ data ])
+
+[<Fact>]
+let ``example: sheet protection with password`` () =
+    let data =
+        sheet
+            "Sheet1"
+            [ row [ cell (Text "Protected sheet") ]
+              Protect
+                  { SheetProtection.Default with
+                      Password = Some "hunter2"
+                      FormatCells = Some true
+                      Sort = Some true
+                      AutoFilter = Some true } ]
+
+    verifyScenario "SheetProtectionWithPassword" (workbook [ data ])

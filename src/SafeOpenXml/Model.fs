@@ -57,6 +57,7 @@ module Model =
           MergedRanges: MergedRange list
           FreezePane: FreezePane option
           AutoFilter: AutoFilterRange option
+          Protection: SheetProtection option
           ConditionalFormats: ConditionalFormatEntry list
           DataValidations: DataValidationEntry list
           Hyperlinks: HyperlinkEntry list

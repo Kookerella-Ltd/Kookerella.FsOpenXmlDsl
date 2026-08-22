@@ -104,8 +104,8 @@ type internal StyleRegistry() =
     let borderIndex = Dictionary<BorderStyle, uint32>()
     let customNumFmts = Dictionary<string, uint32>()
     let mutable nextCustomNumFmtId = 164u
-    // (fontId, fillId, borderId, numFmtId, alignment)
-    let cellFormats = ResizeArray<uint32 * uint32 * uint32 * uint32 * AlignmentStyle option>()
+    // (fontId, fillId, borderId, numFmtId, alignment, protection)
+    let cellFormats = ResizeArray<uint32 * uint32 * uint32 * uint32 * AlignmentStyle option * CellProtection option>()
     let cellFormatIndex = Dictionary<CellStyle, uint32>()
     // Differential formats (`dxfs`) - used by conditional formatting rules that apply a
     // style. Unlike cellXfs, a dxf embeds its font/fill/border/numFmt/alignment directly
@@ -119,7 +119,7 @@ type internal StyleRegistry() =
         fontIndex.[FontStyle.Default] <- 0u
         borderList.Add(BorderStyle.None)
         borderIndex.[BorderStyle.None] <- 0u
-        cellFormats.Add(0u, 0u, 0u, 0u, None)
+        cellFormats.Add(0u, 0u, 0u, 0u, None, None)
         cellFormatIndex.[CellStyle.Default] <- 0u
 
     member private _.InternFont(fontOpt: FontStyle option) : uint32 =
@@ -196,7 +196,7 @@ type internal StyleRegistry() =
             let borderId = this.InternBorder style.Border
             let numFmtId = this.InternNumberFormat style.NumberFormat
             let idx = uint32 cellFormats.Count
-            cellFormats.Add(fontId, fillId, borderId, numFmtId, style.Alignment)
+            cellFormats.Add(fontId, fillId, borderId, numFmtId, style.Alignment, style.Protection)
             cellFormatIndex.[style] <- idx
             idx
 
@@ -293,9 +293,18 @@ type internal StyleRegistry() =
 
         al
 
+    member private _.ProtectionToOpenXml(p: CellProtection) : Protection =
+        Protection(Locked = BooleanValue(p.Locked), Hidden = BooleanValue(p.Hidden))
+
     member private this.CellFormatToOpenXml
-        (fontId: uint32, fillId: uint32, borderId: uint32, numFmtId: uint32, alignment: AlignmentStyle option)
-        : CellFormat =
+        (
+            fontId: uint32,
+            fillId: uint32,
+            borderId: uint32,
+            numFmtId: uint32,
+            alignment: AlignmentStyle option,
+            protection: CellProtection option
+        ) : CellFormat =
         let cf =
             CellFormat(
                 FontId = UInt32Value(fontId),
@@ -315,6 +324,12 @@ type internal StyleRegistry() =
             cf.AppendChild(this.AlignmentToOpenXml a) |> ignore
         | None -> ()
 
+        match protection with
+        | Some p ->
+            cf.ApplyProtection <- BooleanValue(true)
+            cf.AppendChild(this.ProtectionToOpenXml p) |> ignore
+        | None -> ()
+
         cf
 
     /// Builds a `dxf` element (font/numFmt/fill/alignment/border, in schema order) from a
@@ -332,6 +347,7 @@ type internal StyleRegistry() =
         style.Fill |> Option.iter (fun f -> dxf.AppendChild(this.FillToOpenXml f) |> ignore)
         style.Alignment |> Option.iter (fun a -> dxf.AppendChild(this.AlignmentToOpenXml a) |> ignore)
         style.Border |> Option.iter (fun b -> dxf.AppendChild(this.BorderToOpenXml b) |> ignore)
+        style.Protection |> Option.iter (fun p -> dxf.AppendChild(this.ProtectionToOpenXml p) |> ignore)
         dxf
 
     /// Assembles everything interned so far into a single OOXML `Stylesheet`.

@@ -115,16 +115,29 @@ module Styles =
         | DateAndTime
         | Custom of formatCode: string
 
+    /// Per-cell lock/hide flags. These only actually do anything once sheet-level
+    /// protection (`SheetProtection`) is turned on for the worksheet - Excel ignores them
+    /// otherwise. Every cell is `Locked = true` by default even without an explicit
+    /// `CellStyle` at all, matching Excel's own default; `Hidden` (true = the cell's
+    /// formula is hidden from the formula bar once protected) defaults to `false`.
+    type CellProtection =
+        { Locked: bool
+          Hidden: bool }
+
+        static member Default = { Locked = true; Hidden = false }
+
     type CellStyle =
         { Font: FontStyle option
           Fill: FillStyle option
           Border: BorderStyle option
           NumberFormat: NumberFormat option
-          Alignment: AlignmentStyle option }
+          Alignment: AlignmentStyle option
+          Protection: CellProtection option }
 
         static member Default =
             { Font = None
               Fill = None
               Border = None
               NumberFormat = None
-              Alignment = None }
+              Alignment = None
+              Protection = None }

@@ -84,6 +84,14 @@ module internal Reader =
                   Vertical = al.Vertical |> Option.ofObj |> Option.map (fun v -> AlignmentMapping.verticalOfOpenXml v.Value)
                   WrapText = not (isNull al.WrapText) && al.WrapText.Value }
 
+    let private protectionOf (p: Protection) : CellProtection option =
+        if isNull p then
+            None
+        else
+            Some
+                { Locked = isNull p.Locked || p.Locked.Value
+                  Hidden = not (isNull p.Hidden) && p.Hidden.Value }
+
     // OOXML built-in numFmtIds Core doesn't have a named case for, but preserves as raw
     // format codes for round-trip fidelity instead of silently discarding them.
     let private otherBuiltinFormatCodes =
@@ -153,13 +161,15 @@ module internal Reader =
                     | nid -> numberFormatOf nid.Value customFormats
 
                 let alignment = alignmentOf xf.Alignment
+                let protection = protectionOf xf.Protection
 
                 let style =
                     { Font = font
                       Fill = fill
                       Border = border
                       NumberFormat = numFmt
-                      Alignment = alignment }
+                      Alignment = alignment
+                      Protection = protection }
 
                 if style = CellStyle.Default then None else Some style
 
@@ -189,12 +199,15 @@ module internal Reader =
                         let localFormats = Map.ofList [ nf.NumberFormatId.Value, nf.FormatCode.Value ]
                         numberFormatOf nf.NumberFormatId.Value localFormats
 
+                let protection = protectionOf dxf.Protection
+
                 let style =
                     { Font = font
                       Fill = fill
                       Border = border
                       NumberFormat = numFmt
-                      Alignment = alignment }
+                      Alignment = alignment
+                      Protection = protection }
 
                 if style = CellStyle.Default then None else Some style
 
@@ -521,6 +534,33 @@ module internal Reader =
                 { TopLeft = CellRef.ofA1 parts.[0]
                   BottomRight = CellRef.ofA1 (if parts.Length > 1 then parts.[1] else parts.[0]) })
 
+        // Password never round-trips: the hash isn't reversible, so a protected file read
+        // back through the DSL loses password enforcement unless it's re-supplied - see
+        // SheetProtection's own doc comment.
+        let sheetProtection =
+            ws.Elements<Spreadsheet.SheetProtection>()
+            |> Seq.tryHead
+            |> Option.map (fun sp ->
+                let flag (v: BooleanValue) = if isNull v then None else Some v.Value
+
+                { Password = None
+                  Sheet = not (isNull sp.Sheet) && sp.Sheet.Value
+                  Objects = flag sp.Objects
+                  Scenarios = flag sp.Scenarios
+                  FormatCells = flag sp.FormatCells
+                  FormatColumns = flag sp.FormatColumns
+                  FormatRows = flag sp.FormatRows
+                  InsertColumns = flag sp.InsertColumns
+                  InsertRows = flag sp.InsertRows
+                  InsertHyperlinks = flag sp.InsertHyperlinks
+                  DeleteColumns = flag sp.DeleteColumns
+                  DeleteRows = flag sp.DeleteRows
+                  SelectLockedCells = flag sp.SelectLockedCells
+                  Sort = flag sp.Sort
+                  AutoFilter = flag sp.AutoFilter
+                  PivotTables = flag sp.PivotTables
+                  SelectUnlockedCells = flag sp.SelectUnlockedCells })
+
         let freezePane =
             ws.Elements<SheetViews>()
             |> Seq.collect (fun svs -> svs.Elements<SheetView>())
@@ -570,6 +610,7 @@ module internal Reader =
           MergedRanges = mergedRanges
           FreezePane = freezePane
           AutoFilter = autoFilter
+          Protection = sheetProtection
           ConditionalFormats = conditionalFormats
           DataValidations = dataValidations
           Hyperlinks = hyperlinks
