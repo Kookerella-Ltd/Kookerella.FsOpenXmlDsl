@@ -106,6 +106,18 @@ need to be added to close the gap.
   deliberately open-ended) - see the gaps below, and note in the codebase pointing at
   where to manually verify in real Excel the same way Comments' VML rendering and
   SheetProtection's password hash were.
+- Charts: column, bar, line, and pie charts anchored over a range of cells
+  (`ChartEntry`/`ChartSeries`/`ChartType`, stored as a list on `Worksheet` - a sheet can
+  have several). Unlike Sparklines, this *is* core, fully schema-driven DrawingML/ChartML
+  (`xl/charts/chartN.xml`, referenced from a per-sheet `xl/drawings/drawingN.xml` via a
+  `graphicFrame` anchor, referenced in turn from the worksheet's own `drawing` element) -
+  built entirely from the OOXML SDK's typed `DocumentFormat.OpenXml.Drawing`/`.Drawing.
+  Charts`/`.Drawing.Spreadsheet` classes (`Interpreter/ChartWriter.fs`/`ChartReader.fs`),
+  the same as every other feature, not hand-templated markup. A series' name is a
+  reference to the cell that names it (typically its column header), live-updating if
+  that cell's text changes, matching real Excel's own default behavior - not a static
+  copy. The category/value ranges are always assumed to be on the chart's own sheet (see
+  the gap below). See the gaps below for chart kinds/options not modeled.
 - Code generation: `Workbook.generateScript` renders any `Workbook` value (including one
   produced by `Workbook.load`) back out as an `.fsx` script that rebuilds a structurally
   equivalent file when run via `dotnet fsi` - covers every DSL construct above, since it's
@@ -240,6 +252,23 @@ need to be added to close the gap.
 - **Newer, stronger workbook password hash.** Same gap as `SheetProtection` - only the
   classic weak hash is supported for `WorkbookProtection.Password`, not the modern salted
   SHA-512 scheme.
+- **Chart kinds beyond column/bar/line/pie.** Scatter, area, stock, radar, surface,
+  bubble, doughnut, and every 3-D chart variant aren't modeled - `ChartType` only names
+  the four most common 2-D kinds. Bar/column charts are always "clustered" grouping;
+  stacked and percent-stacked aren't modeled either.
+- **Chart styling.** No per-series colors/markers, data labels, trendlines, error bars, or
+  custom axis scaling (min/max/log) are modeled - charts render with Excel's own default
+  automatic color cycling and axis behavior. Gridlines are on for the value axis and off
+  for the category axis, matching Excel's own default appearance, but aren't configurable.
+- **Chart legend position.** Only shown/hidden (`ShowLegend`) is modeled; the position
+  (bottom/top/left/right/top-right) is always written as "bottom" and not read back
+  (a foreign file's actual legend position is discarded, though its presence isn't).
+- **Chart data range sheet.** Same gap as sparklines - a chart's categories/values are
+  always assumed to reference its own sheet; a foreign file's chart pointing at another
+  sheet's data has that sheet qualifier discarded on read.
+- **Chart title text formatting.** A chart title is a single plain-text run - rich
+  formatting (multiple runs, per-run fonts/colors) within a title isn't modeled; reading a
+  foreign file's multi-run title concatenates all runs' text via `InnerText`.
 
 ## Out of scope for Core (candidates for a future extension)
 
@@ -248,7 +277,6 @@ was scoped to the cell/style/layout fundamentals first (see the assistant's init
 proposal). Each would be its own reasonably-sized module to add later, verified against
 real files the same way Core was:
 
-- Charts
 - Images / drawings
 - Pivot tables
 - Macros / VBA

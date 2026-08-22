@@ -441,6 +441,36 @@ module internal CodeGen =
         let sparklinesStr = g.Sparklines |> List.map renderSparklineCell |> String.concat "; "
         sprintf "SparklineGroup { Style = %s; Sparklines = [ %s ] }" (renderSparklineStyle g.Style) sparklinesStr
 
+    let private renderChartType (t: ChartType) : string =
+        match t with
+        | ChartColumn -> "ChartColumn"
+        | ChartBar -> "ChartBar"
+        | ChartLine -> "ChartLine"
+        | ChartPie -> "ChartPie"
+
+    let private renderChartSeries (s: ChartSeries) : string =
+        sprintf
+            "{ Name = %s; ValuesTopLeft = %s; ValuesBottomRight = %s }"
+            (renderCellRef s.Name)
+            (renderCellRef s.ValuesTopLeft)
+            (renderCellRef s.ValuesBottomRight)
+
+    /// No smart constructor exists for `ChartEntry` (see `Builders.fs`) - it's a plain
+    /// record built the usual way.
+    let private renderChartEntry (c: ChartEntry) : string =
+        let seriesStr = c.Series |> List.map renderChartSeries |> String.concat "; "
+
+        sprintf
+            "EmbeddedChart { Type = %s; Title = %s; CategoriesTopLeft = %s; CategoriesBottomRight = %s; Series = [ %s ]; ShowLegend = %s; TopLeftAnchor = %s; BottomRightAnchor = %s }"
+            (renderChartType c.Type)
+            (renderOption renderString c.Title)
+            (renderCellRef c.CategoriesTopLeft)
+            (renderCellRef c.CategoriesBottomRight)
+            seriesStr
+            (renderBool c.ShowLegend)
+            (renderCellRef c.TopLeftAnchor)
+            (renderCellRef c.BottomRightAnchor)
+
     let private renderDefinedNameScope (s: DefinedNameScope) : string =
         match s with
         | WorkbookScope -> "WorkbookScope"
@@ -554,6 +584,7 @@ module internal CodeGen =
 
         let tableItems = ws.Tables |> List.map renderTableEntry
         let sparklineGroupItems = ws.SparklineGroups |> List.map renderSparklineGroupEntry
+        let chartItems = ws.Charts |> List.map renderChartEntry
 
         rowItems
         @ columnWidthItems
@@ -569,6 +600,7 @@ module internal CodeGen =
         @ pageSetupItems
         @ tableItems
         @ sparklineGroupItems
+        @ chartItems
 
     /// Renders a whole `Workbook` as a self-contained F# script that rebuilds an
     /// equivalent file when run. `referenceLines` are whatever raw `#r` directives the

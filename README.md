@@ -35,6 +35,8 @@ approximated, and which aren't modeled yet.
   - `Sparklines.fs` — in-cell mini-charts: `SparklineType`, `SparklineStyle`,
     `SparklineCell`, and the `SparklineGroupEntry` record stored as a list on `Worksheet`
     (a sheet can have several independently-styled groups).
+  - `Charts.fs` — column/bar/line/pie charts: `ChartType`, `ChartSeries`, and the
+    `ChartEntry` record stored as a list on `Worksheet` (a sheet can have several).
   - `Model.fs` — `CellValue`, `Cell`, `Worksheet`, `Workbook`.
   - `Builders.fs` — ergonomic helpers: plain functional constructors (`cellA1`, ...) for
     the canonical model, plus the `SheetItem`/`CellEntry` types (each a single simple DU
@@ -50,6 +52,9 @@ approximated, and which aren't modeled yet.
     is a plain record you build the usual F# way, `{ SheetProtection.Default with ... }`.)
   - `Interpreter/StyleRegistry.fs` — interns fonts/fills/borders/number formats into a
     shared OOXML stylesheet (internal).
+  - `Interpreter/ChartWriter.fs` / `ChartReader.fs` — charts' own DSL ↔ DrawingML/ChartML
+    translation, split out from `Writer.fs`/`Reader.fs` given how much larger that one
+    feature's OOXML surface is than everything else combined (internal).
   - `Interpreter/Writer.fs` — DSL → OOXML (internal).
   - `Interpreter/Reader.fs` — OOXML → DSL, the reverse transform (internal).
   - `Interpreter/CodeGen.fs` — DSL → F# *source text*: renders a `Workbook` back out as a
@@ -198,6 +203,28 @@ SpreadsheetML - unlike the rest of this library, schema validation alone can't c
 real Excel renders one correctly, so treat this one with a bit more caution and verify in
 real Excel before relying on it. See [MAPPING.md](MAPPING.md) for what isn't modeled
 (axis settings, per-role colors beyond the main series color).
+
+Charts are the same shape too - `EmbeddedChart` (not bare `Chart`, which collides with
+the OOXML SDK's own type - see `Builders.fs`) takes a plain `ChartEntry` record. A
+series' `Name` is a reference to the cell that names it (its column header, typically),
+live-updating the same way a real Excel chart's series name does - not a static copy:
+
+```fsharp
+[ EmbeddedChart
+    { Type = ChartColumn
+      Title = Some "Sales by Quarter"
+      CategoriesTopLeft = CellRef.ofA1 "A2"
+      CategoriesBottomRight = CellRef.ofA1 "A4"
+      Series = [ { Name = CellRef.ofA1 "B1"; ValuesTopLeft = CellRef.ofA1 "B2"; ValuesBottomRight = CellRef.ofA1 "B4" } ]
+      ShowLegend = true
+      TopLeftAnchor = CellRef.ofA1 "E1"
+      BottomRightAnchor = CellRef.ofA1 "L15" } ]
+```
+
+Unlike Sparklines, charts are core, fully schema-driven DrawingML/ChartML - built from
+typed OOXML SDK classes the same way every other feature is, not an extension mechanism.
+See [MAPPING.md](MAPPING.md) for what isn't modeled (chart kinds beyond column/bar/line/
+pie, per-series styling, stacked grouping).
 
 ## Regenerating a file as F# source
 

@@ -21,7 +21,8 @@ module Builders =
           Comments = []
           PageSetup = None
           Tables = []
-          SparklineGroups = [] }
+          SparklineGroups = []
+          Charts = [] }
 
     /// Builds a `Worksheet` directly from a flat, pre-addressed cell list - for when your
     /// cells don't naturally arrive grouped by row (e.g. already `CellRef`-addressed data).
@@ -100,6 +101,11 @@ type CellEntry = Cell of col: int option * value: CellValue * style: CellStyle o
 /// `DocumentFormat.OpenXml.Office2010.Excel.SparklineGroup` - that whole namespace is
 /// aliased as `X14` in `Writer`/`Reader` (its own several-type surface, rather than one
 /// qualifier, made a short alias clearer than repeating `Office2010.Excel.` everywhere).
+/// `EmbeddedChart` (not bare `Chart`) sidesteps `DocumentFormat.OpenXml.Drawing.Charts.Chart`
+/// - that whole DrawingML/ChartML surface (`Interpreter/ChartWriter.fs`/`ChartReader.fs`)
+/// is large enough, and collides with enough *pre-existing* qualified names
+/// (`Spreadsheet.PageSetup`/`.PageMargins`/`.Protection`, `CellValue.Formula`) that it's
+/// never `open`ed at all - every type from it is an individually-named type abbreviation.
 type SheetItem =
     | Row of index: int option * cells: CellEntry list
     | ColumnWidth of index: int * width: float
@@ -115,6 +121,7 @@ type SheetItem =
     | PageSetup of settings: PageSetup
     | Table of entry: TableEntry
     | SparklineGroup of entry: SparklineGroupEntry
+    | EmbeddedChart of entry: ChartEntry
 
 /// Smart constructors for `CellEntry`/`SheetItem`, as members with real optional
 /// parameters (`?col`, `?style`, `?index`) rather than several separately-named functions
@@ -336,6 +343,14 @@ module SheetItems =
             | SparklineGroup entry -> Some entry
             | _ -> None)
 
+    /// Extracts `EmbeddedChart` facts - order doesn't matter, same as `Table`/
+    /// `SparklineGroup` (a sheet can genuinely have several charts at once).
+    let private chartsOf (items: SheetItem list) : ChartEntry list =
+        items
+        |> List.choose (function
+            | EmbeddedChart entry -> Some entry
+            | _ -> None)
+
     /// Interprets a flat list of `SheetItem` facts into the canonical `Worksheet` record.
     /// Each concern above is a small pure function over the same `items` list - no shared
     /// mutable state - so adding a new kind of fact later means adding a new function and
@@ -355,4 +370,5 @@ module SheetItems =
           Comments = commentsOf items
           PageSetup = pageSetupOf items
           Tables = tablesOf items
-          SparklineGroups = sparklineGroupsOf items }
+          SparklineGroups = sparklineGroupsOf items
+          Charts = chartsOf items }

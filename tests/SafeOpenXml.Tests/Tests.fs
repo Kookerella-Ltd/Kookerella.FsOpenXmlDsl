@@ -70,6 +70,7 @@ let private assertWorksheetRoundTrips (original: Worksheet) (path: string) =
     Assert.Equal<PageSetup option>(original.PageSetup, actual.PageSetup)
     Assert.Equal<TableEntry list>(original.Tables, actual.Tables)
     Assert.Equal<SparklineGroupEntry list>(original.SparklineGroups, actual.SparklineGroups)
+    Assert.Equal<ChartEntry list>(original.Charts, actual.Charts)
 
 /// An F# string literal can't contain a raw backslash, so a Windows assembly path needs
 /// its separators doubled before it's safe to splice into a generated `#r "..."` line.
@@ -678,6 +679,95 @@ let ``example: sparklines column group with custom color`` () =
                     Sparklines = [ { Cell = CellRef.ofA1 "E1"; DataTopLeft = CellRef.ofA1 "A1"; DataBottomRight = CellRef.ofA1 "D1" } ] } ]
 
     verifyScenario "SparklinesColumnGroup" (workbook [ data ])
+
+// --- Charts ------------------------------------------------------------------------------
+
+[<Fact>]
+let ``example: column chart with title and legend`` () =
+    let data =
+        sheet
+            "Sheet1"
+            [ row [ cell (Text "Quarter"); cell (Text "North"); cell (Text "South") ]
+              row [ cell (Text "Q1"); cell (Number 12.0); cell (Number 9.0) ]
+              row [ cell (Text "Q2"); cell (Number 15.0); cell (Number 11.0) ]
+              row [ cell (Text "Q3"); cell (Number 9.0); cell (Number 14.0) ]
+              EmbeddedChart
+                  { Type = ChartColumn
+                    Title = Some "Sales by Quarter"
+                    CategoriesTopLeft = CellRef.ofA1 "A2"
+                    CategoriesBottomRight = CellRef.ofA1 "A4"
+                    Series =
+                      [ { Name = CellRef.ofA1 "B1"; ValuesTopLeft = CellRef.ofA1 "B2"; ValuesBottomRight = CellRef.ofA1 "B4" }
+                        { Name = CellRef.ofA1 "C1"; ValuesTopLeft = CellRef.ofA1 "C2"; ValuesBottomRight = CellRef.ofA1 "C4" } ]
+                    ShowLegend = true
+                    TopLeftAnchor = CellRef.ofA1 "E1"
+                    BottomRightAnchor = CellRef.ofA1 "L15" } ]
+
+    verifyScenario "ChartColumn" (workbook [ data ])
+
+[<Fact>]
+let ``example: bar chart horizontal`` () =
+    let data =
+        sheet
+            "Sheet1"
+            [ row [ cell (Text "Team"); cell (Text "Score") ]
+              row [ cell (Text "Alpha"); cell (Number 42.0) ]
+              row [ cell (Text "Beta"); cell (Number 37.0) ]
+              EmbeddedChart
+                  { Type = ChartBar
+                    Title = None
+                    CategoriesTopLeft = CellRef.ofA1 "A2"
+                    CategoriesBottomRight = CellRef.ofA1 "A3"
+                    Series = [ { Name = CellRef.ofA1 "B1"; ValuesTopLeft = CellRef.ofA1 "B2"; ValuesBottomRight = CellRef.ofA1 "B3" } ]
+                    ShowLegend = false
+                    TopLeftAnchor = CellRef.ofA1 "D1"
+                    BottomRightAnchor = CellRef.ofA1 "K12" } ]
+
+    verifyScenario "ChartBar" (workbook [ data ])
+
+[<Fact>]
+let ``example: line chart with two series`` () =
+    let data =
+        sheet
+            "Sheet1"
+            [ row [ cell (Text "Month"); cell (Text "2025"); cell (Text "2026") ]
+              row [ cell (Text "Jan"); cell (Number 100.0); cell (Number 120.0) ]
+              row [ cell (Text "Feb"); cell (Number 110.0); cell (Number 115.0) ]
+              row [ cell (Text "Mar"); cell (Number 105.0); cell (Number 130.0) ]
+              EmbeddedChart
+                  { Type = ChartLine
+                    Title = Some "Monthly Trend"
+                    CategoriesTopLeft = CellRef.ofA1 "A2"
+                    CategoriesBottomRight = CellRef.ofA1 "A4"
+                    Series =
+                      [ { Name = CellRef.ofA1 "B1"; ValuesTopLeft = CellRef.ofA1 "B2"; ValuesBottomRight = CellRef.ofA1 "B4" }
+                        { Name = CellRef.ofA1 "C1"; ValuesTopLeft = CellRef.ofA1 "C2"; ValuesBottomRight = CellRef.ofA1 "C4" } ]
+                    ShowLegend = true
+                    TopLeftAnchor = CellRef.ofA1 "E1"
+                    BottomRightAnchor = CellRef.ofA1 "L15" } ]
+
+    verifyScenario "ChartLine" (workbook [ data ])
+
+[<Fact>]
+let ``example: pie chart`` () =
+    let data =
+        sheet
+            "Sheet1"
+            [ row [ cell (Text "Segment"); cell (Text "Share") ]
+              row [ cell (Text "Retail"); cell (Number 55.0) ]
+              row [ cell (Text "Wholesale"); cell (Number 30.0) ]
+              row [ cell (Text "Online"); cell (Number 15.0) ]
+              EmbeddedChart
+                  { Type = ChartPie
+                    Title = Some "Revenue Share"
+                    CategoriesTopLeft = CellRef.ofA1 "A2"
+                    CategoriesBottomRight = CellRef.ofA1 "A4"
+                    Series = [ { Name = CellRef.ofA1 "B1"; ValuesTopLeft = CellRef.ofA1 "B2"; ValuesBottomRight = CellRef.ofA1 "B4" } ]
+                    ShowLegend = true
+                    TopLeftAnchor = CellRef.ofA1 "D1"
+                    BottomRightAnchor = CellRef.ofA1 "K14" } ]
+
+    verifyScenario "ChartPie" (workbook [ data ])
 
 // --- Generated-script verification (slow: actually runs `dotnet fsi`) -------------------
 //

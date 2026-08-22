@@ -772,6 +772,9 @@ module internal Writer =
                 ws.AppendChild(pageSetupElement ps) |> ignore
                 headerFooterElement ps |> Option.iter (fun hf -> ws.AppendChild(hf) |> ignore))
 
+            ChartWriter.addCharts worksheetPart worksheet.Name worksheet.Charts
+            |> Option.iter (fun relId -> ws.AppendChild(Spreadsheet.Drawing(Id = StringValue(relId))) |> ignore)
+
             if not worksheet.Comments.IsEmpty then
                 let commentsPart = worksheetPart.AddNewPart<WorksheetCommentsPart>()
                 commentsPart.Comments <- commentsRoot worksheet.Comments

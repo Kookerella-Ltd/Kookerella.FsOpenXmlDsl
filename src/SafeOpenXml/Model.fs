@@ -64,7 +64,8 @@ module Model =
           Comments: CommentEntry list
           PageSetup: PageSetup option
           Tables: TableEntry list
-          SparklineGroups: SparklineGroupEntry list }
+          SparklineGroups: SparklineGroupEntry list
+          Charts: ChartEntry list }
 
     type Workbook =
         { Sheets: Worksheet list
