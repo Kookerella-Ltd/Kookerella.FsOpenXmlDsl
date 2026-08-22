@@ -62,14 +62,21 @@ need to be added to close the gap.
 - Print settings and page setup: orientation, paper size (`PaperSize`, a small named set
   plus `OtherPaperSize` for any other OOXML `ST_PaperSize` code), scaling (either a
   percentage or "fit to N pages wide by M tall", `0` meaning unconstrained in that
-  dimension), margins, and header/footer (`PageSetup`, stored on `Worksheet`). Header/
-  footer text is raw OOXML - Excel's own `&L`/`&C`/`&R`/`&P`/`&N`/`&D`/`&T`/`&F`/`&A`
-  section/field codes embedded directly in one string per side, the same convention as
-  OOXML's own `oddHeader`/`oddFooter`. `FitToPage` scaling also sets the sibling
-  `sheetPr/pageSetUpPr/@fitToPage` flag that tells Excel's print dialog which of
-  `scale`/`fitToWidth`+`fitToHeight` to actually honor (both are always written
-  regardless, so the file is self-describing either way - see
-  `Interpreter/Writer.fs: pageSetupElement`). See the gap below on print area.
+  dimension), margins, print area, and header/footer including its first-page/even-page
+  variants (`PageSetup`, stored on `Worksheet`). Header/footer text is raw OOXML - Excel's
+  own `&L`/`&C`/`&R`/`&P`/`&N`/`&D`/`&T`/`&F`/`&A` section/field codes embedded directly in
+  one string per side, the same convention as OOXML's own `oddHeader`/`oddFooter`/etc.;
+  setting `EvenHeader`/`EvenFooter` or `FirstHeader`/`FirstFooter` automatically sets the
+  sibling `differentOddEven`/`differentFirst` flags that make Excel actually look at them.
+  `FitToPage` scaling also sets the sibling `sheetPr/pageSetUpPr/@fitToPage` flag that
+  tells Excel's print dialog which of `scale`/`fitToWidth`+`fitToHeight` to actually honor
+  (both are always written regardless, so the file is self-describing either way - see
+  `Interpreter/Writer.fs: pageSetupElement`). `PrintArea` (a list of ranges - Excel
+  supports several disjoint print rectangles per sheet) is, under the hood, a reserved
+  hidden sheet-scoped defined name (`_xlnm.Print_Area`) rather than a `pageSetup`
+  attribute - `Writer`/`Reader` translate transparently, the same way `SheetScope`
+  translates to/from OOXML's `localSheetId`, so callers never have to think about defined
+  names for this.
 - Tables: Excel Tables (`ListObject`s, the things structured references like
   `Table1[Column]` point at) over a range, with named columns (including an optional
   calculated-column formula) and a visual style reference (`TableEntry`/`TableColumn`/
@@ -164,14 +171,6 @@ need to be added to close the gap.
 - **Newer, stronger password hash.** Only the classic weak hash is supported, not the
   modern salted-SHA-512 scheme (`algorithmName`/`hashValue`/`saltValue`/`spinCount`) newer
   Excel versions can also use - not modeled at all, on either the read or write side.
-- **Print area.** Not modeled. OOXML expresses it as a hidden built-in defined name
-  (`_xlnm.Print_Area`), a genuinely different mechanism from the rest of `PageSetup`
-  (which is direct worksheet-element attributes) - deliberately left out of this pass to
-  keep the feature scoped; would fit naturally alongside `DefinedNameEntry` later.
-- **Header/footer first-page and even-page variants.** Only the "odd" (i.e. default/every
-  page) header/footer is modeled. OOXML's `differentFirst`/`differentOddEven` variants
-  (`firstHeader`/`firstFooter`/`evenHeader`/`evenFooter`) are not - a file using them keeps
-  its odd header/footer on round trip but silently drops the others.
 - **Print page order and other minor `pageSetup` attributes.** `pageOrder`
   (top-to-bottom vs. left-to-right), `firstPageNumber`, black-and-white/draft printing,
   and print resolution (`horizontalDpi`/`verticalDpi`) aren't modeled.

@@ -126,18 +126,24 @@ workbook [ data ]
 ```
 
 Print settings are a `SheetItem` too - `PageSetup` (the DU case) takes a plain
-`PageSetup` record (the type), no smart constructor, same as `Protect`/`SheetProtection`:
+`PageSetup` record (the type), no smart constructor, same as `Protect`/`SheetProtection`.
+`PrintArea` is a list of ranges (Excel supports several disjoint print rectangles per
+sheet) - under the hood it's actually a hidden defined name, but `Writer`/`Reader`
+translate transparently, so it reads and writes like any other `PageSetup` field:
 
 ```fsharp
 [ PageSetup
     { PageSetup.Default with
         Orientation = Landscape
         Scaling = Some(FitToPage(1, 0)) // 1 page wide, unlimited tall
-        Header = Some "&C&\"Arial,Bold\"Quarterly Report" } ]
+        PrintArea = [ (CellRef.ofA1 "A1", CellRef.ofA1 "D10") ]
+        Header = Some "&C&\"Arial,Bold\"Quarterly Report"
+        FirstHeader = Some "&CCover Page" // shown only on page 1
+        EvenFooter = Some "&L&F" } ] // shown only on even pages
 ```
 
-See [MAPPING.md](MAPPING.md) for what isn't modeled (print area, first-page/even-page
-header/footer variants).
+See [MAPPING.md](MAPPING.md) for what isn't modeled (totals-row/headerless tables, and a
+handful of minor `pageSetup` attributes like print page order).
 
 Tables are also a `SheetItem` - `Table` (the DU case) takes a plain `TableEntry` record
 (the type), no smart constructor, same as `Protect`/`PageSetup`. Core doesn't synthesize

@@ -555,6 +555,34 @@ let ``example: page setup fit to one page wide`` () =
 
     verifyScenario "PageSetupFitToOnePageWide" (workbook [ data ])
 
+[<Fact>]
+let ``example: page setup print area with multiple ranges`` () =
+    let data =
+        sheet
+            "Sheet1"
+            [ row [ cell (Text "Included") ]
+              row [ cell (Text "Excluded") ]
+              row [ cell (Text "Also included") ]
+              PageSetup
+                  { PageSetup.Default with
+                      PrintArea = [ (CellRef.ofA1 "A1", CellRef.ofA1 "A1"); (CellRef.ofA1 "A3", CellRef.ofA1 "A3") ] } ]
+
+    verifyScenario "PageSetupPrintArea" (workbook [ data ])
+
+[<Fact>]
+let ``example: page setup first page and even page header footer`` () =
+    let data =
+        sheet
+            "Sheet1"
+            [ row [ cell (Text "Report") ]
+              PageSetup
+                  { PageSetup.Default with
+                      Header = Some "&CPage &P"
+                      FirstHeader = Some "&CCover Page"
+                      EvenFooter = Some "&L&F" } ]
+
+    verifyScenario "PageSetupHeaderFooterVariants" (workbook [ data ])
+
 // --- Tables --------------------------------------------------------------------------
 
 [<Fact>]

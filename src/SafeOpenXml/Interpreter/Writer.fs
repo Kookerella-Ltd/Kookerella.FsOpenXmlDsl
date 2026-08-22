@@ -84,6 +84,26 @@ module internal Writer =
 
         dn
 
+    /// Renders one range as an absolute, sheet-qualified reference, e.g.
+    /// `'Sheet 1'!$A$1:$D$10` - the form OOXML's built-in `_xlnm.Print_Area` name expects.
+    /// The sheet name is always single-quoted: valid either way, and simpler than
+    /// replicating Excel's own "only quote if it needs it" rule (`Reader` accepts both
+    /// quoted and unquoted forms when parsing a foreign file's print area back).
+    let private absolutePrintAreaRange (sheetName: string) (topLeft: CellRef) (bottomRight: CellRef) : string =
+        let absolute (r: CellRef) = sprintf "$%s$%d" (CellRef.columnLetters r.Col) (r.Row + 1)
+        sprintf "'%s'!%s:%s" (sheetName.Replace("'", "''")) (absolute topLeft) (absolute bottomRight)
+
+    /// Builds the hidden, sheet-scoped `_xlnm.Print_Area` defined name for one sheet's
+    /// `PageSetup.PrintArea` - see `PageSetup`'s own doc comment for why this lives here
+    /// rather than as a `pageSetup`/`pageMargins` attribute.
+    let private printAreaDefinedNameElement (sheetIndex: int) (sheetName: string) (ranges: (CellRef * CellRef) list) : Spreadsheet.DefinedName =
+        let formula = ranges |> List.map (fun (tl, br) -> absolutePrintAreaRange sheetName tl br) |> String.concat ","
+        let dn = Spreadsheet.DefinedName(formula)
+        dn.Name <- StringValue("_xlnm.Print_Area")
+        dn.LocalSheetId <- UInt32Value(uint32 sheetIndex)
+        dn.Hidden <- BooleanValue(true)
+        dn
+
     /// Same as `rangeReference`, but a single-cell range (`TopLeft = BottomRight`) writes
     /// as just `"A1"` rather than `"A1:A1"`, matching how Excel itself writes a
     /// single-cell hyperlink's `ref` attribute.
@@ -337,13 +357,35 @@ module internal Writer =
 
         setup
 
+    /// `differentOddEven`/`differentFirst` are set automatically whenever the
+    /// corresponding `Even*`/`First*` field is used - they're what tells Excel to actually
+    /// look at those variants at all, rather than showing `Header`/`Footer` on every page.
     let private headerFooterElement (ps: PageSetup) : HeaderFooter option =
-        if ps.Header.IsNone && ps.Footer.IsNone then
+        let hasAny =
+            ps.Header.IsSome
+            || ps.Footer.IsSome
+            || ps.EvenHeader.IsSome
+            || ps.EvenFooter.IsSome
+            || ps.FirstHeader.IsSome
+            || ps.FirstFooter.IsSome
+
+        if not hasAny then
             None
         else
             let hf = HeaderFooter()
             ps.Header |> Option.iter (fun h -> hf.OddHeader <- OddHeader(h))
             ps.Footer |> Option.iter (fun f -> hf.OddFooter <- OddFooter(f))
+
+            if ps.EvenHeader.IsSome || ps.EvenFooter.IsSome then
+                hf.DifferentOddEven <- BooleanValue(true)
+                ps.EvenHeader |> Option.iter (fun h -> hf.EvenHeader <- EvenHeader(h))
+                ps.EvenFooter |> Option.iter (fun f -> hf.EvenFooter <- EvenFooter(f))
+
+            if ps.FirstHeader.IsSome || ps.FirstFooter.IsSome then
+                hf.DifferentFirst <- BooleanValue(true)
+                ps.FirstHeader |> Option.iter (fun h -> hf.FirstHeader <- FirstHeader(h))
+                ps.FirstFooter |> Option.iter (fun f -> hf.FirstFooter <- FirstFooter(f))
+
             Some hf
 
     let private tableColumnElement (id: uint32) (col: TableColumn) : Spreadsheet.TableColumn =
@@ -696,12 +738,23 @@ module internal Writer =
             )
             |> ignore)
 
-        if not wb.DefinedNames.IsEmpty then
+        let printAreasBySheet =
+            wb.Sheets
+            |> List.mapi (fun i s -> i, s)
+            |> List.choose (fun (i, s) ->
+                match s.PageSetup with
+                | Some { PrintArea = ranges } when not ranges.IsEmpty -> Some(i, s.Name, ranges)
+                | _ -> None)
+
+        if not wb.DefinedNames.IsEmpty || not printAreasBySheet.IsEmpty then
             let sheetIndex = wb.Sheets |> List.mapi (fun i s -> s.Name, i) |> Map.ofList
             let definedNames = DefinedNames()
 
             wb.DefinedNames
             |> List.iter (fun entry -> definedNames.AppendChild(definedNameElement sheetIndex entry) |> ignore)
+
+            printAreasBySheet
+            |> List.iter (fun (i, name, ranges) -> definedNames.AppendChild(printAreaDefinedNameElement i name ranges) |> ignore)
 
             workbookPart.Workbook.AppendChild(definedNames) |> ignore
 

@@ -351,6 +351,9 @@ module internal CodeGen =
             |> String.concat "; "
             |> sprintf "{ PageMargins.Default with %s }"
 
+    let private renderPrintAreaRange ((topLeft, bottomRight): CellRef * CellRef) : string =
+        sprintf "(%s, %s)" (renderCellRef topLeft) (renderCellRef bottomRight)
+
     let private renderPageSetup (ps: PageSetup) : string =
         if ps = PageSetup.Default then
             "PageSetup.Default"
@@ -360,8 +363,14 @@ module internal CodeGen =
               if ps.PaperSize.IsSome then yield sprintf "PaperSize = %s" (renderOption renderPaperSize ps.PaperSize)
               if ps.Scaling.IsSome then yield sprintf "Scaling = %s" (renderOption renderPrintScaling ps.Scaling)
               if ps.Margins <> PageMargins.Default then yield sprintf "Margins = %s" (renderPageMargins ps.Margins)
+              if not ps.PrintArea.IsEmpty then
+                  yield ps.PrintArea |> List.map renderPrintAreaRange |> String.concat "; " |> sprintf "PrintArea = [ %s ]"
               if ps.Header.IsSome then yield sprintf "Header = %s" (renderOption renderString ps.Header)
-              if ps.Footer.IsSome then yield sprintf "Footer = %s" (renderOption renderString ps.Footer) ]
+              if ps.Footer.IsSome then yield sprintf "Footer = %s" (renderOption renderString ps.Footer)
+              if ps.EvenHeader.IsSome then yield sprintf "EvenHeader = %s" (renderOption renderString ps.EvenHeader)
+              if ps.EvenFooter.IsSome then yield sprintf "EvenFooter = %s" (renderOption renderString ps.EvenFooter)
+              if ps.FirstHeader.IsSome then yield sprintf "FirstHeader = %s" (renderOption renderString ps.FirstHeader)
+              if ps.FirstFooter.IsSome then yield sprintf "FirstFooter = %s" (renderOption renderString ps.FirstFooter) ]
             |> String.concat "; "
             |> sprintf "{ PageSetup.Default with %s }"
 

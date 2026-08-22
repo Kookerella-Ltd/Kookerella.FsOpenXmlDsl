@@ -49,24 +49,48 @@ type PageMargins =
           Header = 0.3
           Footer = 0.3 }
 
-/// Print settings for a worksheet - orientation, paper size, scaling, margins, and a
-/// header/footer. `Header`/`Footer` are raw OOXML header/footer text: Excel's own
+/// Print settings for a worksheet - orientation, paper size, scaling, margins, print area,
+/// and a header/footer (including its first-page/even-page variants). `Header`/`Footer`
+/// (and their `Even`/`First` counterparts) are raw OOXML header/footer text: Excel's own
 /// `&L`/`&C`/`&R` (left/center/right section) and `&P`/`&N`/`&D`/`&T`/`&F`/`&A` (page
 /// number/total pages/date/time/filename/sheet name) codes embedded directly in one
-/// string, the same convention as OOXML's own `oddHeader`/`oddFooter` - see MAPPING.md for
-/// what isn't modeled (first-page/even-page variants, print area).
+/// string, the same convention as OOXML's own `oddHeader`/`oddFooter`/etc. `Header`/
+/// `Footer` are shown on every page unless overridden: `EvenHeader`/`EvenFooter` apply to
+/// even pages when set (Excel falls back to `Header`/`Footer` for even pages otherwise),
+/// and `FirstHeader`/`FirstFooter` apply only to page 1.
+///
+/// `PrintArea` is a list of ranges (Excel supports printing several disjoint
+/// rectangles as one print area) - empty means "no print area set", i.e. Excel prints the
+/// whole used range. Unlike every other field here, which maps onto worksheet-element
+/// attributes directly, `PrintArea` is actually a reserved, hidden, sheet-scoped defined
+/// name (`_xlnm.Print_Area`) under the hood - `Writer`/`Reader` translate transparently,
+/// the same way `DefinedNameScope.SheetScope` translates to/from OOXML's `localSheetId`,
+/// so this is the one field on `PageSetup` that doesn't correspond to a `pageSetup`/
+/// `pageMargins`/`headerFooter` attribute at all. Setting only `PrintArea` (leaving every
+/// other field at its default) still causes `pageMargins`/`pageSetup` to be written using
+/// their own defaults, same as setting any other field here.
 type PageSetup =
     { Orientation: PageOrientation
       PaperSize: PaperSize option
       Scaling: PrintScaling option
       Margins: PageMargins
+      PrintArea: (CellRef * CellRef) list
       Header: string option
-      Footer: string option }
+      Footer: string option
+      EvenHeader: string option
+      EvenFooter: string option
+      FirstHeader: string option
+      FirstFooter: string option }
 
     static member Default =
         { Orientation = Portrait
           PaperSize = None
           Scaling = None
           Margins = PageMargins.Default
+          PrintArea = []
           Header = None
-          Footer = None }
+          Footer = None
+          EvenHeader = None
+          EvenFooter = None
+          FirstHeader = None
+          FirstFooter = None }

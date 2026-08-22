@@ -465,6 +465,7 @@ module internal Reader =
         (stylesheet: Stylesheet option)
         (customFormats: Map<uint32, string>)
         (name: string)
+        (printArea: (CellRef * CellRef) list)
         (worksheetPart: WorksheetPart)
         : Worksheet =
         let ws = worksheetPart.Worksheet
@@ -642,16 +643,36 @@ module internal Reader =
                           Footer = m.Footer.Value })
                     |> Option.defaultValue PageMargins.Default
 
+                // `OddHeader`/`EvenHeader`/`FirstHeader`/etc. all derive from the same
+                // `XstringType` base (a plain text-content element), so one helper covers
+                // all six rather than repeating the same null-check/`.Text` projection.
+                let textElementOf (e: XstringType) : string option =
+                    if isNull (box e) then None else Some e.Text
+
                 let headerFooter = ws.Elements<HeaderFooter>() |> Seq.tryHead
-                let header = headerFooter |> Option.bind (fun hf -> Option.ofObj hf.OddHeader) |> Option.map (fun h -> h.Text)
-                let footer = headerFooter |> Option.bind (fun hf -> Option.ofObj hf.OddFooter) |> Option.map (fun f -> f.Text)
+                let textOf (project: HeaderFooter -> XstringType) = headerFooter |> Option.bind (fun hf -> textElementOf (project hf))
 
                 { Orientation = orientation
                   PaperSize = paperSize
                   Scaling = scaling
                   Margins = margins
-                  Header = header
-                  Footer = footer })
+                  PrintArea = []
+                  Header = textOf (fun hf -> hf.OddHeader)
+                  Footer = textOf (fun hf -> hf.OddFooter)
+                  EvenHeader = textOf (fun hf -> hf.EvenHeader)
+                  EvenFooter = textOf (fun hf -> hf.EvenFooter)
+                  FirstHeader = textOf (fun hf -> hf.FirstHeader)
+                  FirstFooter = textOf (fun hf -> hf.FirstFooter) })
+
+        // `PrintArea` is threaded in from `load`, which resolves the workbook-level
+        // `_xlnm.Print_Area` defined name before any worksheet is parsed - see that
+        // function and `PageSetup`'s own doc comment for why.
+        let pageSetup =
+            match pageSetup, printArea with
+            | Some ps, [] -> Some ps
+            | Some ps, area -> Some { ps with PrintArea = area }
+            | None, [] -> None
+            | None, area -> Some { PageSetup.Default with PrintArea = area }
 
         // Core never writes a totals row (see MAPPING.md), and drops one on read too -
         // `TableColumn.TotalsRowFunction`/`.TotalsRowLabel` are simply never consulted
@@ -722,6 +743,31 @@ module internal Reader =
           PageSetup = pageSetup
           Tables = tables }
 
+    /// Reverses `Writer.absolutePrintAreaRange`/`printAreaDefinedNameElement`: splits the
+    /// comma-separated range list, strips each range's sheet-name qualifier (print area is
+    /// already inherently per-sheet, so it's discarded rather than checked against the
+    /// current sheet's own name) and `$` markers, then parses the bare `"A1:D10"` range.
+    /// Accepts both quoted (`'Sheet 1'!...`) and unquoted (`Sheet1!...`) qualifiers, since
+    /// a foreign file may use either. A range this can't parse is dropped, not failed on -
+    /// same philosophy as the rest of this module.
+    let private parsePrintAreaFormula (formula: string) : (CellRef * CellRef) list =
+        formula.Split(',')
+        |> Array.choose (fun part ->
+            let refPart =
+                match part.LastIndexOf('!') with
+                | -1 -> part
+                | i -> part.Substring(i + 1)
+
+            let cellParts = refPart.Replace("$", "").Split(':')
+
+            try
+                let topLeft = CellRef.ofA1 cellParts.[0]
+                let bottomRight = CellRef.ofA1 (if cellParts.Length > 1 then cellParts.[1] else cellParts.[0])
+                Some(topLeft, bottomRight)
+            with _ ->
+                None)
+        |> List.ofArray
+
     let load (document: SpreadsheetDocument) : Workbook =
         let workbookPart = document.WorkbookPart
         let sharedStrings = readSharedStrings workbookPart
@@ -734,35 +780,51 @@ module internal Reader =
         let customFormats =
             stylesheet |> Option.map readCustomFormats |> Option.defaultValue Map.empty
 
-        let sheets =
-            workbookPart.Workbook.Sheets.Elements<Sheet>()
-            |> Seq.map (fun sheetEl ->
-                let worksheetPart = workbookPart.GetPartById(sheetEl.Id.Value) :?> WorksheetPart
-                readWorksheet sharedStrings stylesheet customFormats sheetEl.Name.Value worksheetPart)
-            |> List.ofSeq
+        let sheetEls = workbookPart.Workbook.Sheets.Elements<Sheet>() |> List.ofSeq
+        let sheetNames = sheetEls |> List.map (fun s -> s.Name.Value) |> Array.ofList
 
-        let sheetNames = sheets |> List.map (fun s -> s.Name) |> Array.ofList
-
-        let definedNames =
+        let allDefinedNameEls =
             match workbookPart.Workbook.DefinedNames with
             | null -> []
-            | dns ->
-                dns.Elements<Spreadsheet.DefinedName>()
-                |> Seq.choose (fun dn ->
-                    match Option.ofObj dn.Name with
-                    | None -> None
-                    | Some nameVal ->
-                        let scope =
-                            match Option.ofObj dn.LocalSheetId with
-                            | Some idx when int idx.Value < sheetNames.Length -> SheetScope sheetNames.[int idx.Value]
-                            | _ -> WorkbookScope
+            | dns -> dns.Elements<Spreadsheet.DefinedName>() |> List.ofSeq
 
-                        Some
-                            { Name = nameVal.Value
-                              Formula = dn.Text
-                              Scope = scope
-                              Hidden = not (isNull dn.Hidden) && dn.Hidden.Value })
-                |> List.ofSeq
+        // Print areas are represented as a reserved, hidden, sheet-scoped defined name
+        // (`_xlnm.Print_Area`) rather than an ordinary `DefinedNameEntry` - resolved into
+        // each sheet's `PageSetup.PrintArea` here, before any worksheet is parsed, so
+        // `readWorksheet` can just fold it into the `PageSetup` it builds from the
+        // worksheet's own elements. See `PageSetup`'s own doc comment for why.
+        let printAreaBySheetIndex : Map<int, (CellRef * CellRef) list> =
+            allDefinedNameEls
+            |> List.choose (fun dn ->
+                match Option.ofObj dn.Name, Option.ofObj dn.LocalSheetId with
+                | Some nameVal, Some idx when nameVal.Value = "_xlnm.Print_Area" -> Some(int idx.Value, parsePrintAreaFormula dn.Text)
+                | _ -> None)
+            |> Map.ofList
+
+        let definedNames =
+            allDefinedNameEls
+            |> List.choose (fun dn ->
+                match Option.ofObj dn.Name with
+                | None -> None
+                | Some nameVal when nameVal.Value = "_xlnm.Print_Area" -> None
+                | Some nameVal ->
+                    let scope =
+                        match Option.ofObj dn.LocalSheetId with
+                        | Some idx when int idx.Value < sheetNames.Length -> SheetScope sheetNames.[int idx.Value]
+                        | _ -> WorkbookScope
+
+                    Some
+                        { Name = nameVal.Value
+                          Formula = dn.Text
+                          Scope = scope
+                          Hidden = not (isNull dn.Hidden) && dn.Hidden.Value })
+
+        let sheets =
+            sheetEls
+            |> List.mapi (fun i sheetEl ->
+                let worksheetPart = workbookPart.GetPartById(sheetEl.Id.Value) :?> WorksheetPart
+                let printArea = printAreaBySheetIndex |> Map.tryFind i |> Option.defaultValue []
+                readWorksheet sharedStrings stylesheet customFormats sheetEl.Name.Value printArea worksheetPart)
 
         { Sheets = sheets
           DefinedNames = definedNames }
