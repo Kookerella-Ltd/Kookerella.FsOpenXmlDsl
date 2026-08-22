@@ -43,6 +43,8 @@ need to be added to close the gap.
   part real Excel-authored files pair every classic comment with, for the on-cell
   indicator and hover-box position — confirmed rendering correctly (indicator, hover
   popup, position) in real Excel.
+- AutoFilter: the range showing filter dropdown arrows (see the gap below on active
+  filter criteria).
 
 ## Known gaps (documented, not silently "supported")
 
@@ -109,6 +111,10 @@ need to be added to close the gap.
   resolved state) are a completely different part format (`WorksheetThreadedCommentsPart`)
   not modeled here at all - what this library calls a `CommentEntry` is what current
   Excel's UI now labels a "Note".
+- **AutoFilter criteria.** Only the filtered range itself is modeled - not any active
+  filter conditions (`filterColumn` children: value lists, custom conditions, top-10,
+  color/icon filters) a user or a foreign file may have configured on top of it. Reading
+  a file with active criteria preserves the range but drops the criteria.
 
 ## Out of scope for Core (candidates for a future extension)
 
@@ -122,7 +128,7 @@ real files the same way Core was:
 - Pivot tables
 - Sheet/workbook protection
 - Print settings and page setup
-- Tables (`ListObject`s / structured references) and autofilter
+- Tables (`ListObject`s / structured references)
 - Sparklines
 - Macros / VBA
 

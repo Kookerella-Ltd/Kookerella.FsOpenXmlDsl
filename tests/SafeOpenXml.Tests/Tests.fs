@@ -53,6 +53,7 @@ let private assertWorksheetRoundTrips (original: Worksheet) (path: string) =
     Assert.Equal<Map<int, RowProps>>(original.RowProps, actual.RowProps)
     Assert.Equal<MergedRange list>(original.MergedRanges, actual.MergedRanges)
     Assert.Equal<FreezePane option>(original.FreezePane, actual.FreezePane)
+    Assert.Equal<AutoFilterRange option>(original.AutoFilter, actual.AutoFilter)
     Assert.Equal<ConditionalFormatEntry list>(original.ConditionalFormats, actual.ConditionalFormats)
     Assert.Equal<DataValidationEntry list>(original.DataValidations, actual.DataValidations)
     Assert.Equal<HyperlinkEntry list>(original.Hyperlinks, actual.Hyperlinks)
@@ -427,3 +428,19 @@ let ``comments VML drawing part is well-formed XML`` () =
     let content = reader.ReadToEnd()
     let xml = System.Xml.Linq.XDocument.Parse(content)
     Assert.NotNull(xml.Root)
+
+// --- AutoFilter -----------------------------------------------------------------------
+
+[<Fact>]
+let ``example: autofilter`` () =
+    let data =
+        sheet
+            "Sheet1"
+            [ row [ cell (Text "Name", style = headerStyle)
+                    cell (Text "Amount", style = headerStyle)
+                    cell (Text "Region", style = headerStyle) ]
+              row [ cell (Text "Widgets"); cell (Number 42.5); cell (Text "North") ]
+              row [ cell (Text "Gadgets"); cell (Number 19.99); cell (Text "South") ]
+              autoFilter (CellRef.ofA1 "A1", CellRef.ofA1 "C3") ]
+
+    verifyScenario "AutoFilter" (workbook [ data ])

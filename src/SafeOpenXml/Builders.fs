@@ -13,6 +13,7 @@ module Builders =
           RowProps = Map.empty
           MergedRanges = []
           FreezePane = None
+          AutoFilter = None
           ConditionalFormats = []
           DataValidations = []
           Hyperlinks = []
@@ -60,19 +61,20 @@ type CellEntry = Cell of col: int option * value: CellValue * style: CellStyle o
 /// resolves to an actual type, never to a union case (case names live in the value
 /// namespace, not the type namespace) - so those already meant the OOXML type unambiguously.
 /// `DocumentFormat.OpenXml.Spreadsheet` also defines types named `ConditionalFormatting`/
-/// `DataValidation`/`Hyperlink`/`Comment` (note: singular "ConditionalFormat" here vs. the
-/// OOXML type's plural/gerund "ConditionalFormatting", so those two don't actually
-/// collide by name; the `DataValidation`, `Hyperlink`, and `Comment` cases genuinely do
-/// collide with the OOXML types of the same name, and `Writer` qualifies their
-/// construction as `Spreadsheet.DataValidation(...)`/`Spreadsheet.Hyperlink(...)`/
-/// `Spreadsheet.Comment(...)` for exactly that reason, same as `Spreadsheet.Row`/
-/// `Spreadsheet.Cell` elsewhere.
+/// `DataValidation`/`Hyperlink`/`Comment`/`AutoFilter` (note: singular "ConditionalFormat"
+/// here vs. the OOXML type's plural/gerund "ConditionalFormatting", so those two don't
+/// actually collide by name; the `DataValidation`, `Hyperlink`, `Comment`, and
+/// `AutoFilter` cases genuinely do collide with the OOXML types of the same name, and
+/// `Writer` qualifies their construction as `Spreadsheet.DataValidation(...)`/
+/// `Spreadsheet.Hyperlink(...)`/`Spreadsheet.Comment(...)`/`Spreadsheet.AutoFilter(...)`
+/// for exactly that reason, same as `Spreadsheet.Row`/`Spreadsheet.Cell` elsewhere.
 type SheetItem =
     | Row of index: int option * cells: CellEntry list
     | ColumnWidth of index: int * width: float
     | RowHeight of index: int * height: float
     | Merge of topLeft: CellRef * bottomRight: CellRef
     | Freeze of rows: int * columns: int
+    | AutoFilter of topLeft: CellRef * bottomRight: CellRef
     | ConditionalFormat of topLeft: CellRef * bottomRight: CellRef * rule: ConditionalFormatRule
     | DataValidation of topLeft: CellRef * bottomRight: CellRef * kind: ValidationKind * alert: ValidationAlert
     | Hyperlink of topLeft: CellRef * bottomRight: CellRef * target: HyperlinkTarget * tooltip: string option * display: string option
@@ -93,6 +95,12 @@ type SheetDsl =
     /// `index` defaults to the next row after the previous row in the sheet.
     static member row(cells: CellEntry list, ?index: int) : SheetItem =
         Row(index, cells)
+
+    /// Shows filter dropdown arrows over the range - no active filter criteria, just the
+    /// arrows (matching the common "Insert > filter" case where the criteria are left for
+    /// whoever opens the file to set interactively).
+    static member autoFilter(topLeft: CellRef, bottomRight: CellRef) : SheetItem =
+        AutoFilter(topLeft, bottomRight)
 
     static member conditionalFormat(topLeft: CellRef, bottomRight: CellRef, rule: ConditionalFormatRule) : SheetItem =
         ConditionalFormat(topLeft, bottomRight, rule)
@@ -211,6 +219,15 @@ module SheetItems =
             | _ -> None)
         |> List.tryLast
 
+    /// Extracts the (at most one) `AutoFilter` fact - a later entry overwrites an earlier
+    /// one, same rule as `freezePaneOf` (only one `autoFilter` element is allowed per sheet).
+    let private autoFilterOf (items: SheetItem list) : AutoFilterRange option =
+        items
+        |> List.choose (function
+            | AutoFilter(topLeft, bottomRight) -> Some { TopLeft = topLeft; BottomRight = bottomRight }
+            | _ -> None)
+        |> List.tryLast
+
     /// Extracts `ConditionalFormat` facts, in order - order matters here (it becomes rule
     /// priority when writing), unlike `Merge`/`DataValidation`.
     let private conditionalFormatsOf (items: SheetItem list) : ConditionalFormatEntry list =
@@ -258,6 +275,7 @@ module SheetItems =
           RowProps = rowHeightsOf items
           MergedRanges = mergedRangesOf items
           FreezePane = freezePaneOf items
+          AutoFilter = autoFilterOf items
           ConditionalFormats = conditionalFormatsOf items
           DataValidations = dataValidationsOf items
           Hyperlinks = hyperlinksOf items

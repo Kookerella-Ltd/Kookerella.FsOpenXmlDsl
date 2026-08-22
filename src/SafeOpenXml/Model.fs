@@ -38,6 +38,13 @@ module Model =
     /// freezes a header row.
     type FreezePane = { Rows: int; Columns: int }
 
+    /// The range showing filter dropdown arrows. Core only models that the arrows are
+    /// shown over this range - not any active filter criteria a user (or a foreign file)
+    /// may have configured on top of them; see MAPPING.md.
+    type AutoFilterRange =
+        { TopLeft: CellRef
+          BottomRight: CellRef }
+
     /// A worksheet's contents are a sparse set of addressed `Cell`s rather than nested
     /// rows-of-cells: real spreadsheets are sparse, and this avoids forcing every row to
     /// enumerate empty cells. Row/column metadata (height, width) is tracked separately
@@ -49,6 +56,7 @@ module Model =
           RowProps: Map<int, RowProps>
           MergedRanges: MergedRange list
           FreezePane: FreezePane option
+          AutoFilter: AutoFilterRange option
           ConditionalFormats: ConditionalFormatEntry list
           DataValidations: DataValidationEntry list
           Hyperlinks: HyperlinkEntry list

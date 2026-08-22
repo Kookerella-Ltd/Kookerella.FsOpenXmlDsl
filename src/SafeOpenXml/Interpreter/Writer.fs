@@ -435,6 +435,11 @@ module internal Writer =
 
             ws.AppendChild(sheetData) |> ignore
 
+            worksheet.AutoFilter
+            |> Option.iter (fun range ->
+                ws.AppendChild(Spreadsheet.AutoFilter(Reference = StringValue(rangeReference range.TopLeft range.BottomRight)))
+                |> ignore)
+
             if not worksheet.MergedRanges.IsEmpty then
                 let mergeCells = MergeCells()
 

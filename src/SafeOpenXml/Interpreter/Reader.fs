@@ -500,15 +500,26 @@ module internal Reader =
                         Some(idx, { Height = Some row.Height.Value }))
                 |> Map.ofSeq
 
-        let mergedRanges =
+        let mergedRanges : MergedRange list =
             ws.Elements<MergeCells>()
             |> Seq.collect (fun mc -> mc.Elements<MergeCell>())
             |> Seq.map (fun mc ->
                 let parts = mc.Reference.Value.Split(':')
 
                 { TopLeft = CellRef.ofA1 parts.[0]
-                  BottomRight = CellRef.ofA1 (if parts.Length > 1 then parts.[1] else parts.[0]) })
+                  BottomRight = CellRef.ofA1 (if parts.Length > 1 then parts.[1] else parts.[0]) }
+                : MergedRange)
             |> List.ofSeq
+
+        let autoFilter : AutoFilterRange option =
+            ws.Elements<Spreadsheet.AutoFilter>()
+            |> Seq.tryHead
+            |> Option.bind (fun af -> Option.ofObj af.Reference)
+            |> Option.map (fun refVal ->
+                let parts = refVal.Value.Split(':')
+
+                { TopLeft = CellRef.ofA1 parts.[0]
+                  BottomRight = CellRef.ofA1 (if parts.Length > 1 then parts.[1] else parts.[0]) })
 
         let freezePane =
             ws.Elements<SheetViews>()
@@ -558,6 +569,7 @@ module internal Reader =
           RowProps = rowProps
           MergedRanges = mergedRanges
           FreezePane = freezePane
+          AutoFilter = autoFilter
           ConditionalFormats = conditionalFormats
           DataValidations = dataValidations
           Hyperlinks = hyperlinks
