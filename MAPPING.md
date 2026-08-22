@@ -87,6 +87,18 @@ need to be added to close the gap.
   same value to both - see the gap below). See the gaps below for what a table can do in
   real Excel that Core doesn't model (totals row, headerless tables, active autofilter
   criteria on top of the table, custom table style *definitions*).
+- Sparklines: groups of in-cell mini-charts (`SparklineGroupEntry`/`SparklineStyle`/
+  `SparklineCell`, stored as a list on `Worksheet` - a sheet can have several
+  independently-styled groups). Covers the commonly used subset: line/column/win-loss
+  type, the main sparkline color, line weight, and the "highlight these points"
+  high/low/first/last/negative toggles from Excel's Sparkline Design ribbon. Unlike every
+  other feature above, this isn't core SpreadsheetML at all - it's a Microsoft extension
+  living in the worksheet's `extLst` (`x14:sparklineGroups`, under a fixed, well-known
+  extension URI real Excel files use for exactly this), so schema validation alone can't
+  confirm real Excel actually renders it (the schema for `extLst`/`ext` content is
+  deliberately open-ended) - see the gaps below, and note in the codebase pointing at
+  where to manually verify in real Excel the same way Comments' VML rendering and
+  SheetProtection's password hash were.
 - Code generation: `Workbook.generateScript` renders any `Workbook` value (including one
   produced by `Workbook.load`) back out as an `.fsx` script that rebuilds a structurally
   equivalent file when run via `dotnet fsi` - covers every DSL construct above, since it's
@@ -199,6 +211,21 @@ need to be added to close the gap.
   (both would otherwise produce a file Excel refuses to open cleanly) - it does not
   validate that table names or ids are unique *across* the whole workbook, the same way
   sheet names and defined names aren't cross-checked either.
+- **Sparkline axis settings.** Manual min/max, date-axis mode, and whether the horizontal
+  axis line itself is shown (`minAxisType`/`maxAxisType`/`manualMin`/`manualMax`/
+  `dateAxis`/`displayXAxis`) aren't modeled - a group using them keeps its data/style on
+  round trip but loses the axis configuration.
+- **Sparkline per-role colors.** Only the main series color (`SparklineStyle.Color`) is
+  modeled. Excel's separate colors for negative points, the axis line, and each marker
+  role (regular/first/last/high/low) aren't - they always come through as Excel's own
+  automatic choices, even if a foreign file set them explicitly.
+- **Sparkline empty-cell/hidden-cell handling and right-to-left.** `displayEmptyCellsAs`
+  (gap/zero/connect), `displayHidden` (plot hidden rows/columns), and `rightToLeft` aren't
+  modeled.
+- **Sparkline data range sheet.** `SparklineCell`'s data range is always assumed to be on
+  the same sheet as the sparkline itself - a foreign file with a sparkline pointing at
+  another sheet's data has that sheet qualifier silently discarded on read (the range
+  itself still parses, just interpreted against the sparkline's own sheet).
 
 ## Out of scope for Core (candidates for a future extension)
 
@@ -212,7 +239,6 @@ real files the same way Core was:
 - Pivot tables
 - Workbook-level protection (protecting the workbook structure itself - sheet ordering,
   visibility - as distinct from the per-sheet protection Core already models)
-- Sparklines
 - Macros / VBA
 
 ## A note on style interning

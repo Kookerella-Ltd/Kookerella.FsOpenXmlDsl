@@ -30,6 +30,9 @@ approximated, and which aren't modeled yet.
     `PageMargins`, and the `PageSetup` record stored on `Worksheet`.
   - `Tables.fs` — Excel Tables: `TableColumn`, `TableStyle`, and the `TableEntry` record
     stored as a list on `Worksheet` (a sheet can have several).
+  - `Sparklines.fs` — in-cell mini-charts: `SparklineType`, `SparklineStyle`,
+    `SparklineCell`, and the `SparklineGroupEntry` record stored as a list on `Worksheet`
+    (a sheet can have several independently-styled groups).
   - `Model.fs` — `CellValue`, `Cell`, `Worksheet`, `Workbook`.
   - `Builders.fs` — ergonomic helpers: plain functional constructors (`cellA1`, ...) for
     the canonical model, plus the `SheetItem`/`CellEntry` types (each a single simple DU
@@ -167,6 +170,22 @@ sheet
 Structured references (`Table1[Column]`) need no special handling - they're just raw
 formula text in a `Formula` cell, same as any other formula. See [MAPPING.md](MAPPING.md)
 for what isn't modeled (totals row, headerless tables).
+
+Sparklines follow the same shape - `SparklineGroup` (the DU case) takes a plain
+`SparklineGroupEntry` record:
+
+```fsharp
+[ SparklineGroup
+    { Style = { SparklineStyle.Default with Type = Column; ShowNegative = true }
+      Sparklines =
+        [ { Cell = CellRef.ofA1 "E1"; DataTopLeft = CellRef.ofA1 "A1"; DataBottomRight = CellRef.ofA1 "D1" } ] } ]
+```
+
+Sparklines are a Microsoft extension (living in the worksheet's `extLst`), not core
+SpreadsheetML - unlike the rest of this library, schema validation alone can't confirm
+real Excel renders one correctly, so treat this one with a bit more caution and verify in
+real Excel before relying on it. See [MAPPING.md](MAPPING.md) for what isn't modeled
+(axis settings, per-role colors beyond the main series color).
 
 ## Regenerating a file as F# source
 

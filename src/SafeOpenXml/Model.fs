@@ -63,7 +63,8 @@ module Model =
           Hyperlinks: HyperlinkEntry list
           Comments: CommentEntry list
           PageSetup: PageSetup option
-          Tables: TableEntry list }
+          Tables: TableEntry list
+          SparklineGroups: SparklineGroupEntry list }
 
     type Workbook =
         { Sheets: Worksheet list

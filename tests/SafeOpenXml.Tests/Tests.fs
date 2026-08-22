@@ -69,6 +69,7 @@ let private assertWorksheetRoundTrips (original: Worksheet) (path: string) =
     Assert.Equal<CommentEntry list>(original.Comments, actual.Comments)
     Assert.Equal<PageSetup option>(original.PageSetup, actual.PageSetup)
     Assert.Equal<TableEntry list>(original.Tables, actual.Tables)
+    Assert.Equal<SparklineGroupEntry list>(original.SparklineGroups, actual.SparklineGroups)
 
 /// An F# string literal can't contain a raw backslash, so a Windows assembly path needs
 /// its separators doubled before it's safe to splice into a generated `#r "..."` line.
@@ -626,6 +627,39 @@ let ``example: table with calculated column and custom style`` () =
                           ShowRowStripes = false } } ]
 
     verifyScenario "TableWithCalculatedColumn" (workbook [ data ])
+
+// --- Sparklines ------------------------------------------------------------------------
+
+[<Fact>]
+let ``example: sparklines line group filled down`` () =
+    let data =
+        sheet
+            "Sheet1"
+            [ row [ cell (Text "Widgets"); cell (Number 3.0); cell (Number 8.0); cell (Number 5.0); cell (Number 9.0) ]
+              row [ cell (Text "Gadgets"); cell (Number 6.0); cell (Number 4.0); cell (Number 7.0); cell (Number 2.0) ]
+              SparklineGroup
+                  { Style = { SparklineStyle.Default with ShowHigh = true; ShowLow = true }
+                    Sparklines =
+                      [ { Cell = CellRef.ofA1 "F1"; DataTopLeft = CellRef.ofA1 "B1"; DataBottomRight = CellRef.ofA1 "E1" }
+                        { Cell = CellRef.ofA1 "F2"; DataTopLeft = CellRef.ofA1 "B2"; DataBottomRight = CellRef.ofA1 "E2" } ] } ]
+
+    verifyScenario "SparklinesLineGroup" (workbook [ data ])
+
+[<Fact>]
+let ``example: sparklines column group with custom color`` () =
+    let data =
+        sheet
+            "Sheet1"
+            [ row [ cell (Number -2.0); cell (Number 4.0); cell (Number -1.0); cell (Number 3.0) ]
+              SparklineGroup
+                  { Style =
+                      { SparklineStyle.Default with
+                          Type = Column
+                          Color = Some(Rgb(0uy, 112uy, 192uy))
+                          ShowNegative = true }
+                    Sparklines = [ { Cell = CellRef.ofA1 "E1"; DataTopLeft = CellRef.ofA1 "A1"; DataBottomRight = CellRef.ofA1 "D1" } ] } ]
+
+    verifyScenario "SparklinesColumnGroup" (workbook [ data ])
 
 // --- Generated-script verification (slow: actually runs `dotnet fsi`) -------------------
 //

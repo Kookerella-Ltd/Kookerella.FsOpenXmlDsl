@@ -20,7 +20,8 @@ module Builders =
           Hyperlinks = []
           Comments = []
           PageSetup = None
-          Tables = [] }
+          Tables = []
+          SparklineGroups = [] }
 
     /// Builds a `Worksheet` directly from a flat, pre-addressed cell list - for when your
     /// cells don't naturally arrive grouped by row (e.g. already `CellRef`-addressed data).
@@ -88,7 +89,10 @@ type CellEntry = Cell of col: int option * value: CellValue * style: CellStyle o
 /// `Cell` case sharing a name with `Model.Cell`) - so `Writer`/`Reader` always write
 /// `Spreadsheet.PageSetup`/`Spreadsheet.PageMargins` explicitly. `Table` collides with
 /// `DocumentFormat.OpenXml.Spreadsheet.Table` the same way `Row`/`Cell` do, qualified as
-/// `Spreadsheet.Table` for the same reason.
+/// `Spreadsheet.Table` for the same reason. `SparklineGroup` collides with
+/// `DocumentFormat.OpenXml.Office2010.Excel.SparklineGroup` - that whole namespace is
+/// aliased as `X14` in `Writer`/`Reader` (its own several-type surface, rather than one
+/// qualifier, made a short alias clearer than repeating `Office2010.Excel.` everywhere).
 type SheetItem =
     | Row of index: int option * cells: CellEntry list
     | ColumnWidth of index: int * width: float
@@ -103,6 +107,7 @@ type SheetItem =
     | Comment of cell: CellRef * author: string * text: string
     | PageSetup of settings: PageSetup
     | Table of entry: TableEntry
+    | SparklineGroup of entry: SparklineGroupEntry
 
 /// Smart constructors for `CellEntry`/`SheetItem`, as members with real optional
 /// parameters (`?col`, `?style`, `?index`) rather than several separately-named functions
@@ -316,6 +321,14 @@ module SheetItems =
             | Table entry -> Some entry
             | _ -> None)
 
+    /// Extracts `SparklineGroup` facts - order doesn't matter, same as `Table` (a sheet
+    /// can genuinely have several independently-styled sparkline groups at once).
+    let private sparklineGroupsOf (items: SheetItem list) : SparklineGroupEntry list =
+        items
+        |> List.choose (function
+            | SparklineGroup entry -> Some entry
+            | _ -> None)
+
     /// Interprets a flat list of `SheetItem` facts into the canonical `Worksheet` record.
     /// Each concern above is a small pure function over the same `items` list - no shared
     /// mutable state - so adding a new kind of fact later means adding a new function and
@@ -334,4 +347,5 @@ module SheetItems =
           Hyperlinks = hyperlinksOf items
           Comments = commentsOf items
           PageSetup = pageSetupOf items
-          Tables = tablesOf items }
+          Tables = tablesOf items
+          SparklineGroups = sparklineGroupsOf items }

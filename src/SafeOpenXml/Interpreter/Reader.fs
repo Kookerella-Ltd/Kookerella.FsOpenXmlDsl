@@ -15,6 +15,14 @@ open SafeOpenXml
 /// represent.
 module internal Reader =
 
+    // See the matching comment in Writer.fs: these three would collide with this DSL's
+    // own `SheetItem.SparklineGroup` case / `Spreadsheet.Formula`/`CellValue.Formula` if
+    // their namespaces were opened directly, so they get type abbreviations instead.
+    type X14SparklineGroup = DocumentFormat.OpenXml.Office2010.Excel.SparklineGroup
+    type X14Sparkline = DocumentFormat.OpenXml.Office2010.Excel.Sparkline
+    type X14SparklineGroups = DocumentFormat.OpenXml.Office2010.Excel.SparklineGroups
+    type X14SparklineTypeValues = DocumentFormat.OpenXml.Office2010.Excel.SparklineTypeValues
+
     let private inv = CultureInfo.InvariantCulture
 
     let inline private colorOf (c: ^T) : Color option =
@@ -726,6 +734,62 @@ module internal Reader =
                     | _ -> None)
             |> List.ofSeq
 
+        // Same sheet-qualifier stripping as `parsePrintAreaFormula` - a sparkline's data
+        // range is always on the same sheet as the sparkline itself in what Core writes,
+        // and this doesn't model a foreign file's sparklines pointing elsewhere.
+        let stripSheetQualifier (s: string) =
+            match s.LastIndexOf('!') with
+            | -1 -> s
+            | i -> s.Substring(i + 1)
+
+        let sparklineCellOf (sl: X14Sparkline) : SparklineCell option =
+            match Option.ofObj sl.Formula, Option.ofObj sl.ReferenceSequence with
+            | Some f, Some r ->
+                try
+                    let dataParts = (stripSheetQualifier f.Text).Split(':')
+                    let dataTopLeft = CellRef.ofA1 dataParts.[0]
+                    let dataBottomRight = CellRef.ofA1 (if dataParts.Length > 1 then dataParts.[1] else dataParts.[0])
+                    let cell = CellRef.ofA1 ((stripSheetQualifier r.Text).Split(':').[0])
+                    Some { Cell = cell; DataTopLeft = dataTopLeft; DataBottomRight = dataBottomRight }
+                with _ ->
+                    None
+            | _ -> None
+
+        // Core never models the richer axis/date-axis/per-role-color settings - see
+        // MAPPING.md - so those are simply never consulted here, same philosophy as the
+        // rest of this module.
+        let sparklineGroupEntryOf (group: X14SparklineGroup) : SparklineGroupEntry =
+            let flag (v: BooleanValue) = not (isNull v) && v.Value
+
+            let style =
+                { Type =
+                    Option.ofObj group.Type
+                    |> Option.map (fun t -> SparklineMapping.ofOpenXml t.Value)
+                    |> Option.defaultValue Line
+                  Color = colorOf group.SeriesColor
+                  LineWeight = group.LineWeight |> Option.ofObj |> Option.map (fun v -> v.Value)
+                  ShowMarkers = flag group.Markers
+                  ShowHigh = flag group.High
+                  ShowLow = flag group.Low
+                  ShowFirst = flag group.First
+                  ShowLast = flag group.Last
+                  ShowNegative = flag group.Negative }
+
+            let sparklines =
+                match group.Sparklines with
+                | null -> []
+                | sls -> sls.Elements<X14Sparkline>() |> Seq.choose sparklineCellOf |> List.ofSeq
+
+            { Style = style; Sparklines = sparklines }
+
+        let sparklineGroups =
+            ws.Elements<WorksheetExtensionList>()
+            |> Seq.collect (fun extList -> extList.Elements<WorksheetExtension>())
+            |> Seq.collect (fun ext -> ext.Elements<X14SparklineGroups>())
+            |> Seq.collect (fun sgs -> sgs.Elements<X14SparklineGroup>())
+            |> Seq.map sparklineGroupEntryOf
+            |> List.ofSeq
+
         let comments = readComments worksheetPart
 
         { Name = name
@@ -741,7 +805,8 @@ module internal Reader =
           Hyperlinks = hyperlinks
           Comments = comments
           PageSetup = pageSetup
-          Tables = tables }
+          Tables = tables
+          SparklineGroups = sparklineGroups }
 
     /// Reverses `Writer.absolutePrintAreaRange`/`printAreaDefinedNameElement`: splits the
     /// comma-separated range list, strips each range's sheet-name qualifier (print area is

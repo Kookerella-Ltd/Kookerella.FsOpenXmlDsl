@@ -406,6 +406,41 @@ module internal CodeGen =
             columnsStr
             (renderTableStyle t.Style)
 
+    let private renderSparklineType (t: SparklineType) : string =
+        match t with
+        | Line -> "Line"
+        | Column -> "Column"
+        | WinLoss -> "WinLoss"
+
+    let private renderSparklineStyle (s: SparklineStyle) : string =
+        if s = SparklineStyle.Default then
+            "SparklineStyle.Default"
+        else
+            [ if s.Type <> SparklineStyle.Default.Type then yield sprintf "Type = %s" (renderSparklineType s.Type)
+              if s.Color.IsSome then yield sprintf "Color = %s" (renderOption renderColor s.Color)
+              if s.LineWeight.IsSome then yield sprintf "LineWeight = %s" (renderOption renderFloat s.LineWeight)
+              if s.ShowMarkers then yield "ShowMarkers = true"
+              if s.ShowHigh then yield "ShowHigh = true"
+              if s.ShowLow then yield "ShowLow = true"
+              if s.ShowFirst then yield "ShowFirst = true"
+              if s.ShowLast then yield "ShowLast = true"
+              if s.ShowNegative then yield "ShowNegative = true" ]
+            |> String.concat "; "
+            |> sprintf "{ SparklineStyle.Default with %s }"
+
+    let private renderSparklineCell (c: SparklineCell) : string =
+        sprintf
+            "{ Cell = %s; DataTopLeft = %s; DataBottomRight = %s }"
+            (renderCellRef c.Cell)
+            (renderCellRef c.DataTopLeft)
+            (renderCellRef c.DataBottomRight)
+
+    /// No smart constructor exists for `SparklineGroupEntry` (see `Builders.fs`) - it's a
+    /// plain record built the usual way.
+    let private renderSparklineGroupEntry (g: SparklineGroupEntry) : string =
+        let sparklinesStr = g.Sparklines |> List.map renderSparklineCell |> String.concat "; "
+        sprintf "SparklineGroup { Style = %s; Sparklines = [ %s ] }" (renderSparklineStyle g.Style) sparklinesStr
+
     let private renderDefinedNameScope (s: DefinedNameScope) : string =
         match s with
         | WorkbookScope -> "WorkbookScope"
@@ -499,6 +534,7 @@ module internal CodeGen =
             ws.PageSetup |> Option.map (fun ps -> sprintf "PageSetup(%s)" (renderPageSetup ps)) |> Option.toList
 
         let tableItems = ws.Tables |> List.map renderTableEntry
+        let sparklineGroupItems = ws.SparklineGroups |> List.map renderSparklineGroupEntry
 
         rowItems
         @ columnWidthItems
@@ -513,6 +549,7 @@ module internal CodeGen =
         @ commentItems
         @ pageSetupItems
         @ tableItems
+        @ sparklineGroupItems
 
     /// Renders a whole `Workbook` as a self-contained F# script that rebuilds an
     /// equivalent file when run. `referenceLines` are whatever raw `#r` directives the

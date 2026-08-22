@@ -13,6 +13,21 @@ open SafeOpenXml
 /// DocumentFormat.OpenXml SDK.
 module internal Writer =
 
+    // Sparklines live in a Microsoft extension namespace, not core SpreadsheetML.
+    // `Office2010.Excel.SparklineGroup` collides with this DSL's own
+    // `SheetItem.SparklineGroup` case (see that case's own doc comment), and
+    // `Office.Excel.Formula` would collide with `Spreadsheet.Formula`/`CellValue.Formula`
+    // the same way - F# has no namespace-aliasing `open` (only module aliasing, and these
+    // are plain .NET namespaces), so these three get type abbreviations instead of an
+    // `open`, short-circuiting the collision entirely rather than qualifying every use.
+    type X14SparklineGroup = DocumentFormat.OpenXml.Office2010.Excel.SparklineGroup
+    type X14SparklineGroups = DocumentFormat.OpenXml.Office2010.Excel.SparklineGroups
+    type X14Sparklines = DocumentFormat.OpenXml.Office2010.Excel.Sparklines
+    type X14Sparkline = DocumentFormat.OpenXml.Office2010.Excel.Sparkline
+    type X14SparklineTypeValues = DocumentFormat.OpenXml.Office2010.Excel.SparklineTypeValues
+    type XmFormula = DocumentFormat.OpenXml.Office.Excel.Formula
+    type XmReferenceSequence = DocumentFormat.OpenXml.Office.Excel.ReferenceSequence
+
     let private inv = CultureInfo.InvariantCulture
 
     let private rangeReference (topLeft: CellRef) (bottomRight: CellRef) : string =
@@ -445,6 +460,47 @@ module internal Writer =
 
         table
 
+    /// Builds one `x14:sparkline` element - its own data range (`xm:f`) and target cell
+    /// (`xm:sqref`).
+    let private sparklineElement (cell: SparklineCell) : X14Sparkline =
+        let sl = X14Sparkline()
+        sl.Formula <- XmFormula(rangeReference cell.DataTopLeft cell.DataBottomRight)
+        sl.ReferenceSequence <- XmReferenceSequence(CellRef.toA1 cell.Cell)
+        sl
+
+    /// Builds one `x14:sparklineGroup` - the shared style plus every sparkline in it.
+    let private sparklineGroupElement (entry: SparklineGroupEntry) : X14SparklineGroup =
+        let style = entry.Style
+        let group = X14SparklineGroup(Type = EnumValue<X14SparklineTypeValues>(SparklineMapping.toOpenXml style.Type))
+
+        style.Color |> Option.iter (fun c -> group.SeriesColor <- SparklineMapping.seriesColor c)
+        style.LineWeight |> Option.iter (fun w -> group.LineWeight <- DoubleValue(w))
+        if style.ShowMarkers then group.Markers <- BooleanValue(true)
+        if style.ShowHigh then group.High <- BooleanValue(true)
+        if style.ShowLow then group.Low <- BooleanValue(true)
+        if style.ShowFirst then group.First <- BooleanValue(true)
+        if style.ShowLast then group.Last <- BooleanValue(true)
+        if style.ShowNegative then group.Negative <- BooleanValue(true)
+
+        let sparklines = X14Sparklines()
+        entry.Sparklines |> List.iter (fun c -> sparklines.AppendChild(sparklineElement c) |> ignore)
+        group.Sparklines <- sparklines
+
+        group
+
+    /// Sparklines live in the worksheet's `extLst` (a generic future-extensibility
+    /// mechanism, not part of core SpreadsheetML) under a fixed, well-known extension
+    /// URI real Excel files use for exactly this - `Reader` finds them back by element
+    /// type (`X14SparklineGroups`), not by re-checking this URI, so it only has to be
+    /// right for real Excel to recognize and render them, not for this library's own
+    /// round trip.
+    let private sparklineGroupsExtensionElement (entries: SparklineGroupEntry list) : WorksheetExtension =
+        let sparklineGroups = X14SparklineGroups()
+        entries |> List.iter (fun entry -> sparklineGroups.AppendChild(sparklineGroupElement entry) |> ignore)
+        let ext = WorksheetExtension(Uri = StringValue("{05C60535-1F16-4fd2-B633-F4F36F0B64E0}"))
+        ext.AppendChild(sparklineGroups) |> ignore
+        ext
+
     let private dataValidationElement (entry: DataValidationEntry) : Spreadsheet.DataValidation =
         let dv = Spreadsheet.DataValidation()
         dv.SequenceOfReferences <- ListValue<StringValue>([ StringValue(rangeReference entry.TopLeft entry.BottomRight) ])
@@ -572,7 +628,7 @@ module internal Writer =
                     match props.Width with
                     | Some w ->
                         columns.AppendChild(
-                            Column(
+                            Spreadsheet.Column(
                                 Min = UInt32Value(uint32 (colIdx + 1)),
                                 Max = UInt32Value(uint32 (colIdx + 1)),
                                 Width = DoubleValue(w),
@@ -726,6 +782,11 @@ module internal Writer =
                     tableParts.AppendChild(TablePart(Id = StringValue(worksheetPart.GetIdOfPart(tableDefPart)))) |> ignore)
 
                 ws.AppendChild(tableParts) |> ignore
+
+            if not worksheet.SparklineGroups.IsEmpty then
+                let extList = WorksheetExtensionList()
+                extList.AppendChild(sparklineGroupsExtensionElement worksheet.SparklineGroups) |> ignore
+                ws.AppendChild(extList) |> ignore
 
             worksheetPart.Worksheet <- ws
             worksheetPart.Worksheet.Save()

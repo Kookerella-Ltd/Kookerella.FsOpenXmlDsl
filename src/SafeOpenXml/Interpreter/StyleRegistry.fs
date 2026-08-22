@@ -7,7 +7,7 @@ open SafeOpenXml
 
 module internal ColorMapping =
 
-    let private hex (r: byte) (g: byte) (b: byte) =
+    let hex (r: byte) (g: byte) (b: byte) =
         HexBinaryValue(sprintf "FF%02X%02X%02X" r g b)
 
     let colorElement (color: Color) : Spreadsheet.Color =
@@ -123,6 +123,33 @@ module internal PaperSizeMapping =
         | 8u -> A3
         | 9u -> A4
         | other -> OtherPaperSize(int other)
+
+/// Fully qualifies `DocumentFormat.OpenXml.Office2010.Excel` inline rather than opening it
+/// at file scope - that namespace's own `SparklineGroup`/`Sparklines`/`Sparkline` types
+/// collide with this DSL's `SheetItem.SparklineGroup` case (see that case's own doc
+/// comment), and this module only needs two names from it, not enough to justify the
+/// wider blast radius an `open` would add to every other module in this file.
+module internal SparklineMapping =
+
+    let toOpenXml (t: SparklineType) : DocumentFormat.OpenXml.Office2010.Excel.SparklineTypeValues =
+        match t with
+        | Line -> DocumentFormat.OpenXml.Office2010.Excel.SparklineTypeValues.Line
+        | Column -> DocumentFormat.OpenXml.Office2010.Excel.SparklineTypeValues.Column
+        | WinLoss -> DocumentFormat.OpenXml.Office2010.Excel.SparklineTypeValues.Stacked
+
+    let ofOpenXml (v: DocumentFormat.OpenXml.Office2010.Excel.SparklineTypeValues) : SparklineType =
+        if v = DocumentFormat.OpenXml.Office2010.Excel.SparklineTypeValues.Column then Column
+        elif v = DocumentFormat.OpenXml.Office2010.Excel.SparklineTypeValues.Stacked then WinLoss
+        else Line
+
+    let seriesColor (color: Color) : DocumentFormat.OpenXml.Office2010.Excel.SeriesColor =
+        match color with
+        | Rgb(r, g, b) -> DocumentFormat.OpenXml.Office2010.Excel.SeriesColor(Rgb = ColorMapping.hex r g b)
+        | Indexed i -> DocumentFormat.OpenXml.Office2010.Excel.SeriesColor(Indexed = UInt32Value(uint32 i))
+        | Theme(idx, tint) ->
+            let c = DocumentFormat.OpenXml.Office2010.Excel.SeriesColor(Theme = UInt32Value(uint32 idx))
+            tint |> Option.iter (fun t -> c.Tint <- DoubleValue(t))
+            c
 
 /// Interns fonts/fills/borders/number formats into shared stylesheet entries, mirroring
 /// how Excel itself deduplicates styles - identical `CellStyle` values (structural
