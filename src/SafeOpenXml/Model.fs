@@ -62,7 +62,8 @@ module Model =
           DataValidations: DataValidationEntry list
           Hyperlinks: HyperlinkEntry list
           Comments: CommentEntry list
-          PageSetup: PageSetup option }
+          PageSetup: PageSetup option
+          Tables: TableEntry list }
 
     type Workbook =
         { Sheets: Worksheet list

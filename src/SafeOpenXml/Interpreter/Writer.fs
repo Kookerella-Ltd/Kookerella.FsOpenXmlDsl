@@ -346,6 +346,63 @@ module internal Writer =
             ps.Footer |> Option.iter (fun f -> hf.OddFooter <- OddFooter(f))
             Some hf
 
+    let private tableColumnElement (id: uint32) (col: TableColumn) : Spreadsheet.TableColumn =
+        let tc = Spreadsheet.TableColumn(Id = UInt32Value(id), Name = StringValue(col.Name))
+        col.CalculatedFormula |> Option.iter (fun f -> tc.CalculatedColumnFormula <- CalculatedColumnFormula(f))
+        tc
+
+    let private tableStyleInfoElement (style: TableStyle) : TableStyleInfo =
+        let tsi =
+            TableStyleInfo(
+                ShowFirstColumn = BooleanValue(style.ShowFirstColumn),
+                ShowLastColumn = BooleanValue(style.ShowLastColumn),
+                ShowRowStripes = BooleanValue(style.ShowRowStripes),
+                ShowColumnStripes = BooleanValue(style.ShowColumnStripes)
+            )
+
+        style.Name |> Option.iter (fun n -> tsi.Name <- StringValue(n))
+        tsi
+
+    /// Builds a table part's root `table` element. Raises if `Columns` doesn't match the
+    /// range's width or contains duplicate names - genuine caller mistakes Excel itself
+    /// would refuse to open cleanly, not something to paper over (same philosophy as
+    /// `definedNameElement`'s sheet-name check). `Name` is written to both `name` and
+    /// `displayName` - see `TableEntry`'s own doc comment.
+    let private tableElement (tableId: uint32) (entry: TableEntry) : Spreadsheet.Table =
+        let width = entry.BottomRight.Col - entry.TopLeft.Col + 1
+
+        if entry.Columns.Length <> width then
+            invalidArg
+                (nameof entry)
+                (sprintf "Table '%s' has %d column(s) but its range is %d column(s) wide" entry.Name entry.Columns.Length width)
+
+        let names = entry.Columns |> List.map (fun c -> c.Name)
+
+        if names |> List.distinct |> List.length <> names.Length then
+            invalidArg (nameof entry) (sprintf "Table '%s' has duplicate column names" entry.Name)
+
+        let table =
+            Spreadsheet.Table(
+                Id = UInt32Value(tableId),
+                Name = StringValue(entry.Name),
+                DisplayName = StringValue(entry.Name),
+                Reference = StringValue(rangeReference entry.TopLeft entry.BottomRight),
+                HeaderRowCount = UInt32Value(1u),
+                // Core never writes a totals row - see MAPPING.md - so this is always
+                // explicit false, matching what Excel itself writes for a table with none.
+                TotalsRowShown = BooleanValue(false)
+            )
+
+        table.AutoFilter <- Spreadsheet.AutoFilter(Reference = StringValue(rangeReference entry.TopLeft entry.BottomRight))
+
+        let tableColumns = TableColumns(Count = UInt32Value(uint32 entry.Columns.Length))
+        entry.Columns |> List.iteri (fun i col -> tableColumns.AppendChild(tableColumnElement (uint32 (i + 1)) col) |> ignore)
+        table.TableColumns <- tableColumns
+
+        table.TableStyleInfo <- tableStyleInfoElement entry.Style
+
+        table
+
     let private dataValidationElement (entry: DataValidationEntry) : Spreadsheet.DataValidation =
         let dv = Spreadsheet.DataValidation()
         dv.SequenceOfReferences <- ListValue<StringValue>([ StringValue(rangeReference entry.TopLeft entry.BottomRight) ])
@@ -413,6 +470,11 @@ module internal Writer =
         workbookPart.Workbook.AppendChild(sheetsElement) |> ignore
 
         let stylesPart = workbookPart.AddNewPart<WorkbookStylesPart>()
+
+        // A table's `id` must be unique across the whole workbook, not just its own sheet
+        // (ECMA-376 Part 1 §18.5.1.2), so this counts up across the entire sheet loop
+        // below rather than restarting per sheet.
+        let mutable nextTableId = 1u
 
         wb.Sheets
         |> List.iteri (fun i worksheet ->
@@ -609,6 +671,19 @@ module internal Writer =
                 writer.Flush()
 
                 ws.AppendChild(LegacyDrawing(Id = StringValue(worksheetPart.GetIdOfPart(vmlPart)))) |> ignore
+
+            if not worksheet.Tables.IsEmpty then
+                let tableParts = TableParts(Count = UInt32Value(uint32 worksheet.Tables.Length))
+
+                worksheet.Tables
+                |> List.iter (fun entry ->
+                    let tableDefPart = worksheetPart.AddNewPart<TableDefinitionPart>()
+                    tableDefPart.Table <- tableElement nextTableId entry
+                    tableDefPart.Table.Save()
+                    nextTableId <- nextTableId + 1u
+                    tableParts.AppendChild(TablePart(Id = StringValue(worksheetPart.GetIdOfPart(tableDefPart)))) |> ignore)
+
+                ws.AppendChild(tableParts) |> ignore
 
             worksheetPart.Worksheet <- ws
             worksheetPart.Worksheet.Save()

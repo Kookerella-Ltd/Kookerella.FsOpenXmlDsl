@@ -365,6 +365,38 @@ module internal CodeGen =
             |> String.concat "; "
             |> sprintf "{ PageSetup.Default with %s }"
 
+    let private renderTableColumn (c: TableColumn) : string =
+        sprintf "{ Name = %s; CalculatedFormula = %s }" (renderString c.Name) (renderOption renderString c.CalculatedFormula)
+
+    let private renderTableStyle (s: TableStyle) : string =
+        if s = TableStyle.Default then
+            "TableStyle.Default"
+        else
+            [ if s.Name <> TableStyle.Default.Name then yield sprintf "Name = %s" (renderOption renderString s.Name)
+              if s.ShowFirstColumn <> TableStyle.Default.ShowFirstColumn then
+                  yield sprintf "ShowFirstColumn = %s" (renderBool s.ShowFirstColumn)
+              if s.ShowLastColumn <> TableStyle.Default.ShowLastColumn then
+                  yield sprintf "ShowLastColumn = %s" (renderBool s.ShowLastColumn)
+              if s.ShowRowStripes <> TableStyle.Default.ShowRowStripes then
+                  yield sprintf "ShowRowStripes = %s" (renderBool s.ShowRowStripes)
+              if s.ShowColumnStripes <> TableStyle.Default.ShowColumnStripes then
+                  yield sprintf "ShowColumnStripes = %s" (renderBool s.ShowColumnStripes) ]
+            |> String.concat "; "
+            |> sprintf "{ TableStyle.Default with %s }"
+
+    /// No smart constructor exists for `TableEntry` (see `Builders.fs`) - it's a plain
+    /// record built the usual way.
+    let private renderTableEntry (t: TableEntry) : string =
+        let columnsStr = t.Columns |> List.map renderTableColumn |> String.concat "; "
+
+        sprintf
+            "Table { TopLeft = %s; BottomRight = %s; Name = %s; Columns = [ %s ]; Style = %s }"
+            (renderCellRef t.TopLeft)
+            (renderCellRef t.BottomRight)
+            (renderString t.Name)
+            columnsStr
+            (renderTableStyle t.Style)
+
     let private renderDefinedNameScope (s: DefinedNameScope) : string =
         match s with
         | WorkbookScope -> "WorkbookScope"
@@ -457,6 +489,8 @@ module internal CodeGen =
         let pageSetupItems =
             ws.PageSetup |> Option.map (fun ps -> sprintf "PageSetup(%s)" (renderPageSetup ps)) |> Option.toList
 
+        let tableItems = ws.Tables |> List.map renderTableEntry
+
         rowItems
         @ columnWidthItems
         @ rowHeightItems
@@ -469,6 +503,7 @@ module internal CodeGen =
         @ hyperlinkItems
         @ commentItems
         @ pageSetupItems
+        @ tableItems
 
     /// Renders a whole `Workbook` as a self-contained F# script that rebuilds an
     /// equivalent file when run. `referenceLines` are whatever raw `#r` directives the

@@ -68,6 +68,7 @@ let private assertWorksheetRoundTrips (original: Worksheet) (path: string) =
     Assert.Equal<HyperlinkEntry list>(original.Hyperlinks, actual.Hyperlinks)
     Assert.Equal<CommentEntry list>(original.Comments, actual.Comments)
     Assert.Equal<PageSetup option>(original.PageSetup, actual.PageSetup)
+    Assert.Equal<TableEntry list>(original.Tables, actual.Tables)
 
 /// An F# string literal can't contain a raw backslash, so a Windows assembly path needs
 /// its separators doubled before it's safe to splice into a generated `#r "..."` line.
@@ -553,6 +554,50 @@ let ``example: page setup fit to one page wide`` () =
               PageSetup { PageSetup.Default with Scaling = Some(FitToPage(1, 0)) } ]
 
     verifyScenario "PageSetupFitToOnePageWide" (workbook [ data ])
+
+// --- Tables --------------------------------------------------------------------------
+
+[<Fact>]
+let ``example: table`` () =
+    let data =
+        sheet
+            "Sheet1"
+            [ row [ cell (Text "Item"); cell (Text "Quantity") ]
+              row [ cell (Text "Widgets"); cell (Number 12.0) ]
+              row [ cell (Text "Gadgets"); cell (Number 5.0) ]
+              Table
+                  { TopLeft = CellRef.ofA1 "A1"
+                    BottomRight = CellRef.ofA1 "B3"
+                    Name = "Inventory"
+                    Columns = [ { Name = "Item"; CalculatedFormula = None }; { Name = "Quantity"; CalculatedFormula = None } ]
+                    Style = TableStyle.Default } ]
+
+    verifyScenario "Table" (workbook [ data ])
+
+[<Fact>]
+let ``example: table with calculated column and custom style`` () =
+    let data =
+        sheet
+            "Sheet1"
+            [ row [ cell (Text "Quantity"); cell (Text "Unit Price"); cell (Text "Total") ]
+              row [ cell (Number 12.0); cell (Number 2.5); cell (Formula("[@Quantity]*[@[Unit Price]]", Some 30.0)) ]
+              row [ cell (Number 5.0); cell (Number 9.0); cell (Formula("[@Quantity]*[@[Unit Price]]", Some 45.0)) ]
+              Table
+                  { TopLeft = CellRef.ofA1 "A1"
+                    BottomRight = CellRef.ofA1 "C3"
+                    Name = "Orders"
+                    Columns =
+                      [ { Name = "Quantity"; CalculatedFormula = None }
+                        { Name = "Unit Price"; CalculatedFormula = None }
+                        { Name = "Total"
+                          CalculatedFormula = Some "[@Quantity]*[@[Unit Price]]" } ]
+                    Style =
+                      { TableStyle.Default with
+                          Name = Some "TableStyleLight9"
+                          ShowColumnStripes = true
+                          ShowRowStripes = false } } ]
+
+    verifyScenario "TableWithCalculatedColumn" (workbook [ data ])
 
 // --- Generated-script verification (slow: actually runs `dotnet fsi`) -------------------
 //

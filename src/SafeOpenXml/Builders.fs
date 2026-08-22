@@ -19,7 +19,8 @@ module Builders =
           DataValidations = []
           Hyperlinks = []
           Comments = []
-          PageSetup = None }
+          PageSetup = None
+          Tables = [] }
 
     /// Builds a `Worksheet` directly from a flat, pre-addressed cell list - for when your
     /// cells don't naturally arrive grouped by row (e.g. already `CellRef`-addressed data).
@@ -85,7 +86,9 @@ type CellEntry = Cell of col: int option * value: CellValue * style: CellStyle o
 /// `PageSetup` collides twice over - both with the OOXML type of the same name and with
 /// this DSL's own `PageSetup` record (the case's payload type, same trick as `CellEntry`'s
 /// `Cell` case sharing a name with `Model.Cell`) - so `Writer`/`Reader` always write
-/// `Spreadsheet.PageSetup`/`Spreadsheet.PageMargins` explicitly.
+/// `Spreadsheet.PageSetup`/`Spreadsheet.PageMargins` explicitly. `Table` collides with
+/// `DocumentFormat.OpenXml.Spreadsheet.Table` the same way `Row`/`Cell` do, qualified as
+/// `Spreadsheet.Table` for the same reason.
 type SheetItem =
     | Row of index: int option * cells: CellEntry list
     | ColumnWidth of index: int * width: float
@@ -99,6 +102,7 @@ type SheetItem =
     | Hyperlink of topLeft: CellRef * bottomRight: CellRef * target: HyperlinkTarget * tooltip: string option * display: string option
     | Comment of cell: CellRef * author: string * text: string
     | PageSetup of settings: PageSetup
+    | Table of entry: TableEntry
 
 /// Smart constructors for `CellEntry`/`SheetItem`, as members with real optional
 /// parameters (`?col`, `?style`, `?index`) rather than several separately-named functions
@@ -304,6 +308,14 @@ module SheetItems =
             | _ -> None)
         |> List.tryLast
 
+    /// Extracts `Table` facts - order doesn't matter, and (unlike `Freeze`/`AutoFilter`/
+    /// `Protect`/`PageSetup`) a sheet can genuinely have several tables at once.
+    let private tablesOf (items: SheetItem list) : TableEntry list =
+        items
+        |> List.choose (function
+            | Table entry -> Some entry
+            | _ -> None)
+
     /// Interprets a flat list of `SheetItem` facts into the canonical `Worksheet` record.
     /// Each concern above is a small pure function over the same `items` list - no shared
     /// mutable state - so adding a new kind of fact later means adding a new function and
@@ -321,4 +333,5 @@ module SheetItems =
           DataValidations = dataValidationsOf items
           Hyperlinks = hyperlinksOf items
           Comments = commentsOf items
-          PageSetup = pageSetupOf items }
+          PageSetup = pageSetupOf items
+          Tables = tablesOf items }

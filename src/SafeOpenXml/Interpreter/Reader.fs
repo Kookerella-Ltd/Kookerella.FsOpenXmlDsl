@@ -653,6 +653,58 @@ module internal Reader =
                   Header = header
                   Footer = footer })
 
+        // Core never writes a totals row (see MAPPING.md), and drops one on read too -
+        // `TableColumn.TotalsRowFunction`/`.TotalsRowLabel` are simply never consulted
+        // here, same "unmodeled state is dropped, not failed on" philosophy as everywhere
+        // else in this module.
+        let tableColumnOf (tc: Spreadsheet.TableColumn) : TableColumn =
+            { Name = if isNull tc.Name then "" else tc.Name.Value
+              CalculatedFormula = tc.CalculatedColumnFormula |> Option.ofObj |> Option.map (fun f -> f.Text) }
+
+        let tableStyleOf (tsi: TableStyleInfo) : TableStyle =
+            if isNull tsi then
+                TableStyle.Default
+            else
+                let flag (v: BooleanValue) = not (isNull v) && v.Value
+
+                { Name = tsi.Name |> Option.ofObj |> Option.map (fun n -> n.Value)
+                  ShowFirstColumn = flag tsi.ShowFirstColumn
+                  ShowLastColumn = flag tsi.ShowLastColumn
+                  ShowRowStripes = flag tsi.ShowRowStripes
+                  ShowColumnStripes = flag tsi.ShowColumnStripes }
+
+        let tableOf (table: Spreadsheet.Table) : TableEntry option =
+            match Option.ofObj table.Reference, Option.ofObj table.Name with
+            | Some refVal, Some nameVal ->
+                let parts = refVal.Value.Split(':')
+                let topLeft = CellRef.ofA1 parts.[0]
+                let bottomRight = CellRef.ofA1 (if parts.Length > 1 then parts.[1] else parts.[0])
+
+                let columns =
+                    match table.TableColumns with
+                    | null -> []
+                    | cols -> cols.Elements<Spreadsheet.TableColumn>() |> Seq.map tableColumnOf |> List.ofSeq
+
+                Some
+                    { TopLeft = topLeft
+                      BottomRight = bottomRight
+                      Name = nameVal.Value
+                      Columns = columns
+                      Style = tableStyleOf table.TableStyleInfo }
+            | _ -> None
+
+        let tables =
+            ws.Elements<TableParts>()
+            |> Seq.collect (fun tps -> tps.Elements<TablePart>())
+            |> Seq.choose (fun tp ->
+                match Option.ofObj tp.Id with
+                | None -> None
+                | Some relId ->
+                    match worksheetPart.GetPartById(relId.Value) with
+                    | :? TableDefinitionPart as tdp -> tableOf tdp.Table
+                    | _ -> None)
+            |> List.ofSeq
+
         let comments = readComments worksheetPart
 
         { Name = name
@@ -667,7 +719,8 @@ module internal Reader =
           DataValidations = dataValidations
           Hyperlinks = hyperlinks
           Comments = comments
-          PageSetup = pageSetup }
+          PageSetup = pageSetup
+          Tables = tables }
 
     let load (document: SpreadsheetDocument) : Workbook =
         let workbookPart = document.WorkbookPart

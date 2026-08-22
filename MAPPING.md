@@ -70,6 +70,16 @@ need to be added to close the gap.
   `scale`/`fitToWidth`+`fitToHeight` to actually honor (both are always written
   regardless, so the file is self-describing either way - see
   `Interpreter/Writer.fs: pageSetupElement`). See the gap below on print area.
+- Tables: Excel Tables (`ListObject`s, the things structured references like
+  `Table1[Column]` point at) over a range, with named columns (including an optional
+  calculated-column formula) and a visual style reference (`TableEntry`/`TableColumn`/
+  `TableStyle`, stored as a list on `Worksheet` - a sheet can have several). Structured
+  references themselves need no special modeling: they're already just raw formula text,
+  the same convention `CellValue.Formula`/`ConditionalFormatRule`/etc. all use. `Name`
+  doubles as OOXML's separate `name` and `displayName` attributes (Core always writes the
+  same value to both - see the gap below). See the gaps below for what a table can do in
+  real Excel that Core doesn't model (totals row, headerless tables, active autofilter
+  criteria on top of the table, custom table style *definitions*).
 - Code generation: `Workbook.generateScript` renders any `Workbook` value (including one
   produced by `Workbook.load`) back out as an `.fsx` script that rebuilds a structurally
   equivalent file when run via `dotnet fsi` - covers every DSL construct above, since it's
@@ -165,6 +175,31 @@ need to be added to close the gap.
 - **Print page order and other minor `pageSetup` attributes.** `pageOrder`
   (top-to-bottom vs. left-to-right), `firstPageNumber`, black-and-white/draft printing,
   and print resolution (`horizontalDpi`/`verticalDpi`) aren't modeled.
+- **Table totals row.** Not modeled at all - `TableEntry` is always `headerRowCount="1"`,
+  `totalsRowShown="0"`. Excel's totals-row dropdown (per-column sum/average/count/custom
+  formula) and the extra worksheet row it occupies aren't represented; reading a table
+  that has one drops the totals-row metadata (the underlying cells round-trip as ordinary
+  `Cell`s, just outside what Core considers the table's own range).
+- **Headerless tables.** Only `headerRowCount="1"` (a table with a header row, the
+  overwhelmingly common case) is modeled - `headerRowCount="0"` isn't.
+- **Table `name`/`displayName` as separate values.** OOXML allows a table's internal
+  `name` and its formula-facing `displayName` to differ (rare in practice - Excel keeps
+  them in sync unless edited some unusual way). `TableEntry.Name` is a single field
+  written to both attributes on save, and read back from `name` - a foreign file where
+  they genuinely differ loses the `displayName`.
+- **Table style *definitions*.** `TableStyle.Name` is a reference to a style by name
+  (a built-in like `"TableStyleMedium2"`, or a custom one defined elsewhere in the
+  workbook) - Core doesn't model custom table style *definitions* themselves (the
+  `tableStyles`/`dxf`-based colors and fonts a workbook can define), only the reference.
+- **Table-specific autofilter criteria.** Every table always gets an `autoFilter` element
+  matching its own range (for the header row's dropdown arrows), but - same gap as the
+  standalone `AutoFilter` feature - only the arrows are modeled, not any active filter
+  conditions on top of them.
+- **Table/column name uniqueness across the workbook.** `Writer` validates that a single
+  table's column count matches its range width and that its own column names are unique
+  (both would otherwise produce a file Excel refuses to open cleanly) - it does not
+  validate that table names or ids are unique *across* the whole workbook, the same way
+  sheet names and defined names aren't cross-checked either.
 
 ## Out of scope for Core (candidates for a future extension)
 
@@ -178,7 +213,6 @@ real files the same way Core was:
 - Pivot tables
 - Workbook-level protection (protecting the workbook structure itself - sheet ordering,
   visibility - as distinct from the per-sheet protection Core already models)
-- Tables (`ListObject`s / structured references)
 - Sparklines
 - Macros / VBA
 

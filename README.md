@@ -28,6 +28,8 @@ approximated, and which aren't modeled yet.
     than `Worksheet` - the one DSL concept that's genuinely workbook-level.
   - `PageSetup.fs` — print settings: `PageOrientation`, `PaperSize`, `PrintScaling`,
     `PageMargins`, and the `PageSetup` record stored on `Worksheet`.
+  - `Tables.fs` — Excel Tables: `TableColumn`, `TableStyle`, and the `TableEntry` record
+    stored as a list on `Worksheet` (a sheet can have several).
   - `Model.fs` — `CellValue`, `Cell`, `Worksheet`, `Workbook`.
   - `Builders.fs` — ergonomic helpers: plain functional constructors (`cellA1`, ...) for
     the canonical model, plus the `SheetItem`/`CellEntry` types (each a single simple DU
@@ -136,6 +138,29 @@ Print settings are a `SheetItem` too - `PageSetup` (the DU case) takes a plain
 
 See [MAPPING.md](MAPPING.md) for what isn't modeled (print area, first-page/even-page
 header/footer variants).
+
+Tables are also a `SheetItem` - `Table` (the DU case) takes a plain `TableEntry` record
+(the type), no smart constructor, same as `Protect`/`PageSetup`. Core doesn't synthesize
+the header row's cell text for you, so it must already be there as ordinary cells - the
+same way conditional formatting/autofilter/merges only describe metadata layered on top of
+cells you've already placed:
+
+```fsharp
+sheet
+    "Sheet1"
+    [ row [ cell (Text "Item"); cell (Text "Quantity") ]
+      row [ cell (Text "Widgets"); cell (Number 12.0) ]
+      Table
+          { TopLeft = CellRef.ofA1 "A1"
+            BottomRight = CellRef.ofA1 "B2"
+            Name = "Inventory"
+            Columns = [ { Name = "Item"; CalculatedFormula = None }; { Name = "Quantity"; CalculatedFormula = None } ]
+            Style = TableStyle.Default } ]
+```
+
+Structured references (`Table1[Column]`) need no special handling - they're just raw
+formula text in a `Formula` cell, same as any other formula. See [MAPPING.md](MAPPING.md)
+for what isn't modeled (totals row, headerless tables).
 
 ## Regenerating a file as F# source
 
