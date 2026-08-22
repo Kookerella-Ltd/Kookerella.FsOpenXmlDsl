@@ -28,7 +28,6 @@ module internal ChartReader =
 
     type XTwoCellAnchor = DocumentFormat.OpenXml.Drawing.Spreadsheet.TwoCellAnchor
     type XGraphicFrame = DocumentFormat.OpenXml.Drawing.Spreadsheet.GraphicFrame
-    type XWorksheetDrawing = DocumentFormat.OpenXml.Drawing.Spreadsheet.WorksheetDrawing
 
     type XChartReference = DocumentFormat.OpenXml.Drawing.Charts.ChartReference
 
@@ -149,43 +148,21 @@ module internal ChartReader =
                   TopLeftAnchor = topLeftAnchor
                   BottomRightAnchor = bottomRightAnchor }))
 
-    let private cellRefOfMarker (columnIdText: string) (rowIdText: string) : CellRef =
-        CellRef.create (int rowIdText) (int columnIdText)
-
-    /// Reverses `ChartWriter.addCharts`: follows the worksheet's `<drawing>` relationship
-    /// to its `DrawingsPart`, then each anchor's chart relationship to its `ChartPart`.
-    /// A chart this can't make sense of (no categories, no chart-type element Core
-    /// recognizes) is dropped rather than failing the whole load, same "best-effort"
-    /// philosophy as the rest of this module.
-    let readCharts (worksheetPart: WorksheetPart) (ws: Spreadsheet.Worksheet) : ChartEntry list =
-        ws.Elements<Drawing>()
+    /// Tries to interpret one anchor as a chart - `None` if it doesn't contain a
+    /// `graphicFrame`/chart relationship at all (e.g. it's a `Picture` instead - see
+    /// `ImageReader.tryReadImage` - or a chart this can't make sense of: no categories, no
+    /// chart-type element Core recognizes). `DrawingReader` is what actually walks the
+    /// worksheet's `<drawing>` relationship to find `drawingsPart`/`anchor` in the first
+    /// place, since the same walk feeds both this and `ImageReader.tryReadImage`.
+    let tryReadChart (drawingsPart: DrawingsPart) (anchor: XTwoCellAnchor) (topLeftAnchor: CellRef) (bottomRightAnchor: CellRef) : ChartEntry option =
+        anchor.Elements<XGraphicFrame>()
         |> Seq.tryHead
-        |> Option.bind (fun d -> Option.ofObj d.Id)
-        |> Option.bind (fun relId ->
-            match worksheetPart.GetPartById(relId.Value) with
-            | :? DrawingsPart as dp -> Some dp
+        |> Option.bind (fun frame -> Option.ofObj frame.Graphic)
+        |> Option.bind (fun g -> Option.ofObj g.GraphicData)
+        |> Option.bind (fun gd -> gd.Elements<XChartReference>() |> Seq.tryHead)
+        |> Option.bind (fun cr -> Option.ofObj cr.Id)
+        |> Option.bind (fun relIdVal ->
+            match drawingsPart.GetPartById(relIdVal.Value) with
+            | :? ChartPart as chartPart -> Option.ofObj chartPart.ChartSpace
             | _ -> None)
-        |> Option.bind (fun drawingsPart -> Option.ofObj drawingsPart.WorksheetDrawing |> Option.map (fun wd -> drawingsPart, wd))
-        |> Option.map (fun (drawingsPart, worksheetDrawing) ->
-            worksheetDrawing.Elements<XTwoCellAnchor>()
-            |> Seq.choose (fun anchor ->
-                match Option.ofObj anchor.FromMarker, Option.ofObj anchor.ToMarker with
-                | Some fromMarker, Some toMarker ->
-                    let fromCell = cellRefOfMarker fromMarker.ColumnId.Text fromMarker.RowId.Text
-                    let toCellExclusive = cellRefOfMarker toMarker.ColumnId.Text toMarker.RowId.Text
-                    let toCell = CellRef.create (toCellExclusive.Row - 1) (toCellExclusive.Col - 1)
-
-                    anchor.Elements<XGraphicFrame>()
-                    |> Seq.tryHead
-                    |> Option.bind (fun frame -> Option.ofObj frame.Graphic)
-                    |> Option.bind (fun g -> Option.ofObj g.GraphicData)
-                    |> Option.bind (fun gd -> gd.Elements<XChartReference>() |> Seq.tryHead)
-                    |> Option.bind (fun cr -> Option.ofObj cr.Id)
-                    |> Option.bind (fun relIdVal ->
-                        match drawingsPart.GetPartById(relIdVal.Value) with
-                        | :? ChartPart as chartPart -> Option.ofObj chartPart.ChartSpace
-                        | _ -> None)
-                    |> Option.bind (fun chartSpace -> chartEntryOf chartSpace fromCell toCell)
-                | _ -> None)
-            |> List.ofSeq)
-        |> Option.defaultValue []
+        |> Option.bind (fun chartSpace -> chartEntryOf chartSpace topLeftAnchor bottomRightAnchor)

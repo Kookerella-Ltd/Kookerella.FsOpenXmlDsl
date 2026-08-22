@@ -65,7 +65,8 @@ module Model =
           PageSetup: PageSetup option
           Tables: TableEntry list
           SparklineGroups: SparklineGroupEntry list
-          Charts: ChartEntry list }
+          Charts: ChartEntry list
+          Images: ImageEntry list }
 
     type Workbook =
         { Sheets: Worksheet list

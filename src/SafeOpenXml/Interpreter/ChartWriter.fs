@@ -340,27 +340,19 @@ module internal ChartWriter =
         anchor.AppendChild(XClientData()) |> ignore
         anchor
 
-    /// Builds the `DrawingsPart` (and one `ChartPart` per chart) for every chart anchored
-    /// on this worksheet, and returns the relationship id the worksheet's own `<drawing>`
-    /// element should reference - `None` if the sheet has no charts at all, so the caller
-    /// (`Writer.populate`) knows not to add that element.
-    let addCharts (worksheetPart: WorksheetPart) (sheetName: string) (charts: ChartEntry list) : string option =
-        if charts.IsEmpty then
-            None
-        else
-            let drawingsPart = worksheetPart.AddNewPart<DrawingsPart>()
-            let worksheetDrawing = XWorksheetDrawing()
+    /// Adds one `ChartPart` per chart to `drawingsPart` (already created by the caller -
+    /// shared with `ImageWriter` when a sheet has both charts and images anchored on the
+    /// same drawing canvas) and returns the anchor element for each, starting numbering
+    /// at `startId` - object ids must be unique across every drawing object on the sheet,
+    /// not just among charts, so the caller is responsible for reserving a disjoint id
+    /// range per kind of object.
+    let chartAnchors (drawingsPart: DrawingsPart) (sheetName: string) (startId: uint32) (charts: ChartEntry list) : OpenXmlElement list =
+        charts
+        |> List.mapi (fun i entry ->
+            let chartPart = drawingsPart.AddNewPart<ChartPart>()
+            chartPart.ChartSpace <- chartSpaceElement entry sheetName
+            chartPart.ChartSpace.Save()
 
-            charts
-            |> List.iteri (fun i entry ->
-                let chartPart = drawingsPart.AddNewPart<ChartPart>()
-                chartPart.ChartSpace <- chartSpaceElement entry sheetName
-                chartPart.ChartSpace.Save()
-
-                let relId = drawingsPart.GetIdOfPart(chartPart)
-                let chartId = uint32 (i + 1)
-                worksheetDrawing.AppendChild(twoCellAnchorElement entry chartId relId) |> ignore)
-
-            drawingsPart.WorksheetDrawing <- worksheetDrawing
-            drawingsPart.WorksheetDrawing.Save()
-            Some(worksheetPart.GetIdOfPart(drawingsPart))
+            let relId = drawingsPart.GetIdOfPart(chartPart)
+            let chartId = startId + uint32 i
+            twoCellAnchorElement entry chartId relId :> OpenXmlElement)

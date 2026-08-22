@@ -71,6 +71,9 @@ let private assertWorksheetRoundTrips (original: Worksheet) (path: string) =
     Assert.Equal<TableEntry list>(original.Tables, actual.Tables)
     Assert.Equal<SparklineGroupEntry list>(original.SparklineGroups, actual.SparklineGroups)
     Assert.Equal<ChartEntry list>(original.Charts, actual.Charts)
+    // F#'s structural equality on records compares `byte[]` fields by content, not
+    // reference, so this is a genuine byte-for-byte comparison of the embedded image data.
+    Assert.Equal<ImageEntry list>(original.Images, actual.Images)
 
 /// An F# string literal can't contain a raw backslash, so a Windows assembly path needs
 /// its separators doubled before it's safe to splice into a generated `#r "..."` line.
@@ -768,6 +771,52 @@ let ``example: pie chart`` () =
                     BottomRightAnchor = CellRef.ofA1 "K14" } ]
 
     verifyScenario "ChartPie" (workbook [ data ])
+
+// --- Images --------------------------------------------------------------------------
+
+/// The canonical "1x1 transparent GIF" - the smallest possible valid image file, used
+/// ubiquitously as a web tracking pixel, so its bytes are about as well-known and
+/// trustworthy as test fixtures get.
+let private onePixelGif = Convert.FromBase64String("R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBTAA7")
+
+[<Fact>]
+let ``example: image anchored over a range`` () =
+    let data =
+        sheet
+            "Sheet1"
+            [ row [ cell (Text "Logo below:") ]
+              EmbeddedImage
+                  { Data = onePixelGif
+                    Format = Gif
+                    TopLeftAnchor = CellRef.ofA1 "A3"
+                    BottomRightAnchor = CellRef.ofA1 "C10" } ]
+
+    verifyScenario "Image" (workbook [ data ])
+
+[<Fact>]
+let ``example: chart and image sharing one worksheet's drawing canvas`` () =
+    let data =
+        sheet
+            "Sheet1"
+            [ row [ cell (Text "Month"); cell (Text "Units") ]
+              row [ cell (Text "Jan"); cell (Number 10.0) ]
+              row [ cell (Text "Feb"); cell (Number 14.0) ]
+              EmbeddedChart
+                  { Type = ChartColumn
+                    Title = None
+                    CategoriesTopLeft = CellRef.ofA1 "A2"
+                    CategoriesBottomRight = CellRef.ofA1 "A3"
+                    Series = [ { Name = CellRef.ofA1 "B1"; ValuesTopLeft = CellRef.ofA1 "B2"; ValuesBottomRight = CellRef.ofA1 "B3" } ]
+                    ShowLegend = false
+                    TopLeftAnchor = CellRef.ofA1 "D1"
+                    BottomRightAnchor = CellRef.ofA1 "H8" }
+              EmbeddedImage
+                  { Data = onePixelGif
+                    Format = Gif
+                    TopLeftAnchor = CellRef.ofA1 "D10"
+                    BottomRightAnchor = CellRef.ofA1 "F15" } ]
+
+    verifyScenario "ChartAndImage" (workbook [ data ])
 
 // --- Generated-script verification (slow: actually runs `dotnet fsi`) -------------------
 //

@@ -734,7 +734,7 @@ module internal Reader =
                     | _ -> None)
             |> List.ofSeq
 
-        let charts = ChartReader.readCharts worksheetPart ws
+        let charts, images = DrawingReader.readChartsAndImages worksheetPart ws
 
         // Same sheet-qualifier stripping as `parsePrintAreaFormula` - a sparkline's data
         // range is always on the same sheet as the sparkline itself in what Core writes,
@@ -809,7 +809,8 @@ module internal Reader =
           PageSetup = pageSetup
           Tables = tables
           SparklineGroups = sparklineGroups
-          Charts = charts }
+          Charts = charts
+          Images = images }
 
     /// Reverses `Writer.absolutePrintAreaRange`/`printAreaDefinedNameElement`: splits the
     /// comma-separated range list, strips each range's sheet-name qualifier (print area is

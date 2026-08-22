@@ -772,7 +772,7 @@ module internal Writer =
                 ws.AppendChild(pageSetupElement ps) |> ignore
                 headerFooterElement ps |> Option.iter (fun hf -> ws.AppendChild(hf) |> ignore))
 
-            ChartWriter.addCharts worksheetPart worksheet.Name worksheet.Charts
+            DrawingWriter.addDrawing worksheetPart worksheet.Name worksheet.Charts worksheet.Images
             |> Option.iter (fun relId -> ws.AppendChild(Spreadsheet.Drawing(Id = StringValue(relId))) |> ignore)
 
             if not worksheet.Comments.IsEmpty then

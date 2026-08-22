@@ -118,6 +118,14 @@ need to be added to close the gap.
   that cell's text changes, matching real Excel's own default behavior - not a static
   copy. The category/value ranges are always assumed to be on the chart's own sheet (see
   the gap below). See the gaps below for chart kinds/options not modeled.
+- Images: PNG/JPEG/GIF/BMP raster images anchored over a range of cells (`ImageEntry`,
+  stored as a list on `Worksheet` - a sheet can have several). `Data` is the image file's
+  raw bytes, embedded and read back byte-for-byte with no decoding/re-encoding of its own.
+  Shares one `DrawingsPart`/one `<drawing>` relationship per worksheet with Charts, since a
+  worksheet has exactly one drawing canvas regardless of how many charts and images sit on
+  it (`Interpreter/DrawingWriter.fs`/`DrawingReader.fs` own that shared part; `ImageWriter.
+  fs`/`ImageReader.fs` handle the picture-specific element shapes). See the gaps below for
+  what isn't modeled (free-floating position, rotation, cropping, alt text, other formats).
 - Code generation: `Workbook.generateScript` renders any `Workbook` value (including one
   produced by `Workbook.load`) back out as an `.fsx` script that rebuilds a structurally
   equivalent file when run via `dotnet fsi` - covers every DSL construct above, since it's
@@ -269,6 +277,17 @@ need to be added to close the gap.
 - **Chart title text formatting.** A chart title is a single plain-text run - rich
   formatting (multiple runs, per-run fonts/colors) within a title isn't modeled; reading a
   foreign file's multi-run title concatenates all runs' text via `InnerText`.
+- **Image formats beyond PNG/JPEG/GIF/BMP.** TIFF, SVG, EMF/WMF, and other less common
+  formats aren't modeled - `ImageFormat` only names the four every Excel version has
+  always supported natively; a foreign file's image in another format is dropped on read.
+- **Image positioning, sizing, and appearance.** Only the "move and size with cells"
+  anchor is modeled (the image spans exactly the given cell range, stretched to fit) - free
+  -floating/absolute position, rotation, cropping, and any brightness/contrast/border
+  styling Excel's Picture Format ribbon offers aren't. Alt text isn't modeled either.
+- **Images referenced by link rather than embedded.** Core only ever embeds image data
+  directly into the workbook (`<a:blip r:embed="...">`) - Excel's "link to file" option
+  (`<a:blip r:link="...">`, no image data in the workbook at all) isn't modeled; a foreign
+  file using it has that image dropped on read rather than followed.
 
 ## Out of scope for Core (candidates for a future extension)
 
@@ -277,7 +296,6 @@ was scoped to the cell/style/layout fundamentals first (see the assistant's init
 proposal). Each would be its own reasonably-sized module to add later, verified against
 real files the same way Core was:
 
-- Images / drawings
 - Pivot tables
 - Macros / VBA
 

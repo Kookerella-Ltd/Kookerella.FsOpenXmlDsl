@@ -37,6 +37,8 @@ approximated, and which aren't modeled yet.
     (a sheet can have several independently-styled groups).
   - `Charts.fs` — column/bar/line/pie charts: `ChartType`, `ChartSeries`, and the
     `ChartEntry` record stored as a list on `Worksheet` (a sheet can have several).
+  - `Images.fs` — raster images: `ImageFormat` and the `ImageEntry` record (raw file
+    bytes plus a cell-range anchor) stored as a list on `Worksheet`.
   - `Model.fs` — `CellValue`, `Cell`, `Worksheet`, `Workbook`.
   - `Builders.fs` — ergonomic helpers: plain functional constructors (`cellA1`, ...) for
     the canonical model, plus the `SheetItem`/`CellEntry` types (each a single simple DU
@@ -55,6 +57,11 @@ approximated, and which aren't modeled yet.
   - `Interpreter/ChartWriter.fs` / `ChartReader.fs` — charts' own DSL ↔ DrawingML/ChartML
     translation, split out from `Writer.fs`/`Reader.fs` given how much larger that one
     feature's OOXML surface is than everything else combined (internal).
+  - `Interpreter/ImageWriter.fs` / `ImageReader.fs` — images' own DSL ↔ DrawingML
+    translation (internal).
+  - `Interpreter/DrawingWriter.fs` / `DrawingReader.fs` — own the one `DrawingsPart`/
+    `<drawing>` relationship a worksheet gets when it has charts and/or images, since both
+    features share that one drawing canvas rather than each managing their own (internal).
   - `Interpreter/Writer.fs` — DSL → OOXML (internal).
   - `Interpreter/Reader.fs` — OOXML → DSL, the reverse transform (internal).
   - `Interpreter/CodeGen.fs` — DSL → F# *source text*: renders a `Workbook` back out as a
@@ -225,6 +232,24 @@ Unlike Sparklines, charts are core, fully schema-driven DrawingML/ChartML - buil
 typed OOXML SDK classes the same way every other feature is, not an extension mechanism.
 See [MAPPING.md](MAPPING.md) for what isn't modeled (chart kinds beyond column/bar/line/
 pie, per-series styling, stacked grouping).
+
+Images are anchored the same way - `EmbeddedImage` takes a plain `ImageEntry` record.
+`Data` is just the image file's own raw bytes (read it with `System.IO.File.ReadAllBytes`,
+for example) - this DSL doesn't decode or re-encode anything, only embeds and hands back
+exactly what you give it:
+
+```fsharp
+[ EmbeddedImage
+    { Data = System.IO.File.ReadAllBytes("logo.png")
+      Format = Png
+      TopLeftAnchor = CellRef.ofA1 "A1"
+      BottomRightAnchor = CellRef.ofA1 "C6" } ]
+```
+
+A worksheet's charts and images share one drawing canvas under the hood (Excel only gives
+a sheet one at all), which is transparent to you as a caller - just add both kinds of
+`SheetItem` to the same sheet. See [MAPPING.md](MAPPING.md) for what isn't modeled (formats
+beyond PNG/JPEG/GIF/BMP, free-floating position, cropping, linked-not-embedded images).
 
 ## Regenerating a file as F# source
 

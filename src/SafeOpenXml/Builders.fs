@@ -22,7 +22,8 @@ module Builders =
           PageSetup = None
           Tables = []
           SparklineGroups = []
-          Charts = [] }
+          Charts = []
+          Images = [] }
 
     /// Builds a `Worksheet` directly from a flat, pre-addressed cell list - for when your
     /// cells don't naturally arrive grouped by row (e.g. already `CellRef`-addressed data).
@@ -106,6 +107,10 @@ type CellEntry = Cell of col: int option * value: CellValue * style: CellStyle o
 /// is large enough, and collides with enough *pre-existing* qualified names
 /// (`Spreadsheet.PageSetup`/`.PageMargins`/`.Protection`, `CellValue.Formula`) that it's
 /// never `open`ed at all - every type from it is an individually-named type abbreviation.
+/// `EmbeddedImage` doesn't collide with anything by that logic (`Picture`, not `Image`,
+/// is the OOXML type name) but is named to match `EmbeddedChart` for consistency, since
+/// both share one drawing canvas per worksheet (`Interpreter/DrawingWriter.fs`/
+/// `DrawingReader.fs`).
 type SheetItem =
     | Row of index: int option * cells: CellEntry list
     | ColumnWidth of index: int * width: float
@@ -122,6 +127,7 @@ type SheetItem =
     | Table of entry: TableEntry
     | SparklineGroup of entry: SparklineGroupEntry
     | EmbeddedChart of entry: ChartEntry
+    | EmbeddedImage of entry: ImageEntry
 
 /// Smart constructors for `CellEntry`/`SheetItem`, as members with real optional
 /// parameters (`?col`, `?style`, `?index`) rather than several separately-named functions
@@ -351,6 +357,13 @@ module SheetItems =
             | EmbeddedChart entry -> Some entry
             | _ -> None)
 
+    /// Extracts `EmbeddedImage` facts - order doesn't matter, same as `EmbeddedChart`.
+    let private imagesOf (items: SheetItem list) : ImageEntry list =
+        items
+        |> List.choose (function
+            | EmbeddedImage entry -> Some entry
+            | _ -> None)
+
     /// Interprets a flat list of `SheetItem` facts into the canonical `Worksheet` record.
     /// Each concern above is a small pure function over the same `items` list - no shared
     /// mutable state - so adding a new kind of fact later means adding a new function and
@@ -371,4 +384,5 @@ module SheetItems =
           PageSetup = pageSetupOf items
           Tables = tablesOf items
           SparklineGroups = sparklineGroupsOf items
-          Charts = chartsOf items }
+          Charts = chartsOf items
+          Images = imagesOf items }

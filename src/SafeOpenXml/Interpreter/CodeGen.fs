@@ -471,6 +471,25 @@ module internal CodeGen =
             (renderCellRef c.TopLeftAnchor)
             (renderCellRef c.BottomRightAnchor)
 
+    let private renderImageFormat (f: ImageFormat) : string =
+        match f with
+        | Png -> "Png"
+        | Jpeg -> "Jpeg"
+        | Gif -> "Gif"
+        | Bmp -> "Bmp"
+
+    /// No smart constructor exists for `ImageEntry` (see `Builders.fs`) - it's a plain
+    /// record built the usual way. `Data` is rendered as a base64 literal decoded at
+    /// script-run time, rather than an F# byte-array literal - simpler and just as valid
+    /// for arbitrarily large image data.
+    let private renderImageEntry (img: ImageEntry) : string =
+        sprintf
+            "EmbeddedImage { Data = System.Convert.FromBase64String(%s); Format = %s; TopLeftAnchor = %s; BottomRightAnchor = %s }"
+            (renderString (Convert.ToBase64String(img.Data)))
+            (renderImageFormat img.Format)
+            (renderCellRef img.TopLeftAnchor)
+            (renderCellRef img.BottomRightAnchor)
+
     let private renderDefinedNameScope (s: DefinedNameScope) : string =
         match s with
         | WorkbookScope -> "WorkbookScope"
@@ -585,6 +604,7 @@ module internal CodeGen =
         let tableItems = ws.Tables |> List.map renderTableEntry
         let sparklineGroupItems = ws.SparklineGroups |> List.map renderSparklineGroupEntry
         let chartItems = ws.Charts |> List.map renderChartEntry
+        let imageItems = ws.Images |> List.map renderImageEntry
 
         rowItems
         @ columnWidthItems
@@ -601,6 +621,7 @@ module internal CodeGen =
         @ tableItems
         @ sparklineGroupItems
         @ chartItems
+        @ imageItems
 
     /// Renders a whole `Workbook` as a self-contained F# script that rebuilds an
     /// equivalent file when run. `referenceLines` are whatever raw `#r` directives the
