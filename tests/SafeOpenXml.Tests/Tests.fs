@@ -101,14 +101,16 @@ let private codeGenReferenceLines =
     [ hashR typeof<Workbook>.Assembly.Location
       hashR typeof<SpreadsheetDocument>.Assembly.Location ]
 
-/// Saves `wb` to `Examples/<name>/output.xlsx`, asserts the file is schema-valid, and
+/// Saves `wb` to `Examples/<name>/<fileName>`, asserts the file is schema-valid, and
 /// asserts every sheet round-trips exactly back through the DSL. Also writes an
 /// `Examples/<name>/script.fsx` that regenerates the same file - see the `Category=Slow`
-/// tests below for where that script actually gets executed and verified.
-let private verifyScenario (name: string) (wb: Workbook) =
+/// tests below for where that script actually gets executed and verified. `fileName`
+/// defaults to `output.xlsx`; the one exception is a workbook carrying a VBA project,
+/// which needs the `.xlsm` extension real Excel expects for macro-enabled content.
+let private verifyScenarioNamed (name: string) (fileName: string) (wb: Workbook) =
     let dir = Path.Combine(examplesDir, name)
     Directory.CreateDirectory(dir) |> ignore
-    let path = Path.Combine(dir, "output.xlsx")
+    let path = Path.Combine(dir, fileName)
     Workbook.save path wb
 
     assertSchemaValid path
@@ -125,8 +127,15 @@ let private verifyScenario (name: string) (wb: Workbook) =
         roundTripped.Protection |> Option.map (fun p -> { p with Password = None })
     )
 
-    let script = Workbook.generateScript codeGenReferenceLines "output.xlsx" wb
+    // The VBA project is opaque bytes (see `Workbook.VbaProject`'s own doc comment) - F#'s
+    // structural equality on `option`/array values compares by content, not reference, the
+    // same as `ImageEntry.Data` above.
+    Assert.Equal<byte[] option>(wb.VbaProject, roundTripped.VbaProject)
+
+    let script = Workbook.generateScript codeGenReferenceLines fileName wb
     File.WriteAllText(Path.Combine(dir, "script.fsx"), script)
+
+let private verifyScenario (name: string) (wb: Workbook) = verifyScenarioNamed name "output.xlsx" wb
 
 // --- Core: cell values, styles, layout --------------------------------------------
 
@@ -832,6 +841,26 @@ let ``example: chart and image sharing one worksheet's drawing canvas`` () =
 
     verifyScenario "ChartAndImage" (workbook [ data ])
 
+// --- Macros / VBA --------------------------------------------------------------------
+
+/// A real `vbaProject.bin` - extracted from a workbook actually authored and saved by
+/// Excel (a single standard module, `Sub HelloWorld()` writing to A1), not hand-built.
+/// This DSL treats a VBA project as an opaque OLE/CFBF binary (see `Workbook.VbaProject`'s
+/// own doc comment) - unlike every other fixture in this file, there's no reasonable way
+/// to hand-construct a valid one, so this is checked in as a binary asset instead of an
+/// inline base64 literal like `onePixelGif` above (it's a couple of orders of magnitude
+/// bigger).
+let private sampleVbaProject =
+    File.ReadAllBytes(Path.Combine(__SOURCE_DIRECTORY__, "Assets", "sample.vbaProject.bin"))
+
+[<Fact>]
+let ``example: workbook with a vba macro`` () =
+    let data = sheet "Sheet1" [ row [ cell (Text "Run the HelloWorld macro to fill A1") ] ]
+
+    let wb = workbook [ data ] |> withVbaProject sampleVbaProject
+
+    verifyScenarioNamed "VbaMacro" "output.xlsm" wb
+
 // --- Pivot tables ------------------------------------------------------------------------
 //
 // Unlike every scenario above, a pivot table's correctness isn't fully captured by
@@ -982,7 +1011,13 @@ let scenarioNames : obj[] seq =
 let ``example script regenerates an equivalent file`` (name: string) =
     let dir = Path.Combine(examplesDir, name)
     let scriptPath = Path.Combine(dir, "script.fsx")
-    let outputPath = Path.Combine(dir, "output.xlsx")
+
+    // Almost every scenario's saved file is "output.xlsx" - the one exception is a VBA
+    // macro scenario, which needs the ".xlsm" extension real Excel expects for
+    // macro-enabled content (see `verifyScenarioNamed`), so this is discovered from disk
+    // rather than hard-coded.
+    let outputPath =
+        Directory.GetFiles(dir) |> Array.find (fun f -> not (f.EndsWith("script.fsx")))
 
     let before = Workbook.load outputPath
 

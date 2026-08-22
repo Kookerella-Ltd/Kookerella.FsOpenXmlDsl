@@ -145,6 +145,23 @@ need to be added to close the gap.
   matches this exact shape (one row field, at most one column field, one data field); anything
   richer is silently skipped rather than partially/incorrectly modeled. See the gaps below for
   what this deliberately doesn't cover.
+- Macros (VBA): `Workbook.VbaProject` embeds a real `xl/vbaProject.bin` and switches the
+  saved file's package content type to Excel's macro-enabled kind
+  (`SpreadsheetDocumentType.MacroEnabledWorkbook`) so Excel actually trusts and runs it -
+  unlike every feature above, Core does no encoding/decoding of its own here at all: a VBA
+  project is a compiled OLE/CFBF binary (implementing the MS-OVBA format, or a VBA compiler,
+  is out of scope for a spreadsheet library), so it's embedded and read back as opaque bytes,
+  exactly like `ImageEntry.Data`. The one piece Core *does* generate is each worksheet's and
+  the workbook's `codeName` (`sheetPr`/`workbookPr`) - a VBA project's module streams bind to
+  actual sheet/workbook objects by this internal identifier, not by the visible sheet name,
+  and a file missing it makes Excel invent duplicate placeholder modules on open (confirmed
+  by hand: a codeName-less file with a real macro project opened with 5 VBA components
+  instead of the original 3). Core writes Excel's own default codenames - positional
+  `Sheet1`, `Sheet2`, ... and `ThisWorkbook` - since there's no DSL concept of a
+  caller-chosen codename; see the gap below for when that default doesn't match what the
+  macro's original author intended. Verified against a `vbaProject.bin` actually produced by
+  Excel (`tests/SafeOpenXml.Tests/Assets/sample.vbaProject.bin`), and the round-tripped file
+  was confirmed by hand to open in real Excel with the macro intact and runnable.
 - Code generation: `Workbook.generateScript` renders any `Workbook` value (including one
   produced by `Workbook.load`) back out as an `.fsx` script that rebuilds a structurally
   equivalent file when run via `dotnet fsi` - covers every DSL construct above, since it's
@@ -323,15 +340,27 @@ need to be added to close the gap.
 - **Pivot table styling and refresh behavior.** The style is always the fixed
   `PivotStyleLight16`; banded rows, custom number formats on the value field, and
   manual-refresh-only (vs. `refreshOnLoad`) aren't configurable.
+- **VBA project authoring, and non-default sheet codenames.** Core embeds and reads back a
+  `vbaProject.bin` byte-for-byte but never inspects, decompiles, or generates its contents -
+  there's no way to add/edit/list macros through the DSL, only to attach a project a caller
+  already has the bytes for. Sheet/workbook codenames are always Excel's own positional
+  defaults (`Sheet1`, `Sheet2`, ..., `ThisWorkbook`); if the original macro's author manually
+  renamed a sheet's VBA codename (via the VBA editor's Properties window, distinct from
+  renaming the visible sheet tab - uncommon, but not rare among more advanced macro authors)
+  before compiling the project, Core's default won't match it, and Excel will bind that
+  module to the wrong sheet (or leave it an orphan) on open - same failure mode as a
+  codeName-less file entirely, just for one sheet instead of all of them. There's no DSL
+  field to override this, since it isn't something a caller can discover from `vbaProject.bin`
+  without parsing the compiled project. Digitally signed VBA projects, and wiring a macro to
+  a form control/ribbon button/keyboard shortcut, aren't modeled either.
 
 ## Out of scope for Core (candidates for a future extension)
 
-These are real SpreadsheetML features with no DSL representation at all, by design — Core
-was scoped to the cell/style/layout fundamentals first (see the assistant's initial scoping
-proposal). Each would be its own reasonably-sized module to add later, verified against
-real files the same way Core was:
-
-- Macros / VBA
+Nothing is currently in this bucket - every SpreadsheetML feature originally scoped out
+when Core started (pivot tables, charts, images, sparklines, workbook/sheet protection,
+print settings, macros) has since been implemented, at least to the extent described under
+"Modeled faithfully" above. Anything not modeled at this point is a refinement to an
+existing feature - see "Known gaps" instead.
 
 ## A note on style interning
 

@@ -566,6 +566,19 @@ module internal Writer =
         wb.Protection
         |> Option.iter (fun p -> workbookPart.Workbook.WorkbookProtection <- workbookProtectionElement p)
 
+        // A VBA project's module streams are bound to actual worksheet/workbook objects by
+        // `codeName`, not by their visible sheet name - without matching `workbookPr`/
+        // `sheetPr` codeNames, Excel can't tell which module belongs to which sheet and
+        // ends up inventing extra placeholder modules on open (confirmed by hand: opening a
+        // codeName-less file with a real `vbaProject.bin` in Excel shows a duplicated
+        // "ThisWorkbook"/orphan "Sheet2" module instead of the original 3). "ThisWorkbook"
+        // and positional "Sheet1", "Sheet2", ... are Excel's own default codeNames for a
+        // fresh workbook - the best guess available here, since Core has no DSL concept of
+        // a caller-chosen codeName (see `Workbook.VbaProject`'s own doc comment and
+        // MAPPING.md for when this guess doesn't match what the macro's author intended).
+        if wb.VbaProject.IsSome then
+            workbookPart.Workbook.WorkbookProperties <- WorkbookProperties(CodeName = StringValue("ThisWorkbook"))
+
         let registry = StyleRegistry()
 
         let sharedStrings = ResizeArray<string>()
@@ -628,15 +641,26 @@ module internal Writer =
                     { worksheet with Cells = mergedCells }
 
             // `sheetPr` must be the worksheet's first child if present at all (schema
-            // order), so this has to run before every other element below. Only written
-            // for `FitToPage` scaling: that's the one case with a flag to set
-            // (`pageSetUpPr/@fitToPage`) - Excel's own default (scale-percent mode) needs
-            // no `sheetPr` at all.
-            match worksheet.PageSetup |> Option.bind (fun ps -> ps.Scaling) with
-            | Some(FitToPage _) ->
-                let sheetPr = SheetProperties(PageSetupProperties = PageSetupProperties(FitToPage = BooleanValue(true)))
+            // order), so this has to run before every other element below. Written for
+            // `FitToPage` scaling (`pageSetUpPr/@fitToPage` - Excel's own default,
+            // scale-percent mode, needs no `sheetPr` at all) and/or a VBA project's
+            // positional `@codeName` - see the `WorkbookProperties` assignment above for
+            // why this is a best-effort default rather than an exact mapping.
+            let fitToPage =
+                match worksheet.PageSetup |> Option.bind (fun ps -> ps.Scaling) with
+                | Some(FitToPage _) -> true
+                | _ -> false
+
+            if fitToPage || wb.VbaProject.IsSome then
+                let sheetPr = SheetProperties()
+
+                if fitToPage then
+                    sheetPr.PageSetupProperties <- PageSetupProperties(FitToPage = BooleanValue(true))
+
+                if wb.VbaProject.IsSome then
+                    sheetPr.CodeName <- StringValue(sprintf "Sheet%d" (i + 1))
+
                 ws.AppendChild(sheetPr) |> ignore
-            | _ -> ()
 
             match worksheet.FreezePane with
             | Some fp when fp.Rows > 0 || fp.Columns > 0 ->
@@ -899,12 +923,31 @@ module internal Writer =
         stylesPart.Stylesheet <- registry.BuildStylesheet()
         stylesPart.Stylesheet.Save()
 
+        // The VBA project is an opaque binary blob (see `Workbook.VbaProject`'s own doc
+        // comment) - `FeedData` just copies it into `xl/vbaProject.bin` verbatim, no XML
+        // involved, so this can happen any time before the document closes.
+        wb.VbaProject
+        |> Option.iter (fun bytes ->
+            let vbaPart = workbookPart.AddNewPart<VbaProjectPart>()
+            use ms = new MemoryStream(bytes)
+            vbaPart.FeedData(ms))
+
         workbookPart.Workbook.Save()
 
+    /// Macro-enabled content isn't just about the `vbaProject.bin` part existing - real
+    /// Excel keys off the package's own declared content type (`SpreadsheetDocumentType`)
+    /// to decide whether to trust and run macros at all, regardless of the file's on-disk
+    /// extension.
+    let private documentType (wb: Workbook) =
+        if wb.VbaProject.IsSome then
+            SpreadsheetDocumentType.MacroEnabledWorkbook
+        else
+            SpreadsheetDocumentType.Workbook
+
     let saveToStream (wb: Workbook) (stream: Stream) : unit =
-        use document = SpreadsheetDocument.Create(stream, SpreadsheetDocumentType.Workbook)
+        use document = SpreadsheetDocument.Create(stream, documentType wb)
         populate document wb
 
     let saveToFile (wb: Workbook) (path: string) : unit =
-        use document = SpreadsheetDocument.Create(path, SpreadsheetDocumentType.Workbook)
+        use document = SpreadsheetDocument.Create(path, documentType wb)
         populate document wb

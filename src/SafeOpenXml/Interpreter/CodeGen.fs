@@ -682,6 +682,9 @@ module internal CodeGen =
                   yield sprintf "withDefinedNames [ %s ]" namesStr
               match wb.Protection with
               | Some p -> yield sprintf "withProtection (%s)" (renderWorkbookProtection p)
+              | None -> ()
+              match wb.VbaProject with
+              | Some bytes -> yield sprintf "withVbaProject (System.Convert.FromBase64String(%s))" (renderString (Convert.ToBase64String(bytes)))
               | None -> () ]
 
         // Kept on one line, like every other generated statement in this function - see

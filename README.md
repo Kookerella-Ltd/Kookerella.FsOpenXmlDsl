@@ -41,7 +41,10 @@ approximated, and which aren't modeled yet.
     bytes plus a cell-range anchor) stored as a list on `Worksheet`.
   - `PivotTables.fs` — `PivotAggregation` and the `PivotTableEntry` record (source range,
     row/column/value fields, an anchor cell) stored as a list on `Worksheet`.
-  - `Model.fs` — `CellValue`, `Cell`, `Worksheet`, `Workbook`.
+  - `Model.fs` — `CellValue`, `Cell`, `Worksheet`, `Workbook` (including `Workbook.
+    VbaProject`, a macro-enabled workbook's raw `vbaProject.bin` bytes - see its own doc
+    comment; there's no dedicated `Macros.fs` since it's a single opaque field, not a new
+    type).
   - `Builders.fs` — ergonomic helpers: plain functional constructors (`cellA1`, ...) for
     the canonical model, plus the `SheetItem`/`CellEntry` types (each a single simple DU
     case with optional fields) and the `sheet` fold function - a small tree-shaped "AST
@@ -82,6 +85,9 @@ approximated, and which aren't modeled yet.
   assertions. Each scenario also gets an `Examples/<test name>/script.fsx` - see
   "Regenerating a file as F# source" below - which a separate, slower `Category=Slow` test
   group actually executes via `dotnet fsi` and verifies against the committed `.xlsx`.
+  `Assets/` holds the one test fixture too large to inline as a base64 literal like every
+  other binary fixture in `Tests.fs` - a real `vbaProject.bin` extracted from a workbook
+  actually saved by Excel, used by the macro example.
 - `samples/SafeOpenXml.Sample` — a small console app that builds a workbook, saves it,
   and reads it back.
 
@@ -157,6 +163,25 @@ workbook [ data ]
 ```
 
 `withDefinedNames`/`withProtection` compose - pipe both onto the same `workbook [...]`.
+
+Macros are also workbook-level, same pipe-friendly shape - `withVbaProject` takes the raw
+bytes of an existing `vbaProject.bin` (extracted from an `.xlsm` you already have, e.g. via
+`System.IO.Compression.ZipFile`, or authored in Excel's VBA editor and harvested the same
+way). Core doesn't decode, generate, or otherwise understand VBA source - it embeds and
+reads back exactly the bytes you give it, the same "opaque payload" treatment
+`ImageEntry.Data` gets for raster images:
+
+```fsharp
+workbook [ data ]
+|> withVbaProject (System.IO.File.ReadAllBytes("vbaProject.bin"))
+```
+
+Save the result with an `.xlsm` path - `Workbook.save`/`saveToStream` automatically switch
+the file's own declared content type to Excel's macro-enabled kind whenever a `VbaProject`
+is present, but real Excel also expects the `.xlsm` extension to trust and run macros at
+all. See [MAPPING.md](MAPPING.md) for what isn't modeled (authoring macro source, and the
+one case where the default sheet/workbook codenames Core writes won't match what a macro's
+original author intended).
 
 Print settings are a `SheetItem` too - `PageSetup` (the DU case) takes a plain
 `PageSetup` record (the type), no smart constructor, same as `Protect`/`SheetProtection`.

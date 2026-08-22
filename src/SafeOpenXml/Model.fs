@@ -69,7 +69,21 @@ module Model =
           Images: ImageEntry list
           PivotTables: PivotTableEntry list }
 
+    /// A VBA project (macros), stored as its own file's raw bytes exactly as they'd sit in
+    /// `xl/vbaProject.bin` - a compiled OLE/CFBF binary blob, not source text. This DSL
+    /// does no parsing, decompilation, or generation of VBA code (that would mean
+    /// implementing a VBA compiler and the MS-OVBA binary format from scratch); it only
+    /// embeds and hands back exactly the bytes you give it, the same "opaque payload"
+    /// treatment `ImageEntry.Data` gets for raster images. Presence of a VBA project also
+    /// switches the saved file's content type to Excel's macro-enabled kind (`Writer`
+    /// picks `SpreadsheetDocumentType.MacroEnabledWorkbook`) - real Excel refuses to trust
+    /// or run macros from a file whose content type doesn't declare them, regardless of the
+    /// file's on-disk extension, so callers should also give the output path an `.xlsm`
+    /// extension. See MAPPING.md for what this doesn't cover (authoring/editing macro
+    /// source, digitally signed projects, wiring a macro to a form control or ribbon
+    /// button).
     type Workbook =
         { Sheets: Worksheet list
           DefinedNames: DefinedNameEntry list
-          Protection: WorkbookProtection option }
+          Protection: WorkbookProtection option
+          VbaProject: byte[] option }

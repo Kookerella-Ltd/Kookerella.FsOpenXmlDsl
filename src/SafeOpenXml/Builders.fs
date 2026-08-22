@@ -35,7 +35,8 @@ module Builders =
     let workbook (sheets: Worksheet list) : Workbook =
         { Sheets = sheets
           DefinedNames = []
-          Protection = None }
+          Protection = None
+          VbaProject = None }
 
     let cellA1 (a1: string) value : Cell =
         { Ref = CellRef.ofA1 a1; Value = value; Style = None }
@@ -60,6 +61,12 @@ module Builders =
     /// Attaches workbook-level protection - pipe-friendly:
     /// `workbook [...] |> withProtection { WorkbookProtection.Default with LockStructure = Some true }`.
     let withProtection (protection: WorkbookProtection) (wb: Workbook) : Workbook = { wb with Protection = Some protection }
+
+    /// Attaches a VBA project (macros) to a workbook - pipe-friendly:
+    /// `workbook [...] |> withVbaProject (System.IO.File.ReadAllBytes("vbaProject.bin"))`.
+    /// See `Workbook.VbaProject`'s own doc comment for what this does and doesn't cover.
+    let withVbaProject (vbaProjectBytes: byte[]) (wb: Workbook) : Workbook =
+        { wb with VbaProject = Some vbaProjectBytes }
 
 /// A single cell placed within a `Row` - one simple shape, no separate "styled" or
 /// "explicit position" case. `Col = None` means "the next column after the previous entry

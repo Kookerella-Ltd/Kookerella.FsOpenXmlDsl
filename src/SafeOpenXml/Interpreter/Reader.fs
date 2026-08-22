@@ -910,9 +910,21 @@ module internal Reader =
                   LockStructure = flag wp.LockStructure
                   LockWindows = flag wp.LockWindows })
 
+        // The VBA project is opaque bytes, not XML - read back exactly what was embedded,
+        // same as `Workbook.VbaProject`'s own doc comment.
+        let vbaProject =
+            workbookPart.VbaProjectPart
+            |> Option.ofObj
+            |> Option.map (fun part ->
+                use s = part.GetStream()
+                use ms = new MemoryStream()
+                s.CopyTo(ms)
+                ms.ToArray())
+
         { Sheets = sheets
           DefinedNames = definedNames
-          Protection = protection }
+          Protection = protection
+          VbaProject = vbaProject }
 
     let loadFromStream (stream: Stream) : Workbook =
         use document = SpreadsheetDocument.Open(stream, false)
