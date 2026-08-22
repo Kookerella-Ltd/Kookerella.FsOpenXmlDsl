@@ -24,6 +24,8 @@ approximated, and which aren't modeled yet.
     see MAPPING.md for the modern threaded-comments gap).
   - `Protection.fs` — `SheetProtection`, the sheet-level protection flags stored on
     `Worksheet` (pairs with `CellStyle.Protection` for per-cell locking).
+  - `DefinedNames.fs` — `DefinedNameScope`/`DefinedNameEntry`, stored on `Workbook` rather
+    than `Worksheet` - the one DSL concept that's genuinely workbook-level.
   - `Model.fs` — `CellValue`, `Cell`, `Worksheet`, `Workbook`.
   - `Builders.fs` — ergonomic helpers: plain functional constructors (`cellA1`, ...) for
     the canonical model, plus the `SheetItem`/`CellEntry` types (each a single simple DU
@@ -105,6 +107,15 @@ Conditional formatting and data validation are `SheetItem`s too:
 ```
 
 See [MAPPING.md](MAPPING.md) for exactly which rule kinds of each are covered.
+
+Defined names are workbook-level, so they attach to the `Workbook`, not a `Worksheet`:
+
+```fsharp
+workbook [ data ]
+|> withDefinedNames
+    [ definedName "TaxRate" "Sheet1!$A$1"
+      sheetScopedDefinedName "Sheet1" "LocalTotal" "Sheet1!$A$2" ]
+```
 
 ## Building and testing
 

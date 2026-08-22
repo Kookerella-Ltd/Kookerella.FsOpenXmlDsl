@@ -78,6 +78,9 @@ let private verifyScenario (name: string) (wb: Workbook) =
     assertSchemaValid path
     wb.Sheets |> List.iter (fun sheet -> assertWorksheetRoundTrips sheet path)
 
+    let roundTripped = Workbook.load path
+    Assert.Equal<DefinedNameEntry list>(wb.DefinedNames, roundTripped.DefinedNames)
+
 // --- Core: cell values, styles, layout --------------------------------------------
 
 let private headerStyle: CellStyle =
@@ -483,3 +486,22 @@ let ``example: sheet protection with password`` () =
                       AutoFilter = Some true } ]
 
     verifyScenario "SheetProtectionWithPassword" (workbook [ data ])
+
+// --- Defined names ----------------------------------------------------------------------
+
+[<Fact>]
+let ``example: defined names`` () =
+    let data =
+        sheet
+            "Sheet1"
+            [ row [ cell (Number 0.075) ]
+              row [ cell (Number 100.0) ]
+              row [ cell (Formula("B1*(1+TaxRate)", Some 107.5)) ] ]
+
+    let wb =
+        workbook [ data ]
+        |> withDefinedNames
+            [ definedName "TaxRate" "Sheet1!$A$1"
+              sheetScopedDefinedName "Sheet1" "LocalTotal" "Sheet1!$A$2" ]
+
+    verifyScenario "DefinedNames" wb

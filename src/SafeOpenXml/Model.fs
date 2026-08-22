@@ -63,4 +63,6 @@ module Model =
           Hyperlinks: HyperlinkEntry list
           Comments: CommentEntry list }
 
-    type Workbook = { Sheets: Worksheet list }
+    type Workbook =
+        { Sheets: Worksheet list
+          DefinedNames: DefinedNameEntry list }

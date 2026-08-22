@@ -63,6 +63,27 @@ module internal Writer =
         sp.SelectUnlockedCells |> Option.iter (fun v -> el.SelectUnlockedCells <- BooleanValue(v))
         el
 
+    /// Builds a `definedName` element. `sheetIndex` maps sheet name to its 0-based
+    /// position for `SheetScope`'s translation to OOXML's `localSheetId`; a `SheetScope`
+    /// naming a sheet not in this workbook is a genuine caller mistake, not something to
+    /// paper over, so it raises rather than silently dropping the name.
+    let private definedNameElement (sheetIndex: Map<string, int>) (entry: DefinedNameEntry) : Spreadsheet.DefinedName =
+        let dn = Spreadsheet.DefinedName(entry.Formula)
+        dn.Name <- StringValue(entry.Name)
+        if entry.Hidden then dn.Hidden <- BooleanValue(true)
+
+        match entry.Scope with
+        | WorkbookScope -> ()
+        | SheetScope sheetName ->
+            match sheetIndex |> Map.tryFind sheetName with
+            | Some idx -> dn.LocalSheetId <- UInt32Value(uint32 idx)
+            | None ->
+                invalidArg
+                    (nameof entry)
+                    (sprintf "DefinedName '%s' is scoped to sheet '%s', which isn't in this workbook" entry.Name sheetName)
+
+        dn
+
     /// Same as `rangeReference`, but a single-cell range (`TopLeft = BottomRight`) writes
     /// as just `"A1"` rather than `"A1:A1"`, matching how Excel itself writes a
     /// single-cell hyperlink's `ref` attribute.
@@ -543,6 +564,15 @@ module internal Writer =
                 Sheet(Name = StringValue(worksheet.Name), SheetId = UInt32Value(sheetId), Id = StringValue(relId))
             )
             |> ignore)
+
+        if not wb.DefinedNames.IsEmpty then
+            let sheetIndex = wb.Sheets |> List.mapi (fun i s -> s.Name, i) |> Map.ofList
+            let definedNames = DefinedNames()
+
+            wb.DefinedNames
+            |> List.iter (fun entry -> definedNames.AppendChild(definedNameElement sheetIndex entry) |> ignore)
+
+            workbookPart.Workbook.AppendChild(definedNames) |> ignore
 
         let sstPart = workbookPart.AddNewPart<SharedStringTablePart>()
         let sst = SharedStringTable()

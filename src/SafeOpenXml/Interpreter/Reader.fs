@@ -635,7 +635,31 @@ module internal Reader =
                 readWorksheet sharedStrings stylesheet customFormats sheetEl.Name.Value worksheetPart)
             |> List.ofSeq
 
-        { Sheets = sheets }
+        let sheetNames = sheets |> List.map (fun s -> s.Name) |> Array.ofList
+
+        let definedNames =
+            match workbookPart.Workbook.DefinedNames with
+            | null -> []
+            | dns ->
+                dns.Elements<Spreadsheet.DefinedName>()
+                |> Seq.choose (fun dn ->
+                    match Option.ofObj dn.Name with
+                    | None -> None
+                    | Some nameVal ->
+                        let scope =
+                            match Option.ofObj dn.LocalSheetId with
+                            | Some idx when int idx.Value < sheetNames.Length -> SheetScope sheetNames.[int idx.Value]
+                            | _ -> WorkbookScope
+
+                        Some
+                            { Name = nameVal.Value
+                              Formula = dn.Text
+                              Scope = scope
+                              Hidden = not (isNull dn.Hidden) && dn.Hidden.Value })
+                |> List.ofSeq
+
+        { Sheets = sheets
+          DefinedNames = definedNames }
 
     let loadFromStream (stream: Stream) : Workbook =
         use document = SpreadsheetDocument.Open(stream, false)

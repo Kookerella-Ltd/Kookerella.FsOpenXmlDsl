@@ -26,7 +26,7 @@ module Builders =
     let sheetOfCells (name: string) (cells: Cell list) : Worksheet =
         { emptySheet name with Cells = cells }
 
-    let workbook (sheets: Worksheet list) : Workbook = { Sheets = sheets }
+    let workbook (sheets: Worksheet list) : Workbook = { Sheets = sheets; DefinedNames = [] }
 
     let cellA1 (a1: string) value : Cell =
         { Ref = CellRef.ofA1 a1; Value = value; Style = None }
@@ -35,6 +35,18 @@ module Builders =
         { Ref = CellRef.ofA1 a1; Value = value; Style = Some style }
 
     let withStyle style (c: Cell) : Cell = { c with Style = Some style }
+
+    /// A workbook-scoped defined name, usable from any sheet.
+    let definedName (name: string) (formula: string) : DefinedNameEntry =
+        { Name = name; Formula = formula; Scope = WorkbookScope; Hidden = false }
+
+    /// A defined name scoped to one sheet - shadows a workbook-scoped name of the same
+    /// name when used from that sheet.
+    let sheetScopedDefinedName (sheetName: string) (name: string) (formula: string) : DefinedNameEntry =
+        { Name = name; Formula = formula; Scope = SheetScope sheetName; Hidden = false }
+
+    /// Attaches defined names to a workbook - pipe-friendly: `workbook [...] |> withDefinedNames [...]`.
+    let withDefinedNames (names: DefinedNameEntry list) (wb: Workbook) : Workbook = { wb with DefinedNames = names }
 
 /// A single cell placed within a `Row` - one simple shape, no separate "styled" or
 /// "explicit position" case. `Col = None` means "the next column after the previous entry

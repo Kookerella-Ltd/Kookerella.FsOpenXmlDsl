@@ -55,6 +55,10 @@ need to be added to close the gap.
   the gap below. Confirmed in real Excel: per-cell unlock behaves correctly (all other
   cells stay locked, as Excel itself defaults), and the password hash is correct - Excel
   accepts the intended password when unprotecting.
+- Defined names: workbook-scoped or sheet-scoped named ranges/formulas/constants
+  (`DefinedNameEntry`, stored on `Workbook` rather than `Worksheet` - the one DSL concept
+  that's genuinely workbook-level, not per-sheet). `SheetScope` is expressed by sheet name
+  and translated to/from OOXML's index-based `localSheetId` automatically.
 
 ## Known gaps (documented, not silently "supported")
 
@@ -94,8 +98,8 @@ need to be added to close the gap.
   dropped.
 - **Split panes.** Only the common "frozen leading rows/columns" case is modeled; the
   independent-scroll "Split" pane state is not.
-- **Workbook-level metadata.** Defined names/named ranges, active sheet/tab selection, and
-  window sizing are not modeled.
+- **Workbook-level metadata.** Active sheet/tab selection and window sizing are not
+  modeled (defined names are, as of `DefinedNameEntry` - see above).
 - **Conditional formatting rule kinds.** Icon sets, "top/bottom N (or %)", above-average,
   time-period, and the text/blank/error-contains rule kinds are not modeled — a `cfRule`
   of one of these kinds is silently dropped on read (per this project's "drop what isn't
@@ -143,7 +147,8 @@ real files the same way Core was:
 - Charts
 - Images / drawings
 - Pivot tables
-- Sheet/workbook protection
+- Workbook-level protection (protecting the workbook structure itself - sheet ordering,
+  visibility - as distinct from the per-sheet protection Core already models)
 - Print settings and page setup
 - Tables (`ListObject`s / structured references)
 - Sparklines
