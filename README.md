@@ -43,14 +43,18 @@ approximated, and which aren't modeled yet.
     shared OOXML stylesheet (internal).
   - `Interpreter/Writer.fs` — DSL → OOXML (internal).
   - `Interpreter/Reader.fs` — OOXML → DSL, the reverse transform (internal).
-  - `Api.fs` — the public `Workbook.save` / `saveToStream` / `load` / `loadFromStream`
-    entry points.
+  - `Interpreter/CodeGen.fs` — DSL → F# *source text*: renders a `Workbook` back out as a
+    self-contained `.fsx` script that rebuilds an equivalent file when run (internal).
+  - `Api.fs` — the public `Workbook.save` / `saveToStream` / `load` / `loadFromStream` /
+    `generateScript` entry points.
 - `tests/SafeOpenXml.Tests` — one test per feature, each validating the produced file
   against the OOXML schema (`DocumentFormat.OpenXml.Validation.OpenXmlValidator`) and
   asserting an exact round trip back through the DSL. Each test also writes the workbook
   it builds to `Examples/<test name>/output.xlsx` (checked into the repo), so every
   feature has a real, openable `.xlsx` demonstrating it - a browsable gallery, not just
-  assertions.
+  assertions. Each scenario also gets an `Examples/<test name>/script.fsx` - see
+  "Regenerating a file as F# source" below - which a separate, slower `Category=Slow` test
+  group actually executes via `dotnet fsi` and verifies against the committed `.xlsx`.
 - `samples/SafeOpenXml.Sample` — a small console app that builds a workbook, saves it,
   and reads it back.
 
@@ -117,10 +121,50 @@ workbook [ data ]
       sheetScopedDefinedName "Sheet1" "LocalTotal" "Sheet1!$A$2" ]
 ```
 
+## Regenerating a file as F# source
+
+Given a `Workbook` (typically one you just `Workbook.load`ed from an existing file),
+`Workbook.generateScript` renders it back out as a self-contained `.fsx` script that
+rebuilds an equivalent file when run - a code-generating counterpart to `Workbook.load`,
+one level further than the reverse transform: instead of data, you get DSL *source text*.
+It has no opinion on how the script locates the SafeOpenXml assembly, so you supply the
+`#r` lines yourself:
+
+```fsharp
+let wb = Workbook.load "input.xlsx"
+
+let referenceLines =
+    [ "#r \"path/to/SafeOpenXml.dll\""
+      "#r \"path/to/DocumentFormat.OpenXml.dll\"" ]
+
+let script = Workbook.generateScript referenceLines "output.xlsx" wb
+System.IO.File.WriteAllText("regenerate.fsx", script)
+```
+
+Running `dotnet fsi regenerate.fsx` produces `output.xlsx` - not byte-identical to the
+original (zip metadata/timestamps differ) but structurally equivalent through the same
+round-trip lens every other test in this repo uses. Generated code only ever mentions
+fields that differ from `CellStyle.Default`/`BorderStyle.None`/etc., and only gives a
+row/cell an explicit `index`/`col` where the source actually has a gap - see
+`Interpreter/CodeGen.fs`. Every scenario under `tests/SafeOpenXml.Tests/Examples/` has a
+committed `script.fsx` generated exactly this way; the `Category=Slow` test group is what
+actually runs each one via `dotnet fsi` and checks it reproduces the committed `.xlsx`.
+
 ## Building and testing
 
 ```bash
 dotnet build
-dotnet test
+dotnet test --filter "Category!=Slow"
 dotnet run --project samples/SafeOpenXml.Sample
 ```
+
+The default loop above skips the slow `Category=Slow` tests, which actually invoke
+`dotnet fsi` on every generated `Examples/*/script.fsx` (multi-second process startup
+each, so ~30-60s total) rather than just checking the generated source parses. Run those
+explicitly, after the fast suite has populated the `.fsx` files at least once:
+
+```bash
+dotnet test --filter "Category=Slow"
+```
+
+Plain `dotnet test` (no filter) runs both groups.

@@ -10,10 +10,12 @@
   </ItemGroup>
 
   <ItemGroup>
-    <!-- Not compiled - these are the per-scenario example workbooks each test in
-         Tests.fs generates. Listed explicitly so Solution Explorer shows them; F#'s SDK
-         doesn't auto-include files the way C#'s does. -->
+    <!-- Not compiled - these are the per-scenario example workbooks (and their
+         regenerating scripts) each test in Tests.fs generates. Listed explicitly so
+         Solution Explorer shows them; F#'s SDK doesn't auto-include files the way C#'s
+         does. -->
     <None Include="Examples\**\*.xlsx" />
+    <None Include="Examples\**\*.fsx" />
   </ItemGroup>
 
   <ItemGroup>

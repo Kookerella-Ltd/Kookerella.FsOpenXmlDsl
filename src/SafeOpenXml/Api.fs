@@ -14,3 +14,10 @@ module Workbook =
     let load (path: string) : Workbook = Reader.loadFromFile path
 
     let loadFromStream (stream: Stream) : Workbook = Reader.loadFromStream stream
+
+    /// Renders `wb` as a self-contained F# script that, when run, rebuilds an equivalent
+    /// file at `outputFileName`. `referenceLines` are whatever raw `#r` directives the
+    /// caller needs so the script can locate the SafeOpenXml assembly - this has no
+    /// opinion on that, since it depends on where the script ends up living.
+    let generateScript (referenceLines: string list) (outputFileName: string) (wb: Workbook) : string =
+        CodeGen.generate referenceLines outputFileName wb

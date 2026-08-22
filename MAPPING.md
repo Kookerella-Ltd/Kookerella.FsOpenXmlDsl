@@ -59,6 +59,13 @@ need to be added to close the gap.
   (`DefinedNameEntry`, stored on `Workbook` rather than `Worksheet` - the one DSL concept
   that's genuinely workbook-level, not per-sheet). `SheetScope` is expressed by sheet name
   and translated to/from OOXML's index-based `localSheetId` automatically.
+- Code generation: `Workbook.generateScript` renders any `Workbook` value (including one
+  produced by `Workbook.load`) back out as an `.fsx` script that rebuilds a structurally
+  equivalent file when run via `dotnet fsi` - covers every DSL construct above, since it's
+  a direct pretty-printer over the same types (`Interpreter/CodeGen.fs`), not a separate
+  model. Verified for every scenario in `tests/SafeOpenXml.Tests/Examples/`: each one's
+  committed `script.fsx` is actually executed (not just generated) by the `Category=Slow`
+  test group.
 
 ## Known gaps (documented, not silently "supported")
 

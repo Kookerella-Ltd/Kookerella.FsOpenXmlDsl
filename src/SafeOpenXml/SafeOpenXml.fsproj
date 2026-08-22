@@ -18,6 +18,7 @@
     <Compile Include="Interpreter\StyleRegistry.fs" />
     <Compile Include="Interpreter\Writer.fs" />
     <Compile Include="Interpreter\Reader.fs" />
+    <Compile Include="Interpreter\CodeGen.fs" />
     <Compile Include="Api.fs" />
   </ItemGroup>
 

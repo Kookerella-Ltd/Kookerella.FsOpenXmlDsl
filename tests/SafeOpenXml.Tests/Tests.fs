@@ -1,6 +1,7 @@
 module SafeOpenXml.Tests
 
 open System
+open System.Diagnostics
 open System.IO
 open Xunit
 open DocumentFormat.OpenXml.Packaging
@@ -67,8 +68,22 @@ let private assertWorksheetRoundTrips (original: Worksheet) (path: string) =
     Assert.Equal<HyperlinkEntry list>(original.Hyperlinks, actual.Hyperlinks)
     Assert.Equal<CommentEntry list>(original.Comments, actual.Comments)
 
+/// An F# string literal can't contain a raw backslash, so a Windows assembly path needs
+/// its separators doubled before it's safe to splice into a generated `#r "..."` line.
+let private hashR (assemblyLocation: string) =
+    sprintf "#r \"%s\"" (assemblyLocation.Replace("\\", "\\\\"))
+
+/// `dotnet fsi` needs `#r` for both SafeOpenXml itself and its OpenXml SDK dependency -
+/// resolved from whatever assemblies this very test run already loaded, so the generated
+/// scripts work regardless of build configuration (Debug/Release) or where the repo lives.
+let private codeGenReferenceLines =
+    [ hashR typeof<Workbook>.Assembly.Location
+      hashR typeof<SpreadsheetDocument>.Assembly.Location ]
+
 /// Saves `wb` to `Examples/<name>/output.xlsx`, asserts the file is schema-valid, and
-/// asserts every sheet round-trips exactly back through the DSL.
+/// asserts every sheet round-trips exactly back through the DSL. Also writes an
+/// `Examples/<name>/script.fsx` that regenerates the same file - see the `Category=Slow`
+/// tests below for where that script actually gets executed and verified.
 let private verifyScenario (name: string) (wb: Workbook) =
     let dir = Path.Combine(examplesDir, name)
     Directory.CreateDirectory(dir) |> ignore
@@ -80,6 +95,9 @@ let private verifyScenario (name: string) (wb: Workbook) =
 
     let roundTripped = Workbook.load path
     Assert.Equal<DefinedNameEntry list>(wb.DefinedNames, roundTripped.DefinedNames)
+
+    let script = Workbook.generateScript codeGenReferenceLines "output.xlsx" wb
+    File.WriteAllText(Path.Combine(dir, "script.fsx"), script)
 
 // --- Core: cell values, styles, layout --------------------------------------------
 
@@ -505,3 +523,65 @@ let ``example: defined names`` () =
               sheetScopedDefinedName "Sheet1" "LocalTotal" "Sheet1!$A$2" ]
 
     verifyScenario "DefinedNames" wb
+
+// --- Generated-script verification (slow: actually runs `dotnet fsi`) -------------------
+//
+// Every scenario above writes its own Examples/<name>/script.fsx as a side effect of
+// `verifyScenario`. These tests are the only place that script actually gets *executed*
+// rather than just generated - each one runs its scenario's script via `dotnet fsi` and
+// checks the regenerated output.xlsx round-trips to the same Workbook value as the
+// committed one. Running `dotnet fsi` from cold is slow (multi-second startup per
+// process), so this is its own Category=Slow group rather than part of the default
+// `dotnet test` loop - run it explicitly with:
+//   dotnet test --filter "Category=Slow"
+// The default fast loop is:
+//   dotnet test --filter "Category!=Slow"
+
+/// One `obj[]` per scenario folder that has a `script.fsx` (i.e. every scenario above, once
+/// its fast test has run at least once) - discovered from disk rather than hand-listed, so
+/// a new scenario is automatically covered without touching this file.
+let scenarioNames : obj[] seq =
+    if Directory.Exists examplesDir then
+        Directory.GetDirectories examplesDir
+        |> Seq.filter (fun dir -> File.Exists(Path.Combine(dir, "script.fsx")))
+        |> Seq.map (fun dir -> [| box (Path.GetFileName dir) |])
+    else
+        Seq.empty
+
+[<Theory>]
+[<Trait("Category", "Slow")>]
+[<MemberData(nameof scenarioNames)>]
+let ``example script regenerates an equivalent file`` (name: string) =
+    let dir = Path.Combine(examplesDir, name)
+    let scriptPath = Path.Combine(dir, "script.fsx")
+    let outputPath = Path.Combine(dir, "output.xlsx")
+
+    let before = Workbook.load outputPath
+
+    // The OpenXml SDK's read side can leave a memory-mapped view of the file lingering
+    // past `Dispose` on Windows (a documented SDK quirk, not something under this
+    // library's control) - without forcing it closed here, the `dotnet fsi` subprocess
+    // below can fail to reopen the same path with "a file with a user-mapped section open".
+    GC.Collect()
+    GC.WaitForPendingFinalizers()
+
+    use proc =
+        Process.Start(
+            ProcessStartInfo(
+                FileName = "dotnet",
+                Arguments = sprintf "fsi \"%s\"" scriptPath,
+                WorkingDirectory = dir,
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true
+            )
+        )
+
+    let stdout = proc.StandardOutput.ReadToEnd()
+    let stderr = proc.StandardError.ReadToEnd()
+    proc.WaitForExit()
+
+    Assert.True(proc.ExitCode = 0, sprintf "dotnet fsi %s failed (exit %d):\n%s\n%s" name proc.ExitCode stdout stderr)
+
+    let after = Workbook.load outputPath
+    Assert.Equal<Workbook>(before, after)
