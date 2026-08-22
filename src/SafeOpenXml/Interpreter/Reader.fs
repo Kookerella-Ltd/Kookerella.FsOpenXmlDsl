@@ -794,6 +794,8 @@ module internal Reader =
 
         let comments = readComments worksheetPart
 
+        let pivotTables = PivotTableReader.readPivotTables worksheetPart name
+
         { Name = name
           Cells = cells
           ColumnProps = columnProps
@@ -810,7 +812,8 @@ module internal Reader =
           Tables = tables
           SparklineGroups = sparklineGroups
           Charts = charts
-          Images = images }
+          Images = images
+          PivotTables = pivotTables }
 
     /// Reverses `Writer.absolutePrintAreaRange`/`printAreaDefinedNameElement`: splits the
     /// comma-separated range list, strips each range's sheet-name qualifier (print area is

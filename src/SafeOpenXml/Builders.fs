@@ -23,7 +23,8 @@ module Builders =
           Tables = []
           SparklineGroups = []
           Charts = []
-          Images = [] }
+          Images = []
+          PivotTables = [] }
 
     /// Builds a `Worksheet` directly from a flat, pre-addressed cell list - for when your
     /// cells don't naturally arrive grouped by row (e.g. already `CellRef`-addressed data).
@@ -110,7 +111,11 @@ type CellEntry = Cell of col: int option * value: CellValue * style: CellStyle o
 /// `EmbeddedImage` doesn't collide with anything by that logic (`Picture`, not `Image`,
 /// is the OOXML type name) but is named to match `EmbeddedChart` for consistency, since
 /// both share one drawing canvas per worksheet (`Interpreter/DrawingWriter.fs`/
-/// `DrawingReader.fs`).
+/// `DrawingReader.fs`). `EmbeddedPivotTable` likewise doesn't collide with anything
+/// (`DocumentFormat.OpenXml.Spreadsheet.PivotTableDefinition`, not bare `PivotTable`, is
+/// the OOXML type name - that whole namespace's pivot-related types are plain enough to
+/// `open` directly in `Interpreter/PivotTableWriter.fs`/`PivotTableReader.fs`) but keeps
+/// the same naming convention regardless.
 type SheetItem =
     | Row of index: int option * cells: CellEntry list
     | ColumnWidth of index: int * width: float
@@ -128,6 +133,7 @@ type SheetItem =
     | SparklineGroup of entry: SparklineGroupEntry
     | EmbeddedChart of entry: ChartEntry
     | EmbeddedImage of entry: ImageEntry
+    | EmbeddedPivotTable of entry: PivotTableEntry
 
 /// Smart constructors for `CellEntry`/`SheetItem`, as members with real optional
 /// parameters (`?col`, `?style`, `?index`) rather than several separately-named functions
@@ -364,6 +370,13 @@ module SheetItems =
             | EmbeddedImage entry -> Some entry
             | _ -> None)
 
+    /// Extracts `EmbeddedPivotTable` facts - order doesn't matter, same as `EmbeddedChart`.
+    let private pivotTablesOf (items: SheetItem list) : PivotTableEntry list =
+        items
+        |> List.choose (function
+            | EmbeddedPivotTable entry -> Some entry
+            | _ -> None)
+
     /// Interprets a flat list of `SheetItem` facts into the canonical `Worksheet` record.
     /// Each concern above is a small pure function over the same `items` list - no shared
     /// mutable state - so adding a new kind of fact later means adding a new function and
@@ -385,4 +398,5 @@ module SheetItems =
           Tables = tablesOf items
           SparklineGroups = sparklineGroupsOf items
           Charts = chartsOf items
-          Images = imagesOf items }
+          Images = imagesOf items
+          PivotTables = pivotTablesOf items }

@@ -45,10 +45,23 @@ let private assertWorksheetRoundTrips (original: Worksheet) (path: string) =
     let roundTripped = Workbook.load path
     let actual = roundTripped.Sheets |> List.find (fun s -> s.Name = original.Name)
 
-    Assert.Equal<Cell list>(
-        original.Cells |> List.sortBy (fun c -> c.Ref.Row, c.Ref.Col),
-        actual.Cells |> List.sortBy (fun c -> c.Ref.Row, c.Ref.Col)
-    )
+    if original.PivotTables.IsEmpty then
+        Assert.Equal<Cell list>(
+            original.Cells |> List.sortBy (fun c -> c.Ref.Row, c.Ref.Col),
+            actual.Cells |> List.sortBy (fun c -> c.Ref.Row, c.Ref.Col)
+        )
+    else
+        // A pivot table injects its computed grid into the sheet's cells at write time -
+        // see `PivotTableEntry`'s own doc comment - so `actual.Cells` legitimately has
+        // more entries than `original` ever specified. Assert every originally-authored
+        // cell survived unchanged instead of exact equality; the pivot table tests
+        // themselves separately assert the computed grid's own values are correct.
+        let actualByRef = actual.Cells |> List.map (fun c -> c.Ref, c) |> Map.ofList
+
+        for cell in original.Cells do
+            match actualByRef.TryFind cell.Ref with
+            | Some actualCell -> Assert.Equal<Cell>(cell, actualCell)
+            | None -> Assert.Fail(sprintf "Expected authored cell at %s to survive, but it's missing" (CellRef.toA1 cell.Ref))
 
     Assert.Equal<Map<int, ColumnProps>>(original.ColumnProps, actual.ColumnProps)
     Assert.Equal<Map<int, RowProps>>(original.RowProps, actual.RowProps)
@@ -74,6 +87,7 @@ let private assertWorksheetRoundTrips (original: Worksheet) (path: string) =
     // F#'s structural equality on records compares `byte[]` fields by content, not
     // reference, so this is a genuine byte-for-byte comparison of the embedded image data.
     Assert.Equal<ImageEntry list>(original.Images, actual.Images)
+    Assert.Equal<PivotTableEntry list>(original.PivotTables, actual.PivotTables)
 
 /// An F# string literal can't contain a raw backslash, so a Windows assembly path needs
 /// its separators doubled before it's safe to splice into a generated `#r "..."` line.
@@ -817,6 +831,126 @@ let ``example: chart and image sharing one worksheet's drawing canvas`` () =
                     BottomRightAnchor = CellRef.ofA1 "F15" } ]
 
     verifyScenario "ChartAndImage" (workbook [ data ])
+
+// --- Pivot tables ------------------------------------------------------------------------
+//
+// Unlike every scenario above, a pivot table's correctness isn't fully captured by
+// `PivotTableEntry` round-tripping - the actual point is the *computed* grid, so each
+// test here also loads the saved file back and asserts specific aggregated cell values
+// by hand, rather than relying only on `verifyScenario`'s generic equality check.
+
+let private numberAt (wb: Workbook) (sheetName: string) (a1: string) : float =
+    let sheet = wb.Sheets |> List.find (fun s -> s.Name = sheetName)
+    let cellRef = CellRef.ofA1 a1
+
+    match sheet.Cells |> List.tryFind (fun c -> c.Ref = cellRef) with
+    | Some { Value = Number n } -> n
+    | other -> failwithf "Expected a number at %s on '%s', got %A" a1 sheetName other
+
+[<Fact>]
+let ``example: pivot table row field only`` () =
+    let data =
+        sheet
+            "Sheet1"
+            [ row [ cell (Text "Region"); cell (Text "Sales") ]
+              row [ cell (Text "East"); cell (Number 10.0) ]
+              row [ cell (Text "West"); cell (Number 20.0) ]
+              row [ cell (Text "East"); cell (Number 5.0) ]
+              row [ cell (Text "West"); cell (Number 15.0) ]
+              EmbeddedPivotTable
+                  { SourceSheet = None
+                    SourceTopLeft = CellRef.ofA1 "A1"
+                    SourceBottomRight = CellRef.ofA1 "B5"
+                    RowField = "Region"
+                    ColumnField = None
+                    ValueField = "Sales"
+                    Aggregation = PivotSum
+                    ValueCaption = None
+                    TopLeftAnchor = CellRef.ofA1 "D1" } ]
+
+    let scenarioName = "PivotTableRowOnly"
+    verifyScenario scenarioName (workbook [ data ])
+
+    let roundTripped = Workbook.load (Path.Combine(examplesDir, scenarioName, "output.xlsx"))
+    Assert.Equal(15.0, numberAt roundTripped "Sheet1" "E2")
+    Assert.Equal(35.0, numberAt roundTripped "Sheet1" "E3")
+    Assert.Equal(50.0, numberAt roundTripped "Sheet1" "E4")
+
+[<Fact>]
+let ``example: pivot table row and column fields`` () =
+    let data =
+        sheet
+            "Sheet1"
+            [ row [ cell (Text "Region"); cell (Text "Quarter"); cell (Text "Sales") ]
+              row [ cell (Text "East"); cell (Text "Q1"); cell (Number 10.0) ]
+              row [ cell (Text "East"); cell (Text "Q2"); cell (Number 5.0) ]
+              row [ cell (Text "West"); cell (Text "Q1"); cell (Number 20.0) ]
+              row [ cell (Text "West"); cell (Text "Q2"); cell (Number 15.0) ]
+              EmbeddedPivotTable
+                  { SourceSheet = None
+                    SourceTopLeft = CellRef.ofA1 "A1"
+                    SourceBottomRight = CellRef.ofA1 "C5"
+                    RowField = "Region"
+                    ColumnField = Some "Quarter"
+                    ValueField = "Sales"
+                    Aggregation = PivotSum
+                    ValueCaption = Some "Total Sales"
+                    TopLeftAnchor = CellRef.ofA1 "E1" } ]
+
+    let scenarioName = "PivotTableRowAndColumn"
+    verifyScenario scenarioName (workbook [ data ])
+
+    let roundTripped = Workbook.load (Path.Combine(examplesDir, scenarioName, "output.xlsx"))
+    // E1 Region | F1 Q1 | G1 Q2 | H1 Grand Total
+    // E2 East   | F2 10 | G2 5  | H2 15
+    // E3 West   | F3 20 | G3 15 | H3 35
+    // E4 Grand Total | F4 30 | G4 20 | H4 50
+    Assert.Equal(10.0, numberAt roundTripped "Sheet1" "F2")
+    Assert.Equal(5.0, numberAt roundTripped "Sheet1" "G2")
+    Assert.Equal(15.0, numberAt roundTripped "Sheet1" "H2")
+    Assert.Equal(20.0, numberAt roundTripped "Sheet1" "F3")
+    Assert.Equal(15.0, numberAt roundTripped "Sheet1" "G3")
+    Assert.Equal(35.0, numberAt roundTripped "Sheet1" "H3")
+    Assert.Equal(30.0, numberAt roundTripped "Sheet1" "F4")
+    Assert.Equal(20.0, numberAt roundTripped "Sheet1" "G4")
+    Assert.Equal(50.0, numberAt roundTripped "Sheet1" "H4")
+
+[<Fact>]
+let ``example: pivot table sourced from another sheet`` () =
+    let sourceSheet =
+        sheet
+            "Data"
+            [ row [ cell (Text "Category"); cell (Text "Amount") ]
+              row [ cell (Text "A"); cell (Number 3.0) ]
+              row [ cell (Text "B"); cell (Number 7.0) ]
+              row [ cell (Text "A"); cell (Number 4.0) ] ]
+
+    let reportSheet =
+        sheet
+            "Report"
+            [ row [ cell (Text "Pivot table below:") ]
+              EmbeddedPivotTable
+                  { SourceSheet = Some "Data"
+                    SourceTopLeft = CellRef.ofA1 "A1"
+                    SourceBottomRight = CellRef.ofA1 "B4"
+                    RowField = "Category"
+                    ColumnField = None
+                    ValueField = "Amount"
+                    Aggregation = PivotCount
+                    ValueCaption = None
+                    TopLeftAnchor = CellRef.ofA1 "A3" } ]
+
+    let scenarioName = "PivotTableAcrossSheets"
+    verifyScenario scenarioName (workbook [ sourceSheet; reportSheet ])
+
+    let roundTripped = Workbook.load (Path.Combine(examplesDir, scenarioName, "output.xlsx"))
+    // A3 Category | B3 Count of Amount
+    // A4 A        | B4 2
+    // A5 B        | B5 1
+    // A6 Grand Total | B6 3
+    Assert.Equal(2.0, numberAt roundTripped "Report" "B4")
+    Assert.Equal(1.0, numberAt roundTripped "Report" "B5")
+    Assert.Equal(3.0, numberAt roundTripped "Report" "B6")
 
 // --- Generated-script verification (slow: actually runs `dotnet fsi`) -------------------
 //

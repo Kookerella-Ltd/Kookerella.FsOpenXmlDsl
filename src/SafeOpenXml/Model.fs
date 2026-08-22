@@ -66,7 +66,8 @@ module Model =
           Tables: TableEntry list
           SparklineGroups: SparklineGroupEntry list
           Charts: ChartEntry list
-          Images: ImageEntry list }
+          Images: ImageEntry list
+          PivotTables: PivotTableEntry list }
 
     type Workbook =
         { Sheets: Worksheet list

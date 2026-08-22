@@ -39,6 +39,8 @@ approximated, and which aren't modeled yet.
     `ChartEntry` record stored as a list on `Worksheet` (a sheet can have several).
   - `Images.fs` — raster images: `ImageFormat` and the `ImageEntry` record (raw file
     bytes plus a cell-range anchor) stored as a list on `Worksheet`.
+  - `PivotTables.fs` — `PivotAggregation` and the `PivotTableEntry` record (source range,
+    row/column/value fields, an anchor cell) stored as a list on `Worksheet`.
   - `Model.fs` — `CellValue`, `Cell`, `Worksheet`, `Workbook`.
   - `Builders.fs` — ergonomic helpers: plain functional constructors (`cellA1`, ...) for
     the canonical model, plus the `SheetItem`/`CellEntry` types (each a single simple DU
@@ -62,6 +64,10 @@ approximated, and which aren't modeled yet.
   - `Interpreter/DrawingWriter.fs` / `DrawingReader.fs` — own the one `DrawingsPart`/
     `<drawing>` relationship a worksheet gets when it has charts and/or images, since both
     features share that one drawing canvas rather than each managing their own (internal).
+  - `Interpreter/PivotTableWriter.fs` / `PivotTableReader.fs` — pivot tables' own group-by
+    + aggregate engine plus DSL ↔ OOXML translation (`pivotCacheDefinition`/
+    `pivotCacheRecords`/`pivotTableDefinition`), split out from `Writer.fs`/`Reader.fs` the
+    same way charts and images are (internal).
   - `Interpreter/Writer.fs` — DSL → OOXML (internal).
   - `Interpreter/Reader.fs` — OOXML → DSL, the reverse transform (internal).
   - `Interpreter/CodeGen.fs` — DSL → F# *source text*: renders a `Workbook` back out as a
@@ -250,6 +256,32 @@ A worksheet's charts and images share one drawing canvas under the hood (Excel o
 a sheet one at all), which is transparent to you as a caller - just add both kinds of
 `SheetItem` to the same sheet. See [MAPPING.md](MAPPING.md) for what isn't modeled (formats
 beyond PNG/JPEG/GIF/BMP, free-floating position, cropping, linked-not-embedded images).
+
+Pivot tables are also a `SheetItem` - `EmbeddedPivotTable` (not bare `PivotTable`, again
+for naming consistency with `EmbeddedChart`/`EmbeddedImage`) takes a plain `PivotTableEntry`
+record. Unlike every other feature, this one does real work at write time rather than a
+pure translation: it groups the source range by `RowField` (and `ColumnField`, if given),
+aggregates `ValueField`, and writes both a real Excel pivot cache and the resulting grid of
+computed cells:
+
+```fsharp
+[ EmbeddedPivotTable
+    { SourceSheet = None // defaults to this sheet; can name another
+      SourceTopLeft = CellRef.ofA1 "A1"
+      SourceBottomRight = CellRef.ofA1 "C5"
+      RowField = "Region"
+      ColumnField = Some "Quarter"
+      ValueField = "Sales"
+      Aggregation = PivotSum
+      ValueCaption = Some "Total Sales"
+      TopLeftAnchor = CellRef.ofA1 "E1" } ]
+```
+
+The source range's first row must be plain `Text` header cells naming each field. This is
+deliberately scoped to what a single field per axis can express - one row field, at most
+one column field, one value field, Tabular layout, grand totals only - see
+[MAPPING.md](MAPPING.md) for the reasoning and what a richer pivot table (nested fields,
+multiple value fields, page filters) would need instead.
 
 ## Regenerating a file as F# source
 

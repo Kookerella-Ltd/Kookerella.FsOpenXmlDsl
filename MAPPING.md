@@ -126,6 +126,25 @@ need to be added to close the gap.
   it (`Interpreter/DrawingWriter.fs`/`DrawingReader.fs` own that shared part; `ImageWriter.
   fs`/`ImageReader.fs` handle the picture-specific element shapes). See the gaps below for
   what isn't modeled (free-floating position, rotation, cropping, alt text, other formats).
+- Pivot tables: a genuine aggregation engine, not a structural pass-through - given a
+  source range with a header row (on the same sheet or a different one), `PivotTableEntry`
+  groups its rows by one row field and (optionally) one column field, aggregates one value
+  field (`PivotSum`/`PivotCount`/`PivotCountNumbers`/`PivotAverage`/`PivotMin`/`PivotMax`),
+  and writes the result as a real Excel pivot table anchored at a cell: a `pivotCacheDefinition`
+  + `pivotCacheRecords` part pair (`xl/pivotCache/`) holding the distinct source rows Excel
+  itself would cache, a `pivotTableDefinition` part (`xl/pivotTables/`) in Tabular layout with
+  row/column items and a grand total row and column, and workbook-level `<pivotCaches>` wiring
+  - all built from the OOXML SDK's typed `Spreadsheet` classes (`Interpreter/
+  PivotTableWriter.fs`), the same as every other feature. Because a pivot table's on-screen
+  grid is pre-rendered content in the file format (Excel only recomputes it on an explicit
+  refresh, it doesn't derive the grid from the cache at open time), the computed cells are
+  merged into the worksheet's own cell list at write time - a pivot table is the one feature
+  whose `.Cells` a caller writes aren't exactly what ends up in the file (see `Interpreter/
+  Writer.fs`'s per-sheet `worksheet` shadowing). Reading is best-effort and narrow
+  (`Interpreter/PivotTableReader.fs`): a foreign file's pivot table is only recognized if it
+  matches this exact shape (one row field, at most one column field, one data field); anything
+  richer is silently skipped rather than partially/incorrectly modeled. See the gaps below for
+  what this deliberately doesn't cover.
 - Code generation: `Workbook.generateScript` renders any `Workbook` value (including one
   produced by `Workbook.load`) back out as an `.fsx` script that rebuilds a structurally
   equivalent file when run via `dotnet fsi` - covers every DSL construct above, since it's
@@ -288,6 +307,22 @@ need to be added to close the gap.
   directly into the workbook (`<a:blip r:embed="...">`) - Excel's "link to file" option
   (`<a:blip r:link="...">`, no image data in the workbook at all) isn't modeled; a foreign
   file using it has that image dropped on read rather than followed.
+- **Pivot tables with more than one row field, more than one column field, or more than
+  one value field.** `PivotTableEntry` deliberately caps each axis at what a single field
+  can express - no nested row/column fields (which would need OOXML's row-item repeat-count
+  mechanism), no subtotals beyond a single grand total (a lone field per axis can't have
+  "sub"totals, only a terminal grand total), and no "Σ Values" pseudo-column-field that real
+  Excel introduces automatically once a pivot table has two or more value fields. A foreign
+  file's richer pivot table isn't partially modeled - it's skipped entirely on read.
+- **Pivot table page/filter fields, and non-Tabular layouts.** No page/report filter fields
+  are modeled. Pivot tables are always written in Tabular form (every row field gets its own
+  column, values indented under labels) rather than Excel's default Compact form, since
+  Compact form's outline/indentation levels aren't modeled.
+- **Pivot table aggregations beyond Sum/Count/CountNumbers/Average/Min/Max.** Excel's
+  remaining subtotal functions (Product, StdDev, StdDevp, Var, Varp) aren't modeled.
+- **Pivot table styling and refresh behavior.** The style is always the fixed
+  `PivotStyleLight16`; banded rows, custom number formats on the value field, and
+  manual-refresh-only (vs. `refreshOnLoad`) aren't configurable.
 
 ## Out of scope for Core (candidates for a future extension)
 
@@ -296,7 +331,6 @@ was scoped to the cell/style/layout fundamentals first (see the assistant's init
 proposal). Each would be its own reasonably-sized module to add later, verified against
 real files the same way Core was:
 
-- Pivot tables
 - Macros / VBA
 
 ## A note on style interning

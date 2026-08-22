@@ -490,6 +490,30 @@ module internal CodeGen =
             (renderCellRef img.TopLeftAnchor)
             (renderCellRef img.BottomRightAnchor)
 
+    let private renderPivotAggregation (agg: PivotAggregation) : string =
+        match agg with
+        | PivotSum -> "PivotSum"
+        | PivotCount -> "PivotCount"
+        | PivotCountNumbers -> "PivotCountNumbers"
+        | PivotAverage -> "PivotAverage"
+        | PivotMin -> "PivotMin"
+        | PivotMax -> "PivotMax"
+
+    /// No smart constructor exists for `PivotTableEntry` (see `Builders.fs`) - it's a
+    /// plain record built the usual way.
+    let private renderPivotTableEntry (p: PivotTableEntry) : string =
+        sprintf
+            "EmbeddedPivotTable { SourceSheet = %s; SourceTopLeft = %s; SourceBottomRight = %s; RowField = %s; ColumnField = %s; ValueField = %s; Aggregation = %s; ValueCaption = %s; TopLeftAnchor = %s }"
+            (renderOption renderString p.SourceSheet)
+            (renderCellRef p.SourceTopLeft)
+            (renderCellRef p.SourceBottomRight)
+            (renderString p.RowField)
+            (renderOption renderString p.ColumnField)
+            (renderString p.ValueField)
+            (renderPivotAggregation p.Aggregation)
+            (renderOption renderString p.ValueCaption)
+            (renderCellRef p.TopLeftAnchor)
+
     let private renderDefinedNameScope (s: DefinedNameScope) : string =
         match s with
         | WorkbookScope -> "WorkbookScope"
@@ -605,6 +629,7 @@ module internal CodeGen =
         let sparklineGroupItems = ws.SparklineGroups |> List.map renderSparklineGroupEntry
         let chartItems = ws.Charts |> List.map renderChartEntry
         let imageItems = ws.Images |> List.map renderImageEntry
+        let pivotTableItems = ws.PivotTables |> List.map renderPivotTableEntry
 
         rowItems
         @ columnWidthItems
@@ -622,6 +647,7 @@ module internal CodeGen =
         @ sparklineGroupItems
         @ chartItems
         @ imageItems
+        @ pivotTableItems
 
     /// Renders a whole `Workbook` as a self-contained F# script that rebuilds an
     /// equivalent file when run. `referenceLines` are whatever raw `#r` directives the

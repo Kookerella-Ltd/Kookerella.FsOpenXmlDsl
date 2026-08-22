@@ -590,10 +590,42 @@ module internal Writer =
         // below rather than restarting per sheet.
         let mutable nextTableId = 1u
 
+        // A pivot cache's `cacheId` must be unique across the whole workbook, same reason
+        // as `nextTableId`. Each pivot table gets its own cache (never shared, even
+        // between two pivot tables with the same source range) to keep the write side
+        // simple - collected here so `<pivotCaches>` can be built once after the sheet
+        // loop, the same way `printAreasBySheet`/`definedNames` are.
+        let mutable nextPivotCacheId = 0u
+        let pivotCaches = ResizeArray<uint32 * string>()
+
         wb.Sheets
         |> List.iteri (fun i worksheet ->
             let worksheetPart = workbookPart.AddNewPart<WorksheetPart>()
             let ws = Spreadsheet.Worksheet()
+
+            // Pivot tables are the one feature whose worksheet content isn't just a
+            // translation of the DSL value - `computeGrid` actually performs the
+            // aggregation, and its result has to be merged into this sheet's own cells
+            // *before* any of the ordinary cell-writing logic below runs, so a pivot
+            // table's computed grid is written exactly like any other cell would be. A
+            // pivot cell overrides whatever plain cell (if any) already sat at that
+            // position - see `PivotTableEntry`'s own doc comment for why this feature
+            // needs this, unlike everything else here.
+            let worksheet =
+                if worksheet.PivotTables.IsEmpty then
+                    worksheet
+                else
+                    let pivotCellsByRef =
+                        worksheet.PivotTables
+                        |> List.collect (fun entry -> (PivotTableWriter.computeGrid wb.Sheets worksheet.Name entry).Cells)
+                        |> List.map (fun c -> c.Ref, c)
+                        |> Map.ofList
+
+                    let mergedCells =
+                        (worksheet.Cells |> List.filter (fun c -> not (pivotCellsByRef.ContainsKey c.Ref)))
+                        @ (pivotCellsByRef |> Map.toList |> List.map snd)
+
+                    { worksheet with Cells = mergedCells }
 
             // `sheetPr` must be the worksheet's first child if present at all (schema
             // order), so this has to run before every other element below. Only written
@@ -807,6 +839,13 @@ module internal Writer =
                 extList.AppendChild(sparklineGroupsExtensionElement worksheet.SparklineGroups) |> ignore
                 ws.AppendChild(extList) |> ignore
 
+            worksheet.PivotTables
+            |> List.iter (fun entry ->
+                let cacheId = nextPivotCacheId
+                nextPivotCacheId <- nextPivotCacheId + 1u
+                let relId = PivotTableWriter.addPivotTable workbookPart worksheetPart wb.Sheets worksheet.Name cacheId entry
+                pivotCaches.Add(cacheId, relId))
+
             worksheetPart.Worksheet <- ws
             worksheetPart.Worksheet.Save()
 
@@ -837,6 +876,15 @@ module internal Writer =
             |> List.iter (fun (i, name, ranges) -> definedNames.AppendChild(printAreaDefinedNameElement i name ranges) |> ignore)
 
             workbookPart.Workbook.AppendChild(definedNames) |> ignore
+
+        if pivotCaches.Count > 0 then
+            let pivotCachesElement = PivotCaches()
+
+            pivotCaches
+            |> Seq.iter (fun (cacheId, relId) ->
+                pivotCachesElement.AppendChild(PivotCache(CacheId = UInt32Value(cacheId), Id = StringValue(relId))) |> ignore)
+
+            workbookPart.Workbook.AppendChild(pivotCachesElement) |> ignore
 
         let sstPart = workbookPart.AddNewPart<SharedStringTablePart>()
         let sst = SharedStringTable()

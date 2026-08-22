@@ -18,6 +18,7 @@
     <Compile Include="Sparklines.fs" />
     <Compile Include="Charts.fs" />
     <Compile Include="Images.fs" />
+    <Compile Include="PivotTables.fs" />
     <Compile Include="Model.fs" />
     <Compile Include="Builders.fs" />
     <Compile Include="Interpreter\StyleRegistry.fs" />
@@ -27,6 +28,8 @@
     <Compile Include="Interpreter\ImageReader.fs" />
     <Compile Include="Interpreter\DrawingWriter.fs" />
     <Compile Include="Interpreter\DrawingReader.fs" />
+    <Compile Include="Interpreter\PivotTableWriter.fs" />
+    <Compile Include="Interpreter\PivotTableReader.fs" />
     <Compile Include="Interpreter\Writer.fs" />
     <Compile Include="Interpreter\Reader.fs" />
     <Compile Include="Interpreter\CodeGen.fs" />
