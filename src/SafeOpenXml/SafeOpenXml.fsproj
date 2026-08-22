@@ -13,6 +13,7 @@
     <Compile Include="Comments.fs" />
     <Compile Include="Protection.fs" />
     <Compile Include="DefinedNames.fs" />
+    <Compile Include="PageSetup.fs" />
     <Compile Include="Model.fs" />
     <Compile Include="Builders.fs" />
     <Compile Include="Interpreter\StyleRegistry.fs" />

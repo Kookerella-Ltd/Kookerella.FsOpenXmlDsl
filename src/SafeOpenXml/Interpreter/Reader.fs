@@ -601,6 +601,58 @@ module internal Reader =
             |> Seq.choose (fun hl -> hyperlinkOf worksheetPart hl)
             |> List.ofSeq
 
+        // `fitToPage` lives on `sheetPr/pageSetUpPr`, a sibling of `pageSetup` rather than
+        // an attribute on it - needed to tell `ScalePercent`/`FitToPage` apart, since both
+        // `scale` and `fitToWidth`/`fitToHeight` can be present in the file regardless of
+        // which one Excel is actually honoring (see `Writer.pageSetupElement`).
+        let fitToPageFlag =
+            ws.Elements<SheetProperties>()
+            |> Seq.tryHead
+            |> Option.bind (fun sp -> Option.ofObj sp.PageSetupProperties)
+            |> Option.bind (fun psp -> Option.ofObj psp.FitToPage)
+            |> Option.map (fun v -> v.Value)
+            |> Option.defaultValue false
+
+        let pageSetup =
+            ws.Elements<Spreadsheet.PageSetup>()
+            |> Seq.tryHead
+            |> Option.map (fun setup ->
+                let orientation =
+                    setup.Orientation |> Option.ofObj |> Option.map (fun o -> OrientationMapping.ofOpenXml o.Value) |> Option.defaultValue Portrait
+
+                let paperSize = setup.PaperSize |> Option.ofObj |> Option.map (fun p -> PaperSizeMapping.ofOpenXml p.Value)
+
+                let scaling =
+                    if fitToPageFlag then
+                        let width = setup.FitToWidth |> Option.ofObj |> Option.map (fun v -> int v.Value) |> Option.defaultValue 1
+                        let height = setup.FitToHeight |> Option.ofObj |> Option.map (fun v -> int v.Value) |> Option.defaultValue 1
+                        Some(FitToPage(width, height))
+                    else
+                        setup.Scale |> Option.ofObj |> Option.map (fun v -> ScalePercent(int v.Value))
+
+                let margins =
+                    ws.Elements<Spreadsheet.PageMargins>()
+                    |> Seq.tryHead
+                    |> Option.map (fun m ->
+                        { Left = m.Left.Value
+                          Right = m.Right.Value
+                          Top = m.Top.Value
+                          Bottom = m.Bottom.Value
+                          Header = m.Header.Value
+                          Footer = m.Footer.Value })
+                    |> Option.defaultValue PageMargins.Default
+
+                let headerFooter = ws.Elements<HeaderFooter>() |> Seq.tryHead
+                let header = headerFooter |> Option.bind (fun hf -> Option.ofObj hf.OddHeader) |> Option.map (fun h -> h.Text)
+                let footer = headerFooter |> Option.bind (fun hf -> Option.ofObj hf.OddFooter) |> Option.map (fun f -> f.Text)
+
+                { Orientation = orientation
+                  PaperSize = paperSize
+                  Scaling = scaling
+                  Margins = margins
+                  Header = header
+                  Footer = footer })
+
         let comments = readComments worksheetPart
 
         { Name = name
@@ -614,7 +666,8 @@ module internal Reader =
           ConditionalFormats = conditionalFormats
           DataValidations = dataValidations
           Hyperlinks = hyperlinks
-          Comments = comments }
+          Comments = comments
+          PageSetup = pageSetup }
 
     let load (document: SpreadsheetDocument) : Workbook =
         let workbookPart = document.WorkbookPart

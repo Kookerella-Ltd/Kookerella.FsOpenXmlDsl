@@ -319,6 +319,52 @@ module internal CodeGen =
         else
             parts |> String.concat "; " |> sprintf "{ SheetProtection.Default with %s }"
 
+    let private renderPageOrientation (o: PageOrientation) : string =
+        match o with
+        | Portrait -> "Portrait"
+        | Landscape -> "Landscape"
+
+    let private renderPaperSize (p: PaperSize) : string =
+        match p with
+        | Letter -> "Letter"
+        | Legal -> "Legal"
+        | Tabloid -> "Tabloid"
+        | A3 -> "A3"
+        | A4 -> "A4"
+        | OtherPaperSize code -> sprintf "OtherPaperSize %d" code
+
+    let private renderPrintScaling (s: PrintScaling) : string =
+        match s with
+        | ScalePercent pct -> sprintf "ScalePercent %d" pct
+        | FitToPage(width, height) -> sprintf "FitToPage(%d, %d)" width height
+
+    let private renderPageMargins (m: PageMargins) : string =
+        if m = PageMargins.Default then
+            "PageMargins.Default"
+        else
+            [ if m.Left <> PageMargins.Default.Left then yield sprintf "Left = %s" (renderFloat m.Left)
+              if m.Right <> PageMargins.Default.Right then yield sprintf "Right = %s" (renderFloat m.Right)
+              if m.Top <> PageMargins.Default.Top then yield sprintf "Top = %s" (renderFloat m.Top)
+              if m.Bottom <> PageMargins.Default.Bottom then yield sprintf "Bottom = %s" (renderFloat m.Bottom)
+              if m.Header <> PageMargins.Default.Header then yield sprintf "Header = %s" (renderFloat m.Header)
+              if m.Footer <> PageMargins.Default.Footer then yield sprintf "Footer = %s" (renderFloat m.Footer) ]
+            |> String.concat "; "
+            |> sprintf "{ PageMargins.Default with %s }"
+
+    let private renderPageSetup (ps: PageSetup) : string =
+        if ps = PageSetup.Default then
+            "PageSetup.Default"
+        else
+            [ if ps.Orientation <> PageSetup.Default.Orientation then
+                  yield sprintf "Orientation = %s" (renderPageOrientation ps.Orientation)
+              if ps.PaperSize.IsSome then yield sprintf "PaperSize = %s" (renderOption renderPaperSize ps.PaperSize)
+              if ps.Scaling.IsSome then yield sprintf "Scaling = %s" (renderOption renderPrintScaling ps.Scaling)
+              if ps.Margins <> PageMargins.Default then yield sprintf "Margins = %s" (renderPageMargins ps.Margins)
+              if ps.Header.IsSome then yield sprintf "Header = %s" (renderOption renderString ps.Header)
+              if ps.Footer.IsSome then yield sprintf "Footer = %s" (renderOption renderString ps.Footer) ]
+            |> String.concat "; "
+            |> sprintf "{ PageSetup.Default with %s }"
+
     let private renderDefinedNameScope (s: DefinedNameScope) : string =
         match s with
         | WorkbookScope -> "WorkbookScope"
@@ -408,6 +454,9 @@ module internal CodeGen =
         let hyperlinkItems = ws.Hyperlinks |> List.map renderHyperlinkEntry
         let commentItems = ws.Comments |> List.map renderCommentEntry
 
+        let pageSetupItems =
+            ws.PageSetup |> Option.map (fun ps -> sprintf "PageSetup(%s)" (renderPageSetup ps)) |> Option.toList
+
         rowItems
         @ columnWidthItems
         @ rowHeightItems
@@ -419,6 +468,7 @@ module internal CodeGen =
         @ dataValidationItems
         @ hyperlinkItems
         @ commentItems
+        @ pageSetupItems
 
     /// Renders a whole `Workbook` as a self-contained F# script that rebuilds an
     /// equivalent file when run. `referenceLines` are whatever raw `#r` directives the

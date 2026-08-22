@@ -59,6 +59,17 @@ need to be added to close the gap.
   (`DefinedNameEntry`, stored on `Workbook` rather than `Worksheet` - the one DSL concept
   that's genuinely workbook-level, not per-sheet). `SheetScope` is expressed by sheet name
   and translated to/from OOXML's index-based `localSheetId` automatically.
+- Print settings and page setup: orientation, paper size (`PaperSize`, a small named set
+  plus `OtherPaperSize` for any other OOXML `ST_PaperSize` code), scaling (either a
+  percentage or "fit to N pages wide by M tall", `0` meaning unconstrained in that
+  dimension), margins, and header/footer (`PageSetup`, stored on `Worksheet`). Header/
+  footer text is raw OOXML - Excel's own `&L`/`&C`/`&R`/`&P`/`&N`/`&D`/`&T`/`&F`/`&A`
+  section/field codes embedded directly in one string per side, the same convention as
+  OOXML's own `oddHeader`/`oddFooter`. `FitToPage` scaling also sets the sibling
+  `sheetPr/pageSetUpPr/@fitToPage` flag that tells Excel's print dialog which of
+  `scale`/`fitToWidth`+`fitToHeight` to actually honor (both are always written
+  regardless, so the file is self-describing either way - see
+  `Interpreter/Writer.fs: pageSetupElement`). See the gap below on print area.
 - Code generation: `Workbook.generateScript` renders any `Workbook` value (including one
   produced by `Workbook.load`) back out as an `.fsx` script that rebuilds a structurally
   equivalent file when run via `dotnet fsi` - covers every DSL construct above, since it's
@@ -143,6 +154,17 @@ need to be added to close the gap.
 - **Newer, stronger password hash.** Only the classic weak hash is supported, not the
   modern salted-SHA-512 scheme (`algorithmName`/`hashValue`/`saltValue`/`spinCount`) newer
   Excel versions can also use - not modeled at all, on either the read or write side.
+- **Print area.** Not modeled. OOXML expresses it as a hidden built-in defined name
+  (`_xlnm.Print_Area`), a genuinely different mechanism from the rest of `PageSetup`
+  (which is direct worksheet-element attributes) - deliberately left out of this pass to
+  keep the feature scoped; would fit naturally alongside `DefinedNameEntry` later.
+- **Header/footer first-page and even-page variants.** Only the "odd" (i.e. default/every
+  page) header/footer is modeled. OOXML's `differentFirst`/`differentOddEven` variants
+  (`firstHeader`/`firstFooter`/`evenHeader`/`evenFooter`) are not - a file using them keeps
+  its odd header/footer on round trip but silently drops the others.
+- **Print page order and other minor `pageSetup` attributes.** `pageOrder`
+  (top-to-bottom vs. left-to-right), `firstPageNumber`, black-and-white/draft printing,
+  and print resolution (`horizontalDpi`/`verticalDpi`) aren't modeled.
 
 ## Out of scope for Core (candidates for a future extension)
 
@@ -156,7 +178,6 @@ real files the same way Core was:
 - Pivot tables
 - Workbook-level protection (protecting the workbook structure itself - sheet ordering,
   visibility - as distinct from the per-sheet protection Core already models)
-- Print settings and page setup
 - Tables (`ListObject`s / structured references)
 - Sparklines
 - Macros / VBA

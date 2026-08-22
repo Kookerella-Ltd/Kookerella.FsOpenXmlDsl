@@ -92,6 +92,38 @@ module internal NumberFormatMapping =
     let [<Literal>] DateTimeId = 22u
     let [<Literal>] CurrencyFormatCode = "\"$\"#,##0.00"
 
+module internal OrientationMapping =
+
+    let toOpenXml (o: PageOrientation) : OrientationValues =
+        match o with
+        | Portrait -> OrientationValues.Portrait
+        | Landscape -> OrientationValues.Landscape
+
+    let ofOpenXml (v: OrientationValues) : PageOrientation =
+        if v = OrientationValues.Landscape then Landscape else Portrait
+
+module internal PaperSizeMapping =
+
+    // OOXML `ST_PaperSize` numeric codes Core names - see ECMA-376 Part 1 §18.18.50 for
+    // the several dozen remaining codes `Other` preserves but doesn't name.
+    let toOpenXml (p: PaperSize) : uint32 =
+        match p with
+        | Letter -> 1u
+        | Tabloid -> 3u
+        | Legal -> 5u
+        | A3 -> 8u
+        | A4 -> 9u
+        | OtherPaperSize code -> uint32 code
+
+    let ofOpenXml (code: uint32) : PaperSize =
+        match code with
+        | 1u -> Letter
+        | 3u -> Tabloid
+        | 5u -> Legal
+        | 8u -> A3
+        | 9u -> A4
+        | other -> OtherPaperSize(int other)
+
 /// Interns fonts/fills/borders/number formats into shared stylesheet entries, mirroring
 /// how Excel itself deduplicates styles - identical `CellStyle` values (structural
 /// equality, for free on an F# record) always resolve to the same cell format index.

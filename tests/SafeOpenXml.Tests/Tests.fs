@@ -67,6 +67,7 @@ let private assertWorksheetRoundTrips (original: Worksheet) (path: string) =
     Assert.Equal<DataValidationEntry list>(original.DataValidations, actual.DataValidations)
     Assert.Equal<HyperlinkEntry list>(original.Hyperlinks, actual.Hyperlinks)
     Assert.Equal<CommentEntry list>(original.Comments, actual.Comments)
+    Assert.Equal<PageSetup option>(original.PageSetup, actual.PageSetup)
 
 /// An F# string literal can't contain a raw backslash, so a Windows assembly path needs
 /// its separators doubled before it's safe to splice into a generated `#r "..."` line.
@@ -523,6 +524,35 @@ let ``example: defined names`` () =
               sheetScopedDefinedName "Sheet1" "LocalTotal" "Sheet1!$A$2" ]
 
     verifyScenario "DefinedNames" wb
+
+// --- Print settings and page setup -------------------------------------------------------
+
+[<Fact>]
+let ``example: page setup landscape with margins and header footer`` () =
+    let data =
+        sheet
+            "Sheet1"
+            [ row [ cell (Text "Wide report") ]
+              PageSetup
+                  { PageSetup.Default with
+                      Orientation = Landscape
+                      PaperSize = Some A4
+                      Scaling = Some(ScalePercent 85)
+                      Margins = { PageMargins.Default with Left = 0.5; Right = 0.5 }
+                      Header = Some "&C&\"Arial,Bold\"Quarterly Report"
+                      Footer = Some "&LPage &P of &N&R&D" } ]
+
+    verifyScenario "PageSetupLandscapeWithMargins" (workbook [ data ])
+
+[<Fact>]
+let ``example: page setup fit to one page wide`` () =
+    let data =
+        sheet
+            "Sheet1"
+            [ row [ cell (Text "Fits to one page wide") ]
+              PageSetup { PageSetup.Default with Scaling = Some(FitToPage(1, 0)) } ]
+
+    verifyScenario "PageSetupFitToOnePageWide" (workbook [ data ])
 
 // --- Generated-script verification (slow: actually runs `dotnet fsi`) -------------------
 //

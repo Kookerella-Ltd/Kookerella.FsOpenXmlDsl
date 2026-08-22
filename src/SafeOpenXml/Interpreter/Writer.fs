@@ -307,6 +307,45 @@ module internal Writer =
     let private listFormula (items: string list) : string =
         items |> List.map (fun s -> s.Replace("\"", "\"\"")) |> String.concat "," |> sprintf "\"%s\""
 
+    let private pageMarginsElement (m: PageMargins) : Spreadsheet.PageMargins =
+        Spreadsheet.PageMargins(
+            Left = DoubleValue(m.Left),
+            Right = DoubleValue(m.Right),
+            Top = DoubleValue(m.Top),
+            Bottom = DoubleValue(m.Bottom),
+            Header = DoubleValue(m.Header),
+            Footer = DoubleValue(m.Footer)
+        )
+
+    /// Builds a `pageSetup` element. `Scale`/`FitToWidth`/`FitToHeight` are both always
+    /// written when applicable - Excel only actually *uses* whichever one the sibling
+    /// `sheetPr/pageSetUpPr/@fitToPage` flag selects (see `populate`, which sets that flag
+    /// precisely when `Scaling` is `FitToPage`), but the unused attribute doesn't hurt and
+    /// this way the file is self-describing either way.
+    let private pageSetupElement (ps: PageSetup) : Spreadsheet.PageSetup =
+        let setup =
+            Spreadsheet.PageSetup(Orientation = EnumValue<OrientationValues>(OrientationMapping.toOpenXml ps.Orientation))
+
+        ps.PaperSize |> Option.iter (fun p -> setup.PaperSize <- UInt32Value(PaperSizeMapping.toOpenXml p))
+
+        match ps.Scaling with
+        | Some(ScalePercent pct) -> setup.Scale <- UInt32Value(uint32 pct)
+        | Some(FitToPage(width, height)) ->
+            setup.FitToWidth <- UInt32Value(uint32 width)
+            setup.FitToHeight <- UInt32Value(uint32 height)
+        | None -> ()
+
+        setup
+
+    let private headerFooterElement (ps: PageSetup) : HeaderFooter option =
+        if ps.Header.IsNone && ps.Footer.IsNone then
+            None
+        else
+            let hf = HeaderFooter()
+            ps.Header |> Option.iter (fun h -> hf.OddHeader <- OddHeader(h))
+            ps.Footer |> Option.iter (fun f -> hf.OddFooter <- OddFooter(f))
+            Some hf
+
     let private dataValidationElement (entry: DataValidationEntry) : Spreadsheet.DataValidation =
         let dv = Spreadsheet.DataValidation()
         dv.SequenceOfReferences <- ListValue<StringValue>([ StringValue(rangeReference entry.TopLeft entry.BottomRight) ])
@@ -379,6 +418,17 @@ module internal Writer =
         |> List.iteri (fun i worksheet ->
             let worksheetPart = workbookPart.AddNewPart<WorksheetPart>()
             let ws = Spreadsheet.Worksheet()
+
+            // `sheetPr` must be the worksheet's first child if present at all (schema
+            // order), so this has to run before every other element below. Only written
+            // for `FitToPage` scaling: that's the one case with a flag to set
+            // (`pageSetUpPr/@fitToPage`) - Excel's own default (scale-percent mode) needs
+            // no `sheetPr` at all.
+            match worksheet.PageSetup |> Option.bind (fun ps -> ps.Scaling) with
+            | Some(FitToPage _) ->
+                let sheetPr = SheetProperties(PageSetupProperties = PageSetupProperties(FitToPage = BooleanValue(true)))
+                ws.AppendChild(sheetPr) |> ignore
+            | _ -> ()
 
             match worksheet.FreezePane with
             | Some fp when fp.Rows > 0 || fp.Columns > 0 ->
@@ -539,6 +589,12 @@ module internal Writer =
                 |> List.iter (fun entry -> hyperlinks.AppendChild(hyperlinkElement worksheetPart entry) |> ignore)
 
                 ws.AppendChild(hyperlinks) |> ignore
+
+            worksheet.PageSetup
+            |> Option.iter (fun ps ->
+                ws.AppendChild(pageMarginsElement ps.Margins) |> ignore
+                ws.AppendChild(pageSetupElement ps) |> ignore
+                headerFooterElement ps |> Option.iter (fun hf -> ws.AppendChild(hf) |> ignore))
 
             if not worksheet.Comments.IsEmpty then
                 let commentsPart = worksheetPart.AddNewPart<WorksheetCommentsPart>()

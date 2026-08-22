@@ -61,7 +61,8 @@ module Model =
           ConditionalFormats: ConditionalFormatEntry list
           DataValidations: DataValidationEntry list
           Hyperlinks: HyperlinkEntry list
-          Comments: CommentEntry list }
+          Comments: CommentEntry list
+          PageSetup: PageSetup option }
 
     type Workbook =
         { Sheets: Worksheet list

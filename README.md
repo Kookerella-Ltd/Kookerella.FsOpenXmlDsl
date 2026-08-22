@@ -26,6 +26,8 @@ approximated, and which aren't modeled yet.
     `Worksheet` (pairs with `CellStyle.Protection` for per-cell locking).
   - `DefinedNames.fs` — `DefinedNameScope`/`DefinedNameEntry`, stored on `Workbook` rather
     than `Worksheet` - the one DSL concept that's genuinely workbook-level.
+  - `PageSetup.fs` — print settings: `PageOrientation`, `PaperSize`, `PrintScaling`,
+    `PageMargins`, and the `PageSetup` record stored on `Worksheet`.
   - `Model.fs` — `CellValue`, `Cell`, `Worksheet`, `Workbook`.
   - `Builders.fs` — ergonomic helpers: plain functional constructors (`cellA1`, ...) for
     the canonical model, plus the `SheetItem`/`CellEntry` types (each a single simple DU
@@ -120,6 +122,20 @@ workbook [ data ]
     [ definedName "TaxRate" "Sheet1!$A$1"
       sheetScopedDefinedName "Sheet1" "LocalTotal" "Sheet1!$A$2" ]
 ```
+
+Print settings are a `SheetItem` too - `PageSetup` (the DU case) takes a plain
+`PageSetup` record (the type), no smart constructor, same as `Protect`/`SheetProtection`:
+
+```fsharp
+[ PageSetup
+    { PageSetup.Default with
+        Orientation = Landscape
+        Scaling = Some(FitToPage(1, 0)) // 1 page wide, unlimited tall
+        Header = Some "&C&\"Arial,Bold\"Quarterly Report" } ]
+```
+
+See [MAPPING.md](MAPPING.md) for what isn't modeled (print area, first-page/even-page
+header/footer variants).
 
 ## Regenerating a file as F# source
 
