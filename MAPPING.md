@@ -12,7 +12,18 @@ need to be added to close the gap.
   scheme.
 - Cell values: text (as shared strings), numbers, booleans, dates (OLE Automation serial
   dates via `DateTime.ToOADate`/`FromOADate`), and formulas (raw formula text plus an
-  optional cached numeric result).
+  optional cached numeric result). Core's own `Writer` always writes each formula cell's
+  own text verbatim (Excel's "normal" formula type), but a foreign file very commonly uses
+  Excel's "shared formula" optimization instead (its default when you fill/drag a formula
+  across a range) - only the group's first cell carries the actual expression text, every
+  other cell carries just a cached value and a shared-group index, so `Reader` reconstructs
+  each cell's own formula by shifting the master's unanchored (non-`$`) references by the
+  offset between the master's cell and that cell, the same way Excel itself would show it
+  (`Interpreter/Reader.fs`'s `shiftFormula`/`formulaRefPattern`). Verified against a
+  hand-built shared-formula file (not producible by Core's own `Writer`, so it can't be a
+  `verifyScenario` gallery entry) covering an unanchored reference, a mixed absolute/
+  relative reference, and a quoted string literal that merely looks like a reference. See
+  the gap below for what this reference-shifting doesn't cover.
 - Font: name, size, bold, italic, underline, strikethrough, color.
 - Fill: solid color only (see gaps below).
 - Border: left/right/top/bottom, a core set of named line styles plus a `BorderLineStyle.Other`
@@ -175,6 +186,17 @@ need to be added to close the gap.
 - **Rich text runs.** A `Text` cell is always one uniformly-styled string. OOXML supports
   multiple runs with different fonts/colors inside a single cell; reading such a cell
   concatenates all runs' text (via `InnerText`) and discards the per-run formatting.
+- **Shared formula reference-shifting is regex-based, not a real formula parser.** It's
+  reliable for the common shapes (cell refs, ranges, sheet-qualified refs, string literals)
+  but a genuinely ambiguous formula can fool it - e.g. a defined name that happens to look
+  exactly like a cell reference followed by a row number (Excel itself resolves this from
+  context; this doesn't) is treated as a reference and shifted when it shouldn't be. It also
+  doesn't attempt array formulas (`t="array"`) or data table formulas (`t="dataTable"`) at
+  all - those pass through with whatever raw text is on that specific cell, unshifted.
+- **Array formulas and data tables aren't modeled as their own concept.** A `Formula` cell
+  is always OOXML's "normal" kind; `{=...}` array formulas and What-If "data table" formulas
+  read back as plain `Formula` cells with whatever raw text/cached value that cell carries,
+  losing the array/data-table semantics (spill behavior, the `TABLE()` input cells).
 - **Fill patterns.** Only `patternType="solid"` is modeled. Pattern fills (stripes,
   checkerboards, gradients) are not represented — reading a cell with a non-solid pattern
   yields `Fill = None` for that cell.

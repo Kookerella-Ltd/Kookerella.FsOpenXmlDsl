@@ -3,6 +3,7 @@ namespace SafeOpenXml.Interpreter
 open System
 open System.Globalization
 open System.IO
+open System.Text.RegularExpressions
 open DocumentFormat.OpenXml
 open DocumentFormat.OpenXml.Packaging
 open DocumentFormat.OpenXml.Spreadsheet
@@ -429,7 +430,70 @@ module internal Reader =
             |> Seq.map (fun item -> item.InnerText)
             |> Array.ofSeq
 
-    let private rawCellValueOf (sharedStrings: string[]) (c: Spreadsheet.Cell) : CellValue =
+    /// Matches one cell/range-endpoint reference inside a formula (e.g. "A1", "$A1",
+    /// "Sheet2!$A$1", "'My Sheet'!A1"), or one double-quoted string literal - a shared
+    /// formula's non-master cells only carry a cached value and a shared-group index, not
+    /// their own formula text (see `sharedFormulaMasters`' own doc comment), so
+    /// reconstructing it means re-deriving what Excel itself would show for that cell: the
+    /// group's master formula with every *unanchored* reference shifted by the offset
+    /// between the master's cell and this one, same as dragging/filling a formula does.
+    /// `$`-anchored components never move. The string-literal alternative exists purely so
+    /// text that merely looks like a reference (e.g. `="A1"`) is matched and passed through
+    /// verbatim instead of being mistaken for one.
+    let private formulaRefPattern =
+        Regex(
+            "\"(?:[^\"]|\"\")*\""
+            + "|"
+            + @"(?<![A-Za-z0-9_.'])(?<prefix>(?:'[^']+'|[A-Za-z_][A-Za-z0-9_.]*)!)?(?<colAnchor>\$?)(?<col>[A-Za-z]{1,3})(?<rowAnchor>\$?)(?<row>[0-9]+)(?![A-Za-z0-9_.(])",
+            RegexOptions.Compiled
+        )
+
+    /// Shifts every unanchored reference in `formula` by `(deltaRow, deltaCol)` - see
+    /// `formulaRefPattern`'s own doc comment. Falls back to the master's own text unshifted
+    /// if a reference would land outside the valid column range - shouldn't happen for a
+    /// well-formed file (a shared formula group only ever extends forward from its master),
+    /// but this reader never throws on a foreign file's content, per its own doc comment.
+    let private shiftFormula (deltaRow: int) (deltaCol: int) (formula: string) : string =
+        try
+            formulaRefPattern.Replace(
+                formula,
+                fun m ->
+                    if not m.Groups.["col"].Success then
+                        m.Value
+                    else
+                        let prefix = m.Groups.["prefix"].Value
+                        let colAnchored = m.Groups.["colAnchor"].Value = "$"
+                        let rowAnchored = m.Groups.["rowAnchor"].Value = "$"
+
+                        let col =
+                            if colAnchored then
+                                m.Groups.["col"].Value
+                            else
+                                CellRef.columnLetters (CellRef.columnIndex m.Groups.["col"].Value + deltaCol)
+
+                        let row =
+                            if rowAnchored then
+                                m.Groups.["row"].Value
+                            else
+                                string (int m.Groups.["row"].Value + deltaRow)
+
+                        sprintf
+                            "%s%s%s%s%s"
+                            prefix
+                            (if colAnchored then "$" else "")
+                            col
+                            (if rowAnchored then "$" else "")
+                            row
+            )
+        with _ ->
+            formula
+
+    let private rawCellValueOf
+        (sharedStrings: string[])
+        (sharedFormulaMasters: Map<uint32, CellRef * string>)
+        (cellRef: CellRef)
+        (c: Spreadsheet.Cell)
+        : CellValue =
         let text () = if isNull c.CellValue then "" else c.CellValue.Text
 
         match c.CellFormula with
@@ -466,7 +530,21 @@ module internal Reader =
                     | true, n -> Some n
                     | false, _ -> None
 
-            Formula(formula.Text, cached)
+            let isSharedSlave =
+                (Option.ofObj formula.FormulaType |> Option.map (fun t -> t.Value)) = Some CellFormulaValues.Shared
+                && String.IsNullOrEmpty(formula.Text)
+                && not (isNull formula.SharedIndex)
+
+            let expression =
+                if isSharedSlave then
+                    match sharedFormulaMasters |> Map.tryFind formula.SharedIndex.Value with
+                    | Some(masterRef, masterText) ->
+                        shiftFormula (cellRef.Row - masterRef.Row) (cellRef.Col - masterRef.Col) masterText
+                    | None -> formula.Text
+                else
+                    formula.Text
+
+            Formula(expression, cached)
 
     let private readWorksheet
         (sharedStrings: string[])
@@ -479,6 +557,27 @@ module internal Reader =
         let ws = worksheetPart.Worksheet
         let sheetData = ws.Elements<SheetData>() |> Seq.tryHead
 
+        // A shared formula's group master is the only cell that carries the actual
+        // expression text (everything else in the group just references it by this index
+        // plus a cached value) - collected up front so `rawCellValueOf` can re-derive each
+        // other cell's own formula on demand. See `formulaRefPattern`'s own doc comment.
+        let sharedFormulaMasters : Map<uint32, CellRef * string> =
+            match sheetData with
+            | None -> Map.empty
+            | Some sd ->
+                [ for row in sd.Elements<Row>() do
+                      for c in row.Elements<Spreadsheet.Cell>() do
+                          if
+                              not (isNull c.CellFormula)
+                              && not (isNull c.CellFormula.FormulaType)
+                              && c.CellFormula.FormulaType.Value = CellFormulaValues.Shared
+                              && not (isNull c.CellFormula.SharedIndex)
+                              && not (String.IsNullOrEmpty c.CellFormula.Text)
+                              && not (isNull c.CellReference)
+                          then
+                              yield c.CellFormula.SharedIndex.Value, (CellRef.ofA1 c.CellReference.Value, c.CellFormula.Text) ]
+                |> Map.ofList
+
         let cells =
             match sheetData with
             | None -> []
@@ -489,7 +588,7 @@ module internal Reader =
                               let cellRef = CellRef.ofA1 c.CellReference.Value
                               let styleIndex = if isNull c.StyleIndex then 0u else c.StyleIndex.Value
                               let style = stylesheet |> Option.bind (fun s -> cellStyleOf s customFormats styleIndex)
-                              let rawValue = rawCellValueOf sharedStrings c
+                              let rawValue = rawCellValueOf sharedStrings sharedFormulaMasters cellRef c
 
                               let value =
                                   match rawValue, style with

@@ -4,6 +4,7 @@ open System
 open System.Diagnostics
 open System.IO
 open Xunit
+open DocumentFormat.OpenXml
 open DocumentFormat.OpenXml.Packaging
 open DocumentFormat.OpenXml.Validation
 open SafeOpenXml
@@ -207,6 +208,110 @@ let ``example: formulas`` () =
               row [ cell (Text "Total"); cell (Formula("SUM(D1:D2)", Some 49.98)) ] ]
 
     verifyScenario "Formulas" (workbook [ data ])
+
+/// A cell within one row, addressed by an A1-style reference rather than by position -
+/// used only by the shared-formula test below since it hand-builds rows out of order
+/// (formula cells in column A, value cells in column B) and needs each `Spreadsheet.Cell`
+/// to carry an explicit `CellReference`, unlike the DSL's own `cell`/`row`.
+let private rawCell (a1: string) (formula: Spreadsheet.CellFormula option) (cachedText: string) : Spreadsheet.Cell =
+    let c = Spreadsheet.Cell(CellReference = StringValue(a1))
+    formula |> Option.iter (fun f -> c.CellFormula <- f)
+    c.CellValue <- Spreadsheet.CellValue(cachedText)
+    c
+
+let private sharedFormulaCell (sharedIndex: uint32) (masterText: string option) (reference: string option) : Spreadsheet.CellFormula =
+    let f = Spreadsheet.CellFormula()
+    f.FormulaType <- EnumValue<Spreadsheet.CellFormulaValues>(Spreadsheet.CellFormulaValues.Shared)
+    f.SharedIndex <- UInt32Value(sharedIndex)
+    masterText |> Option.iter (fun t -> f.Text <- t)
+    reference |> Option.iter (fun r -> f.Reference <- StringValue(r))
+    f
+
+/// SafeOpenXml's own `Writer` never emits Excel's "shared formula" optimization (it always
+/// writes each cell's own normal formula text verbatim) - there's no DSL construct that
+/// produces one, so this can't be a `verifyScenario` gallery entry like every test above.
+/// It's a real, common shape in files Excel itself saves (its default when you fill/drag a
+/// formula across a range: only the group's first cell carries the actual expression text,
+/// every other cell in the group carries just a cached value and a shared-group index), so
+/// this hand-builds one directly against the OpenXml SDK - bypassing the DSL entirely, the
+/// same way a genuinely foreign file would look - and checks `Workbook.load` reconstructs
+/// each cell's own correctly-shifted formula text. See `Reader.fs`'s `formulaRefPattern`
+/// and `shiftFormula` for the translation logic this exercises.
+[<Fact>]
+let ``reading a foreign file's shared formulas reconstructs each cell's own formula`` () =
+    let path = Path.Combine(Path.GetTempPath(), sprintf "SafeOpenXmlSharedFormulaTest_%s.xlsx" (Guid.NewGuid().ToString("N")))
+
+    try
+        do
+            use document = SpreadsheetDocument.Create(path, SpreadsheetDocumentType.Workbook)
+            let workbookPart = document.AddWorkbookPart()
+            workbookPart.Workbook <- Spreadsheet.Workbook()
+            let sheets = Spreadsheet.Sheets()
+            workbookPart.Workbook.AppendChild(sheets) |> ignore
+
+            let worksheetPart = workbookPart.AddNewPart<WorksheetPart>()
+            let sheetData = Spreadsheet.SheetData()
+            worksheetPart.Worksheet <- Spreadsheet.Worksheet()
+            worksheetPart.Worksheet.AppendChild(sheetData) |> ignore
+
+            sheets.AppendChild(
+                Spreadsheet.Sheet(
+                    Name = StringValue("Sheet1"),
+                    SheetId = UInt32Value(1u),
+                    Id = StringValue(workbookPart.GetIdOfPart(worksheetPart))
+                )
+            )
+            |> ignore
+
+            let buildRow (rowIndex: int) (cells: Spreadsheet.Cell list) =
+                let row = Spreadsheet.Row(RowIndex = UInt32Value(uint32 rowIndex))
+                cells |> List.iter (fun c -> row.AppendChild(c) |> ignore)
+                row
+
+            // Group 0 (unanchored): A1 = SUM(B1:B1), filled down to A2/A3.
+            let group0Master = sharedFormulaCell 0u (Some "SUM(B1:B1)") (Some "A1:A3")
+            let group0Slave2 = sharedFormulaCell 0u None None
+            let group0Slave3 = sharedFormulaCell 0u None None
+
+            // Group 1 (mixed anchoring): A4 = SUM($B$1:B1), filled down to A5 -
+            // the absolute endpoint must stay put while the relative one shifts.
+            let group1Master = sharedFormulaCell 1u (Some "SUM($B$1:B1)") (Some "A4:A5")
+            let group1Slave5 = sharedFormulaCell 1u None None
+
+            // Group 2 (string literal): A6 = IF(B1=1,"A1","no"), filled down to A7 - the
+            // quoted "A1" must survive untouched even though it looks exactly like a
+            // reference, while the real reference B1 still shifts to B2.
+            let group2Master = sharedFormulaCell 2u (Some "IF(B1=1,\"A1\",\"no\")") (Some "A6:A7")
+            let group2Slave7 = sharedFormulaCell 2u None None
+
+            sheetData.AppendChild(buildRow 1 [ rawCell "A1" (Some group0Master) "1"; rawCell "B1" None "10" ])
+            |> ignore
+            sheetData.AppendChild(buildRow 2 [ rawCell "A2" (Some group0Slave2) "2"; rawCell "B2" None "20" ])
+            |> ignore
+            sheetData.AppendChild(buildRow 3 [ rawCell "A3" (Some group0Slave3) "3"; rawCell "B3" None "30" ])
+            |> ignore
+            sheetData.AppendChild(buildRow 4 [ rawCell "A4" (Some group1Master) "4" ]) |> ignore
+            sheetData.AppendChild(buildRow 5 [ rawCell "A5" (Some group1Slave5) "5" ]) |> ignore
+            sheetData.AppendChild(buildRow 6 [ rawCell "A6" (Some group2Master) "0" ]) |> ignore
+            sheetData.AppendChild(buildRow 7 [ rawCell "A7" (Some group2Slave7) "0" ]) |> ignore
+
+            worksheetPart.Worksheet.Save()
+            workbookPart.Workbook.Save()
+
+        let wb = Workbook.load path
+        let sheet1 = wb.Sheets |> List.find (fun s -> s.Name = "Sheet1")
+        let cellAt (a1: string) = sheet1.Cells |> List.find (fun c -> c.Ref = CellRef.ofA1 a1)
+
+        Assert.Equal(Formula("SUM(B1:B1)", Some 1.0), (cellAt "A1").Value)
+        Assert.Equal(Formula("SUM(B2:B2)", Some 2.0), (cellAt "A2").Value)
+        Assert.Equal(Formula("SUM(B3:B3)", Some 3.0), (cellAt "A3").Value)
+        Assert.Equal(Formula("SUM($B$1:B1)", Some 4.0), (cellAt "A4").Value)
+        Assert.Equal(Formula("SUM($B$1:B2)", Some 5.0), (cellAt "A5").Value)
+        Assert.Equal(Formula("IF(B1=1,\"A1\",\"no\")", Some 0.0), (cellAt "A6").Value)
+        Assert.Equal(Formula("IF(B2=1,\"A1\",\"no\")", Some 0.0), (cellAt "A7").Value)
+    finally
+        if File.Exists path then
+            File.Delete path
 
 [<Fact>]
 let ``example: merged cells`` () =
