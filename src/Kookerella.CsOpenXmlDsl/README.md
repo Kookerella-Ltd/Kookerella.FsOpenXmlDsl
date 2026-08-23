@@ -28,15 +28,28 @@ WorkbookIO.Save(Workbook.Create(sheet), "out.xlsx");
 var roundTripped = WorkbookIO.Load("out.xlsx");
 ```
 
+Merged ranges, a frozen header row, and an autofilter range are sheet-level facts, set
+fluently the same way:
+
+```csharp
+var sheet = Sheet.Create("Sheet1", /* ...rows... */)
+    .WithMergedRanges(MergedRange.Of("A1", "D1"))
+    .WithFreezePane(1, 0) // freeze the header row
+    .WithAutoFilter(AutoFilterRange.Of("A2", "D10"));
+```
+
+`CellPosition` addresses cells zero-based (`Row 0, Column 0` is "A1") and converts to/from
+A1-style strings via `CellPosition.FromA1("B3")` / `position.ToA1()`.
+
 ## Scope
 
 This is a deliberately narrow first pass, not the whole F# library ported to C#: cell
 values (text/number/boolean/date/formula), basic styling (font/fill/border/alignment/
-number format), and `Save`/`Load`. Tables, charts, images, pivot tables, sparklines, VBA,
-conditional formatting, data validation, hyperlinks, comments, print settings, defined
-names, protection, and code generation aren't exposed here - reference
-`Kookerella.FsOpenXmlDsl` directly for those (this wrapper doesn't stop you from mixing
-both in the same project).
+number format), merged ranges, freeze panes, autofilter, and `Save`/`Load`. Tables, charts,
+images, pivot tables, sparklines, VBA, conditional formatting, data validation, hyperlinks,
+comments, print settings, defined names, protection, and code generation aren't exposed
+here - reference `Kookerella.FsOpenXmlDsl` directly for those (this wrapper doesn't stop
+you from mixing both in the same project).
 
 Formula cells never carry a cached value from this API beyond what you explicitly pass to
 `Cell.Formula` - see the main project's README for why that matters for anything that isn't

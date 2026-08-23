@@ -1,16 +1,20 @@
 namespace Kookerella.CsOpenXmlDsl;
 
 /// <summary>
-/// One worksheet - a name plus its rows. Immutable - <see cref="WithRows"/> and <see
-/// cref="AddRow"/> each return a new <see cref="Sheet"/> rather than mutating in place.
-/// v1 scope is cells/formulas/basic styling only; tables, charts, images, pivot tables,
-/// conditional formatting, and everything else the F# core models are out of scope here -
-/// reference Kookerella.FsOpenXmlDsl directly for those.
+/// One worksheet - a name, its rows, and a handful of sheet-level facts (merged ranges,
+/// frozen panes, an autofilter range). Immutable - every <c>With*</c>/<c>Add*</c> method
+/// returns a new <see cref="Sheet"/> rather than mutating in place. v1 scope is cells/
+/// formulas/basic styling/merged ranges/freeze panes/autofilter only; tables, charts,
+/// images, pivot tables, conditional formatting, and everything else the F# core models
+/// are out of scope here - reference Kookerella.FsOpenXmlDsl directly for those.
 /// </summary>
 public sealed record Sheet
 {
     public string Name { get; }
     public IReadOnlyList<Row> Rows { get; init; } = Array.Empty<Row>();
+    public IReadOnlyList<MergedRange> MergedRanges { get; init; } = Array.Empty<MergedRange>();
+    public FreezePane? FreezePane { get; init; }
+    public AutoFilterRange? AutoFilter { get; init; }
 
     public Sheet(string name) => Name = name;
 
@@ -19,4 +23,15 @@ public sealed record Sheet
     public Sheet WithRows(params Row[] rows) => this with { Rows = rows };
 
     public Sheet AddRow(Row row) => this with { Rows = Rows.Append(row).ToArray() };
+
+    public Sheet WithMergedRanges(params MergedRange[] ranges) => this with { MergedRanges = ranges };
+
+    public Sheet AddMergedRange(MergedRange range) => this with { MergedRanges = MergedRanges.Append(range).ToArray() };
+
+    public Sheet WithFreezePane(FreezePane freezePane) => this with { FreezePane = freezePane };
+
+    /// <summary>Convenience overload for <c>WithFreezePane(new FreezePane(rows, columns))</c>.</summary>
+    public Sheet WithFreezePane(int rows, int columns) => this with { FreezePane = new FreezePane(rows, columns) };
+
+    public Sheet WithAutoFilter(AutoFilterRange range) => this with { AutoFilter = range };
 }

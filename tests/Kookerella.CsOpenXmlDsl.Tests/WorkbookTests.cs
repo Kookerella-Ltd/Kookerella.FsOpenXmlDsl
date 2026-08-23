@@ -223,4 +223,60 @@ public class WorkbookTests
         var cell = loaded.Sheets.Single().Rows.Single().Cells.Single();
         Assert.Equal("hello", ((CellValue.Text)cell.Value).Value);
     }
+
+    [Fact]
+    public void Merged_ranges_freeze_pane_and_autofilter_round_trip()
+    {
+        var path = TempXlsxPath();
+        try
+        {
+            var sheet = Sheet
+                .Create(
+                    "Sheet1",
+                    Row.Of(Cell.Text("Quarterly Report")),
+                    Row.Of(Cell.Text("Region"), Cell.Text("Sales")),
+                    Row.Of(Cell.Text("East"), Cell.Number(10)))
+                .WithMergedRanges(MergedRange.Of("A1", "B1"))
+                .WithFreezePane(2, 0)
+                .WithAutoFilter(AutoFilterRange.Of("A2", "B3"));
+
+            WorkbookIO.Save(Workbook.Create(sheet), path);
+            AssertSchemaValid(path);
+
+            var loaded = WorkbookIO.Load(path);
+            var loadedSheet = loaded.Sheets.Single();
+
+            var mergedRange = Assert.Single(loadedSheet.MergedRanges);
+            Assert.Equal(new CellPosition(0, 0), mergedRange.TopLeft);
+            Assert.Equal(new CellPosition(0, 1), mergedRange.BottomRight);
+            Assert.Equal("A1", mergedRange.TopLeft.ToA1());
+            Assert.Equal("B1", mergedRange.BottomRight.ToA1());
+
+            Assert.NotNull(loadedSheet.FreezePane);
+            Assert.Equal(2, loadedSheet.FreezePane!.Rows);
+            Assert.Equal(0, loadedSheet.FreezePane.Columns);
+
+            Assert.NotNull(loadedSheet.AutoFilter);
+            Assert.Equal(CellPosition.FromA1("A2"), loadedSheet.AutoFilter!.TopLeft);
+            Assert.Equal(CellPosition.FromA1("B3"), loadedSheet.AutoFilter.BottomRight);
+        }
+        finally
+        {
+            if (File.Exists(path))
+                File.Delete(path);
+        }
+    }
+
+    [Fact]
+    public void Sheet_level_facts_default_to_absent_and_are_immutable()
+    {
+        var plain = Sheet.Create("Sheet1");
+        Assert.Empty(plain.MergedRanges);
+        Assert.Null(plain.FreezePane);
+        Assert.Null(plain.AutoFilter);
+
+        var withMerge = plain.AddMergedRange(MergedRange.Of("A1", "A2"));
+        Assert.Empty(plain.MergedRanges);
+        Assert.Single(withMerge.MergedRanges);
+    }
 }

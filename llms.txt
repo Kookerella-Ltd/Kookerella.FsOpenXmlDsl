@@ -75,13 +75,15 @@ mutate `cellStyle`). All I/O is isolated in `WorkbookIO` - `Cell`/`Row`/`Sheet`/
 ### v1 scope — narrower than the F# core, do not assume parity
 
 Covers: cell values (`Cell.Text`/`.Number`/`.Boolean`/`.Date`/`.Formula`), basic styling
-(font, fill, border, alignment, number format via `CellStyle`), `WorkbookIO.Save`/`Load`.
+(font, fill, border, alignment, number format via `CellStyle`), merged ranges/freeze panes/
+autofilter (`Sheet.WithMergedRanges`/`.WithFreezePane`/`.WithAutoFilter`, addressed via
+`CellPosition` - zero-based, or `CellPosition.FromA1("B3")`), and `WorkbookIO.Save`/`Load`.
 
 **Not exposed here** (reference `Kookerella.FsOpenXmlDsl` directly for these — nothing
 stops mixing both in one C# project): tables, charts, images, pivot tables, sparklines,
-VBA, conditional formatting, data validation, hyperlinks, comments, merged ranges, freeze
-panes, autofilter, print settings, defined names, protection, and code generation (there is
-no C# equivalent of `Workbook.generateScript` yet).
+VBA, conditional formatting, data validation, hyperlinks, comments, print settings, defined
+names, protection, and code generation (there is no C# equivalent of `Workbook.
+generateScript` yet).
 
 ### Building a workbook
 

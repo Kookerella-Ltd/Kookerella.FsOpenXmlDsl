@@ -176,6 +176,18 @@ internal static class WorkbookConverter
         }
     }
 
+    private static Fs.Model.MergedRange ToFsMergedRange(MergedRange range) =>
+        new(
+            Fs.CellRefModule.create(range.TopLeft.Row, range.TopLeft.Column),
+            Fs.CellRefModule.create(range.BottomRight.Row, range.BottomRight.Column));
+
+    private static Fs.Model.FreezePane ToFsFreezePane(FreezePane pane) => new(pane.Rows, pane.Columns);
+
+    private static Fs.Model.AutoFilterRange ToFsAutoFilter(AutoFilterRange range) =>
+        new(
+            Fs.CellRefModule.create(range.TopLeft.Row, range.TopLeft.Column),
+            Fs.CellRefModule.create(range.BottomRight.Row, range.BottomRight.Column));
+
     private static Fs.Model.Worksheet ToFsWorksheet(Sheet sheet)
     {
         var nextRow = 0;
@@ -188,7 +200,31 @@ internal static class WorkbookConverter
             nextRow = rowIndex + 1;
         }
 
-        return Fs.Builders.sheetOfCells(sheet.Name, ListModule.OfSeq(cells));
+        // Everything besides Cells/MergedRanges/FreezePane/AutoFilter is read straight off
+        // this baseline (rather than re-derived here) so this doesn't need updating if the
+        // F# core's Worksheet record ever grows another field - only the four this wrapper
+        // actually models are overridden.
+        var baseline = Fs.Builders.sheetOfCells(sheet.Name, ListModule.OfSeq(cells));
+
+        return new Fs.Model.Worksheet(
+            baseline.Name,
+            baseline.Cells,
+            baseline.ColumnProps,
+            baseline.RowProps,
+            ListModule.OfSeq(sheet.MergedRanges.Select(ToFsMergedRange)),
+            sheet.FreezePane is { } fp ? FSharpOption<Fs.Model.FreezePane>.Some(ToFsFreezePane(fp)) : FSharpOption<Fs.Model.FreezePane>.None,
+            sheet.AutoFilter is { } af ? FSharpOption<Fs.Model.AutoFilterRange>.Some(ToFsAutoFilter(af)) : FSharpOption<Fs.Model.AutoFilterRange>.None,
+            baseline.Protection,
+            baseline.ConditionalFormats,
+            baseline.DataValidations,
+            baseline.Hyperlinks,
+            baseline.Comments,
+            baseline.PageSetup,
+            baseline.Tables,
+            baseline.SparklineGroups,
+            baseline.Charts,
+            baseline.Images,
+            baseline.PivotTables);
     }
 
     public static Fs.Model.Workbook ToFSharp(Workbook workbook) =>
@@ -325,6 +361,16 @@ internal static class WorkbookConverter
         _ => null
     };
 
+    private static CellPosition FromFsCellRef(Fs.CellRef cellRef) => new(cellRef.Row, cellRef.Col);
+
+    private static MergedRange FromFsMergedRange(Fs.Model.MergedRange range) =>
+        new(FromFsCellRef(range.TopLeft), FromFsCellRef(range.BottomRight));
+
+    private static FreezePane FromFsFreezePane(Fs.Model.FreezePane pane) => new(pane.Rows, pane.Columns);
+
+    private static AutoFilterRange FromFsAutoFilter(Fs.Model.AutoFilterRange range) =>
+        new(FromFsCellRef(range.TopLeft), FromFsCellRef(range.BottomRight));
+
     public static Workbook FromFSharp(Fs.Model.Workbook workbook)
     {
         var sheets = workbook.Sheets.Select(fsSheet =>
@@ -348,7 +394,14 @@ internal static class WorkbookConverter
             }
 
             var rows = rowsByIndex.Select(kvp => new Row { Index = kvp.Key, Cells = kvp.Value }).ToArray();
-            return new Sheet(fsSheet.Name) { Rows = rows };
+
+            return new Sheet(fsSheet.Name)
+            {
+                Rows = rows,
+                MergedRanges = fsSheet.MergedRanges.Select(FromFsMergedRange).ToArray(),
+                FreezePane = FromOption(fsSheet.FreezePane) is { } fp ? FromFsFreezePane(fp) : null,
+                AutoFilter = FromOption(fsSheet.AutoFilter) is { } af ? FromFsAutoFilter(af) : null
+            };
         });
 
         return new Workbook { Sheets = sheets.ToArray() };
