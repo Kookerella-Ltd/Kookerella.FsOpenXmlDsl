@@ -171,3 +171,6 @@ core (not the C# wrapper):
 - `tests/Kookerella.FsOpenXmlDsl.Tests/Examples/` — one real, openable example workbook
   (plus the F# script that regenerates it) per F# core feature; a working reference
   implementation for any feature described above.
+- `tests/Kookerella.CsOpenXmlDsl.Tests/Examples/` — the same idea for the C# wrapper: one
+  example workbook plus a `script.cs` (a real .NET 10 file-based app, `dotnet run script.cs`
+  from that folder) per wrapper feature, covering everything in its v1 scope above.

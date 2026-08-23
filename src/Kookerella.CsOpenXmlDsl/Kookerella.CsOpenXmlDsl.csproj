@@ -13,10 +13,10 @@
   </PropertyGroup>
 
   <PropertyGroup>
-    <Version>0.1.0</Version>
+    <Version>0.2.0</Version>
     <Authors>Kookerella</Authors>
     <Company>Kookerella Ltd</Company>
-    <Description>An idiomatic, immutable, fluent C# wrapper over Kookerella.FsOpenXmlDsl - build and read Excel workbooks (.xlsx/.xlsm) from C# without touching F# discriminated unions or option types directly. Covers cell values, formulas, and basic styling (font/fill/border/alignment/number format); the full F# DSL (tables, charts, pivot tables, VBA, code generation, etc.) is available by referencing Kookerella.FsOpenXmlDsl directly.</Description>
+    <Description>An idiomatic, immutable, fluent C# wrapper over Kookerella.FsOpenXmlDsl - build and read Excel workbooks (.xlsx/.xlsm) from C# without touching F# discriminated unions or option types directly. Covers cell values/formulas, styling, merged ranges/freeze panes/autofilter, Excel Tables, charts, images, pivot tables, VBA (as opaque bytes), and code generation; sparklines, conditional formatting, data validation, and a few other less common F# core features are available by referencing Kookerella.FsOpenXmlDsl directly.</Description>
     <PackageTags>csharp;excel;xlsx;xlsm;openxml;spreadsheet;dsl;fluent;immutable</PackageTags>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>

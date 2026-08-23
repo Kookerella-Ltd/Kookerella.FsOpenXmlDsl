@@ -28,6 +28,18 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Examples/*/script.cs is generated documentation output (see ExampleTests.cs), not
+         part of this test assembly - it's a standalone file-based app (with its own
+         #:project directive and top-level statements) meant to be run via `dotnet run
+         script.cs`, not compiled into this project. The default SDK glob would otherwise
+         try to compile it here too, which fails outright (#: directives aren't valid
+         syntax outside a file-based app, and a second file with top-level statements
+         collides with this project's own). -->
+    <Compile Remove="Examples\**\*.cs" />
+    <None Include="Examples\**\*.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\..\src\Kookerella.CsOpenXmlDsl\Kookerella.CsOpenXmlDsl.csproj" />
   </ItemGroup>
 

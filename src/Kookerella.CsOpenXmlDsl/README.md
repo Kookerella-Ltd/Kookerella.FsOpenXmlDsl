@@ -159,6 +159,11 @@ and only emits an explicit `.AtIndex`/`.AtColumn` where a row or cell's position
 deviates from strict sequential numbering - so it reads close to how a human would write it
 by hand.
 
+See [`tests/Kookerella.CsOpenXmlDsl.Tests/Examples/`](../../tests/Kookerella.CsOpenXmlDsl.Tests/Examples/)
+for a real, openable `output.xlsx` plus a runnable `script.cs` per feature covered above -
+open any single example in Excel, or `cd` into its folder and run `dotnet run script.cs` to
+regenerate it yourself.
+
 ## Scope
 
 This is a deliberately narrow first pass, not the whole F# library ported to C#: cell
