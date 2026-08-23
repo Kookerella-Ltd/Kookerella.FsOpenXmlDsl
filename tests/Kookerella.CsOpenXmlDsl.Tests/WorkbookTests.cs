@@ -19,6 +19,12 @@ public class WorkbookTests
     private static byte[] SampleVbaProject() =>
         File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Assets", "sample.vbaProject.bin"));
 
+    /// <summary>The canonical "1x1 transparent GIF" - the smallest possible valid image
+    /// file, used ubiquitously as a web tracking pixel, so its bytes are about as
+    /// well-known and trustworthy as test fixtures get. Same fixture the F# suite uses.</summary>
+    private static byte[] OnePixelGif() =>
+        Convert.FromBase64String("R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBTAA7");
+
     private static void AssertSchemaValid(string path)
     {
         using var document = SpreadsheetDocument.Open(path, false);
@@ -504,6 +510,57 @@ public class WorkbookTests
         var withChart = plain.AddChart(ChartEntry.Of(ChartType.Line, "A2", "A3", "D1", "K12", ChartSeries.Of("B1", "B2", "B3")));
         Assert.Empty(plain.Charts);
         Assert.Single(withChart.Charts);
+    }
+
+    [Fact]
+    public void Image_anchored_over_a_range_round_trips_byte_for_byte()
+    {
+        var path = TempXlsxPath();
+        try
+        {
+            var imageBytes = OnePixelGif();
+            var sheet = Sheet
+                .Create("Sheet1", Row.Of(Cell.Text("Logo below:")))
+                .AddImage(ImageEntry.Of(imageBytes, ImageFormat.Gif, "A3", "C10"));
+
+            WorkbookIO.Save(Workbook.Create(sheet), path);
+            AssertSchemaValid(path);
+
+            var loaded = WorkbookIO.Load(path);
+            var image = Assert.Single(loaded.Sheets.Single().Images);
+
+            Assert.Equal(imageBytes, image.Data);
+            Assert.Equal(ImageFormat.Gif, image.Format);
+            Assert.Equal(CellPosition.FromA1("A3"), image.TopLeftAnchor);
+            Assert.Equal(CellPosition.FromA1("C10"), image.BottomRightAnchor);
+        }
+        finally
+        {
+            if (File.Exists(path))
+                File.Delete(path);
+        }
+    }
+
+    [Fact]
+    public void ImageEntry_defensively_copies_the_input_array()
+    {
+        var original = new byte[] { 1, 2, 3 };
+        var image = new ImageEntry(original, ImageFormat.Png, CellPosition.FromA1("A1"), CellPosition.FromA1("B2"));
+
+        original[0] = 99;
+
+        Assert.Equal(new byte[] { 1, 2, 3 }, image.Data);
+    }
+
+    [Fact]
+    public void Sheet_without_images_defaults_to_empty_and_is_immutable()
+    {
+        var plain = Sheet.Create("Sheet1");
+        Assert.Empty(plain.Images);
+
+        var withImage = plain.AddImage(ImageEntry.Of(OnePixelGif(), ImageFormat.Gif, "A1", "B2"));
+        Assert.Empty(plain.Images);
+        Assert.Single(withImage.Images);
     }
 
     [Fact]

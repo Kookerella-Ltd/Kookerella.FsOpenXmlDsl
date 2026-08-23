@@ -223,6 +223,18 @@ internal static class WorkbookConverter
             ToFsCellRef(chart.TopLeftAnchor),
             ToFsCellRef(chart.BottomRightAnchor));
 
+    private static Fs.ImageFormat ToFsImageFormat(ImageFormat format) => format switch
+    {
+        ImageFormat.Png => Fs.ImageFormat.Png,
+        ImageFormat.Jpeg => Fs.ImageFormat.Jpeg,
+        ImageFormat.Gif => Fs.ImageFormat.Gif,
+        ImageFormat.Bmp => Fs.ImageFormat.Bmp,
+        _ => throw new ArgumentOutOfRangeException(nameof(format), format, null)
+    };
+
+    private static Fs.ImageEntry ToFsImageEntry(ImageEntry image) =>
+        new(image.Data, ToFsImageFormat(image.Format), ToFsCellRef(image.TopLeftAnchor), ToFsCellRef(image.BottomRightAnchor));
+
     private static Fs.Model.Worksheet ToFsWorksheet(Sheet sheet)
     {
         var nextRow = 0;
@@ -258,7 +270,7 @@ internal static class WorkbookConverter
             ListModule.OfSeq(sheet.Tables.Select(ToFsTableEntry)),
             baseline.SparklineGroups,
             ListModule.OfSeq(sheet.Charts.Select(ToFsChartEntry)),
-            baseline.Images,
+            ListModule.OfSeq(sheet.Images.Select(ToFsImageEntry)),
             baseline.PivotTables);
     }
 
@@ -464,6 +476,18 @@ internal static class WorkbookConverter
             ShowLegend = chart.ShowLegend
         };
 
+    private static ImageFormat FromFsImageFormat(Fs.ImageFormat format) => format switch
+    {
+        { IsPng: true } => ImageFormat.Png,
+        { IsJpeg: true } => ImageFormat.Jpeg,
+        { IsGif: true } => ImageFormat.Gif,
+        { IsBmp: true } => ImageFormat.Bmp,
+        _ => throw new ArgumentOutOfRangeException(nameof(format), format, null)
+    };
+
+    private static ImageEntry FromFsImageEntry(Fs.ImageEntry image) =>
+        new(image.Data, FromFsImageFormat(image.Format), FromFsCellRef(image.TopLeftAnchor), FromFsCellRef(image.BottomRightAnchor));
+
     public static Workbook FromFSharp(Fs.Model.Workbook workbook)
     {
         var sheets = workbook.Sheets.Select(fsSheet =>
@@ -495,7 +519,8 @@ internal static class WorkbookConverter
                 FreezePane = FromOption(fsSheet.FreezePane) is { } fp ? FromFsFreezePane(fp) : null,
                 AutoFilter = FromOption(fsSheet.AutoFilter) is { } af ? FromFsAutoFilter(af) : null,
                 Tables = fsSheet.Tables.Select(FromFsTableEntry).ToArray(),
-                Charts = fsSheet.Charts.Select(FromFsChartEntry).ToArray()
+                Charts = fsSheet.Charts.Select(FromFsChartEntry).ToArray(),
+                Images = fsSheet.Images.Select(FromFsImageEntry).ToArray()
             };
         });
 

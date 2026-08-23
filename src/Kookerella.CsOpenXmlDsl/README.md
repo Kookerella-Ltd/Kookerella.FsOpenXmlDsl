@@ -97,12 +97,24 @@ literal string, matching how a real Excel chart's series name live-updates if th
 text changes. `ChartType` covers `Column`/`Bar`/`Line`/`Pie` - the same set the F# core
 models, no scatter/area/stock/3-D/stacked variants in either layer.
 
+Images are raster files embedded and anchored the same "move and size with cells" way as
+charts and tables - this wrapper does no decoding of its own, `Data` is exactly the bytes
+of the image file on disk, handed back unchanged on read:
+
+```csharp
+var sheet = Sheet.Create("Sheet1", Row.Of(Cell.Text("Logo below:")))
+    .AddImage(ImageEntry.Of(File.ReadAllBytes("logo.png"), ImageFormat.Png, "A3", "C10"));
+```
+
+`ImageFormat` covers `Png`/`Jpeg`/`Gif`/`Bmp` - the four formats every Excel version has
+supported natively, matching the F# core (TIFF/SVG/EMF/WMF aren't modeled in either layer).
+
 ## Scope
 
 This is a deliberately narrow first pass, not the whole F# library ported to C#: cell
 values (text/number/boolean/date/formula), basic styling (font/fill/border/alignment/
-number format), merged ranges, freeze panes, autofilter, tables, charts, VBA (as opaque
-bytes), and `Save`/`Load`. Images, pivot tables, sparklines, conditional formatting, data
+number format), merged ranges, freeze panes, autofilter, tables, charts, images, VBA (as
+opaque bytes), and `Save`/`Load`. Pivot tables, sparklines, conditional formatting, data
 validation, hyperlinks, comments, print settings, defined names, protection, and code
 generation aren't exposed here - reference `Kookerella.FsOpenXmlDsl` directly for those
 (this wrapper doesn't stop you from mixing both in the same project).
