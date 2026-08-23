@@ -1,0 +1,89 @@
+# Kookerella.FsOpenXmlDsl
+
+> A typesafe F# DSL for building and reading Excel workbooks (.xlsx/.xlsm), interpreted
+> into calls against the DocumentFormat.OpenXml SDK. Unlike write-only Excel generators,
+> it round-trips (read a file back into the same immutable model) and can regenerate
+> equivalent F# source from a loaded workbook via built-in code generation.
+
+NuGet package ID: `Kookerella.FsOpenXmlDsl`. Root namespace: `Kookerella.FsOpenXmlDsl`
+(internals live under `Kookerella.FsOpenXmlDsl.Interpreter`, not part of the public API).
+Target framework: net10.0. License: MIT. Language: F# only — there is no C# port yet, and
+the DSL's ergonomics (discriminated unions, `open type SheetDsl`, pipe-friendly builders)
+are F#-idiomatic; a C# caller can still reference the assembly directly but will find the
+API considerably less pleasant than an F# caller would.
+
+## Core model
+
+- `Workbook = { Sheets: Worksheet list; DefinedNames: DefinedNameEntry list; Protection: WorkbookProtection option; VbaProject: byte[] option }`
+- `Worksheet` holds a sparse `Cell list` plus per-feature fields (`Tables`, `Charts`,
+  `Images`, `PivotTables`, `SparklineGroups`, `ConditionalFormats`, `DataValidations`,
+  `Hyperlinks`, `Comments`, `PageSetup`, `Protection`, `MergedRanges`, `FreezePane`,
+  `AutoFilter`, `ColumnProps`, `RowProps`).
+- `CellValue = Empty | Text of string | Number of float | Boolean of bool | Date of DateTime | Formula of expression: string * cachedValue: float option`
+- `CellRef` is a zero-based `{ Row: int; Col: int }`; convert via `CellRef.ofA1 "B3"` / `CellRef.toA1 ref`.
+
+## Entry points (`Kookerella.FsOpenXmlDsl.Api`, module `Workbook`)
+
+- `Workbook.save (path: string) (wb: Workbook) : unit`
+- `Workbook.saveToStream (stream: Stream) (wb: Workbook) : unit`
+- `Workbook.load (path: string) : Workbook`
+- `Workbook.loadFromStream (stream: Stream) : Workbook`
+- `Workbook.generateScript (referenceLines: string list) (outputFileName: string) (wb: Workbook) : string`
+  — renders `wb` as a self-contained `.fsx` that rebuilds an equivalent file when run via `dotnet fsi`.
+
+## Building a workbook (the common path)
+
+```fsharp
+open Kookerella.FsOpenXmlDsl
+open type Kookerella.FsOpenXmlDsl.SheetDsl
+
+let data =
+    sheet "Sheet1"
+        [ row [ cell (Text "Name"); cell (Text "Amount") ]
+          row [ cell (Text "Widgets"); cell (Number 42.5) ] ]
+
+workbook [ data ] |> Workbook.save "out.xlsx"
+```
+
+`cell`/`row` are members on `SheetDsl` (brought into scope with `open type`, since plain
+F# `let` functions can't have optional parameters) with optional `?col`/`?style`/`?index`.
+`sheet` folds a `SheetItem list` (rows, `Table`, `EmbeddedChart`, `EmbeddedImage`,
+`EmbeddedPivotTable`, `SparklineGroup`, `Protect`, `PageSetup`, `Freeze`, `ColumnWidth`,
+`autoFilter`, `conditionalFormat`, `dataValidation`, `hyperlink`, `comment`) into a
+`Worksheet`. `withDefinedNames`/`withProtection`/`withVbaProject` are pipe-friendly
+`Workbook -> Workbook` helpers for the workbook-level (not per-sheet) features.
+
+## Load-bearing gotchas — read before generating code against this library
+
+- **No formula evaluation engine exists.** `Formula(expression, cachedValue)` only ever
+  shows `cachedValue` until something else computes a real one. Real Excel recalculates on
+  open, so `cachedValue = None` is fine only if a human opens the result in Excel first.
+  For any headless pipeline (PDF conversion, another automated reader, anything that never
+  opens the file in Excel) always pass the real computed result as `cachedValue` — the
+  caller almost certainly already has the number that fed into the formula.
+- **Format support is `.xlsx`/`.xlsm` only.** No legacy binary `.xls`, no `.xlsb`, and no
+  password-encrypted-to-open workbooks (those aren't plain ZIP/OPC packages; opening one
+  throws before this library's own code runs at all).
+- **`Reader.load` is lossy for anything not modeled**, by design: it drops OOXML features
+  outside the DSL's scope rather than partially/incorrectly representing them. See
+  MAPPING.md's "Known gaps" section before assuming a foreign file's feature round-trips.
+- **VBA/macros are opaque bytes only** (`Workbook.VbaProject: byte[] option`) — there is no
+  API to author, edit, or list macro source. Attach an existing `vbaProject.bin`'s raw
+  bytes; save with an `.xlsm` path.
+- **Pivot tables perform real aggregation** (Sum/Count/CountNumbers/Average/Min/Max) but
+  are deliberately capped at one row field, at most one column field, and one value field —
+  see MAPPING.md before assuming a richer pivot table shape works.
+- **API is pre-1.0 (`0.1.0`)** — expect breaking changes between minor versions until a
+  1.0 is tagged.
+
+## Docs
+
+- [README.md](README.md) — full quick-start with runnable examples for every feature
+  (formulas, tables, charts, images, pivot tables, sparklines, VBA, conditional formatting,
+  data validation, protection, print settings, defined names, code generation).
+- [MAPPING.md](MAPPING.md) — the authoritative list of what maps 1:1 onto SpreadsheetML,
+  what's approximated, and what isn't modeled at all. Consult this before claiming this
+  library supports a specific OOXML feature.
+- `tests/Kookerella.FsOpenXmlDsl.Tests/Examples/` — one real, openable example workbook
+  (plus the F# script that regenerates it) per feature; a working reference implementation
+  for any feature described above.
