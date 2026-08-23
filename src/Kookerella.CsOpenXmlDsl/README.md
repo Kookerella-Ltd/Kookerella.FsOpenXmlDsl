@@ -132,16 +132,43 @@ header row, the same way tables do). The source range can live on a different sh
 the pivot table itself via `WithSourceSheet(name)`. `PivotAggregation` covers
 `Sum`/`Count`/`CountNumbers`/`Average`/`Min`/`Max`, defaulting to `Sum`.
 
+`CsCodeGen.Generate` renders a `Workbook` back out as a self-contained C# file that
+regenerates an equivalent file when run - the reverse of `WorkbookIO.Load` one level
+further: loading turns a file into these types, this turns those types into C# *source
+text*. It targets .NET 10's "file-based apps" feature (`dotnet run script.cs` - no
+`.csproj` needed), so the emitted file is directly runnable, not just a snippet to paste
+into an existing project:
+
+```csharp
+var script = CsCodeGen.Generate(
+    ["#:package Kookerella.CsOpenXmlDsl@0.1.0"],
+    "regenerated.xlsx",
+    loadedWorkbook);
+
+File.WriteAllText("regenerate.cs", script);
+// then: dotnet run regenerate.cs
+```
+
+The first argument is whatever raw `#:package`/`#:project` directive lines the emitted file
+needs to locate this assembly - `CsCodeGen` has no opinion on that, since it depends
+entirely on where the file ends up living relative to your own build (pass a `#:project
+../path/to/Kookerella.CsOpenXmlDsl.csproj` line instead when generating against a local
+checkout rather than the published package). Generated code only mentions what isn't
+already implied by a type's own defaults (e.g. `CellStyle.Default`, `TableStyle.Default`),
+and only emits an explicit `.AtIndex`/`.AtColumn` where a row or cell's position actually
+deviates from strict sequential numbering - so it reads close to how a human would write it
+by hand.
+
 ## Scope
 
 This is a deliberately narrow first pass, not the whole F# library ported to C#: cell
 values (text/number/boolean/date/formula), basic styling (font/fill/border/alignment/
 number format), merged ranges, freeze panes, autofilter, tables, charts, images, pivot
-tables (single row/column/value field only), VBA (as opaque bytes), and `Save`/`Load`.
-Sparklines, conditional formatting, data validation, hyperlinks, comments, print settings,
-defined names, protection, and code generation aren't exposed here - reference
-`Kookerella.FsOpenXmlDsl` directly for those (this wrapper doesn't stop you from mixing both
-in the same project).
+tables (single row/column/value field only), VBA (as opaque bytes), `Save`/`Load`, and code
+generation (`CsCodeGen`, covering everything this wrapper itself models). Sparklines,
+conditional formatting, data validation, hyperlinks, comments, print settings, defined
+names, and protection aren't exposed here - reference `Kookerella.FsOpenXmlDsl` directly
+for those (this wrapper doesn't stop you from mixing both in the same project).
 
 Formula cells never carry a cached value from this API beyond what you explicitly pass to
 `Cell.Formula` - see the main project's README for why that matters for anything that isn't

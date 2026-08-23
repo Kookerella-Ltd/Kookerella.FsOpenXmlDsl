@@ -87,13 +87,15 @@ way as charts/tables), pivot tables (`Sheet.AddPivotTable(PivotTableEntry.Of(...
 `PivotAggregation` - single row/optional column/single value field only, same scope as the
 F# core; unlike everything else here `Save` actually performs the grouping/aggregation
 rather than just describing a reference), VBA as opaque bytes
-(`Workbook.WithVbaProject(byte[])`, save to an `.xlsm` path), and `WorkbookIO.Save`/`Load`.
+(`Workbook.WithVbaProject(byte[])`, save to an `.xlsm` path), `WorkbookIO.Save`/`Load`, and
+code generation (`CsCodeGen.Generate(referenceLines, outputFileName, workbook)` - the C#
+equivalent of `Workbook.generateScript`, covering everything this wrapper models; emits a
+.NET 10 "file-based app" runnable via `dotnet run script.cs`, not an F# script).
 
 **Not exposed here** (reference `Kookerella.FsOpenXmlDsl` directly for these — nothing
 stops mixing both in one C# project): sparklines,
 conditional formatting, data validation, hyperlinks, comments, print settings, defined
-names, protection, and code generation (there is no C# equivalent of `Workbook.
-generateScript` yet).
+names, and protection.
 
 ### Building a workbook
 

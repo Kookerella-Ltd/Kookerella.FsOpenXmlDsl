@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Validation;
 using Kookerella.CsOpenXmlDsl;
@@ -24,6 +25,19 @@ public class WorkbookTests
     /// well-known and trustworthy as test fixtures get. Same fixture the F# suite uses.</summary>
     private static byte[] OnePixelGif() =>
         Convert.FromBase64String("R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBTAA7");
+
+    /// <summary>Walks up from the test binary's output directory to find the repo root
+    /// (marked by the solution file), so <see cref="Generated_script_regenerates_an_equivalent_file"/>
+    /// can reference the wrapper's own .csproj via a <c>#:project</c> directive without a
+    /// hard-coded absolute path.</summary>
+    private static string FindRepoRoot()
+    {
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "Kookerella.FsOpenXmlDsl.slnx")))
+            dir = dir.Parent;
+
+        return dir?.FullName ?? throw new InvalidOperationException($"Could not locate the repo root from {AppContext.BaseDirectory}");
+    }
 
     private static void AssertSchemaValid(string path)
     {
@@ -730,6 +744,134 @@ public class WorkbookTests
         var withPivotTable = plain.AddPivotTable(PivotTableEntry.Of("A1", "B2", "Region", "Sales", "D1"));
         Assert.Empty(plain.PivotTables);
         Assert.Single(withPivotTable.PivotTables);
+    }
+
+    [Fact]
+    public void Generate_produces_readable_source_for_a_simple_workbook()
+    {
+        var sheet = Sheet.Create(
+            "Sheet1",
+            Row.Of(Cell.Text("Item"), Cell.Number(42.5).WithStyle(CellStyle.Default.AsBold())));
+
+        var script = CsCodeGen.Generate(["#:project ../Kookerella.CsOpenXmlDsl.csproj"], "out.xlsx", Workbook.Create(sheet));
+
+        Assert.StartsWith("#:project ../Kookerella.CsOpenXmlDsl.csproj", script);
+        Assert.Contains("using Kookerella.CsOpenXmlDsl;", script);
+        Assert.Contains("Sheet.Create(", script);
+        Assert.Contains("Cell.Text(\"Item\")", script);
+        Assert.Contains("Cell.Number(42.5).WithStyle(CellStyle.Default.AsBold())", script);
+        Assert.Contains("var workbook = Workbook.Create(sheet0);", script);
+        Assert.Contains("WorkbookIO.Save(workbook, \"out.xlsx\");", script);
+
+        // No cell in this sheet needs an explicit AtIndex/AtColumn - both rows/columns are
+        // already sequential, so nothing should mention either.
+        Assert.DoesNotContain("AtIndex", script);
+        Assert.DoesNotContain("AtColumn", script);
+    }
+
+    [Fact]
+    public void Generate_only_emits_AtIndex_and_AtColumn_where_positions_deviate_from_sequential()
+    {
+        var sheet = Sheet.Create(
+            "Sheet1",
+            Row.Of(Cell.Text("A1"), Cell.Text("C1").AtColumn(2)),
+            Row.Of(Cell.Text("A5")).AtIndex(4));
+
+        var script = CsCodeGen.Generate([], "out.xlsx", Workbook.Create(sheet));
+
+        Assert.Contains("Cell.Text(\"A1\")", script);
+        Assert.Contains("Cell.Text(\"C1\").AtColumn(2)", script);
+        Assert.Contains("Row.Of(Cell.Text(\"A5\")).AtIndex(4)", script);
+    }
+
+    [Fact]
+    public void Generate_omits_WithVbaProject_when_the_workbook_has_none()
+    {
+        var script = CsCodeGen.Generate([], "out.xlsx", Workbook.Create(Sheet.Create("Sheet1")));
+        Assert.DoesNotContain("WithVbaProject", script);
+    }
+
+    [Fact]
+    [Trait("Category", "Slow")]
+    public void Generated_script_regenerates_an_equivalent_file()
+    {
+        var csprojPath = Path.Combine(FindRepoRoot(), "src", "Kookerella.CsOpenXmlDsl", "Kookerella.CsOpenXmlDsl.csproj");
+        var scriptPath = Path.Combine(Path.GetTempPath(), $"CsOpenXmlDslCodeGen_{Guid.NewGuid():N}.cs");
+        var outputPath = TempXlsxPath();
+
+        try
+        {
+            var headerStyle = CellStyle.Default.AsBold().WithFillColor(new RgbColor(220, 220, 220));
+
+            var sheet = Sheet
+                .Create(
+                    "Sheet1",
+                    Row.Of(Cell.Text("Item").WithStyle(headerStyle), Cell.Text("Qty").WithStyle(headerStyle)),
+                    Row.Of(Cell.Text("Widgets"), Cell.Number(4), Cell.Formula("B2*2", 8.0)))
+                .WithMergedRanges(MergedRange.Of("A1", "A1"))
+                .WithFreezePane(1, 0)
+                .WithAutoFilter(AutoFilterRange.Of("A1", "B2"))
+                .WithTables(TableEntry.Of("A1", "B2", "Inventory", new TableColumn("Item"), new TableColumn("Qty")))
+                .AddChart(
+                    ChartEntry
+                        .Of(ChartType.Column, "A2", "A2", "D1", "K12", ChartSeries.Of("B1", "B2", "B2"))
+                        .WithTitle("Chart")
+                        .WithLegend())
+                .AddImage(ImageEntry.Of(OnePixelGif(), ImageFormat.Gif, "D15", "F20"))
+                .AddPivotTable(PivotTableEntry.Of("A1", "B2", "Item", "Qty", "D25").WithAggregation(PivotAggregation.Sum));
+
+            var workbook = Workbook.Create(sheet);
+
+            var script = CsCodeGen.Generate([$"#:project {csprojPath}"], outputPath, workbook);
+            File.WriteAllText(scriptPath, script);
+
+            using var process = Process.Start(new ProcessStartInfo
+            {
+                FileName = "dotnet",
+                ArgumentList = { "run", "--file", scriptPath },
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false
+            })!;
+
+            var stdout = process.StandardOutput.ReadToEnd();
+            var stderr = process.StandardError.ReadToEnd();
+            process.WaitForExit();
+
+            Assert.True(process.ExitCode == 0, $"dotnet run {scriptPath} failed (exit {process.ExitCode}):\n{stdout}\n{stderr}");
+            AssertSchemaValid(outputPath);
+
+            var loaded = WorkbookIO.Load(outputPath);
+            var loadedSheet = Assert.Single(loaded.Sheets);
+
+            Assert.Equal("Sheet1", loadedSheet.Name);
+            Assert.Single(loadedSheet.MergedRanges);
+            Assert.NotNull(loadedSheet.FreezePane);
+            Assert.NotNull(loadedSheet.AutoFilter);
+            Assert.Single(loadedSheet.Tables);
+            Assert.Single(loadedSheet.Charts);
+            Assert.Single(loadedSheet.Images);
+            Assert.Single(loadedSheet.PivotTables);
+
+            var loadedTable = loadedSheet.Tables.Single();
+            Assert.Equal("Inventory", loadedTable.Name);
+
+            var loadedChart = loadedSheet.Charts.Single();
+            Assert.Equal("Chart", loadedChart.Title);
+            Assert.True(loadedChart.ShowLegend);
+
+            Assert.Equal(OnePixelGif(), loadedSheet.Images.Single().Data);
+
+            var loadedPivotTable = loadedSheet.PivotTables.Single();
+            Assert.Equal(PivotAggregation.Sum, loadedPivotTable.Aggregation);
+        }
+        finally
+        {
+            if (File.Exists(scriptPath))
+                File.Delete(scriptPath);
+            if (File.Exists(outputPath))
+                File.Delete(outputPath);
+        }
     }
 
     [Fact]
