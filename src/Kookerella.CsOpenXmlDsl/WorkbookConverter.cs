@@ -176,17 +176,15 @@ internal static class WorkbookConverter
         }
     }
 
+    private static Fs.CellRef ToFsCellRef(CellPosition position) => Fs.CellRefModule.create(position.Row, position.Column);
+
     private static Fs.Model.MergedRange ToFsMergedRange(MergedRange range) =>
-        new(
-            Fs.CellRefModule.create(range.TopLeft.Row, range.TopLeft.Column),
-            Fs.CellRefModule.create(range.BottomRight.Row, range.BottomRight.Column));
+        new(ToFsCellRef(range.TopLeft), ToFsCellRef(range.BottomRight));
 
     private static Fs.Model.FreezePane ToFsFreezePane(FreezePane pane) => new(pane.Rows, pane.Columns);
 
     private static Fs.Model.AutoFilterRange ToFsAutoFilter(AutoFilterRange range) =>
-        new(
-            Fs.CellRefModule.create(range.TopLeft.Row, range.TopLeft.Column),
-            Fs.CellRefModule.create(range.BottomRight.Row, range.BottomRight.Column));
+        new(ToFsCellRef(range.TopLeft), ToFsCellRef(range.BottomRight));
 
     private static Fs.TableColumn ToFsTableColumn(TableColumn column) =>
         new(column.Name, ToOption(column.CalculatedFormula));
@@ -196,11 +194,34 @@ internal static class WorkbookConverter
 
     private static Fs.TableEntry ToFsTableEntry(TableEntry table) =>
         new(
-            Fs.CellRefModule.create(table.TopLeft.Row, table.TopLeft.Column),
-            Fs.CellRefModule.create(table.BottomRight.Row, table.BottomRight.Column),
+            ToFsCellRef(table.TopLeft),
+            ToFsCellRef(table.BottomRight),
             table.Name,
             ListModule.OfSeq(table.Columns.Select(ToFsTableColumn)),
             ToFsTableStyle(table.Style));
+
+    private static Fs.ChartType ToFsChartType(ChartType type) => type switch
+    {
+        ChartType.Column => Fs.ChartType.ChartColumn,
+        ChartType.Bar => Fs.ChartType.ChartBar,
+        ChartType.Line => Fs.ChartType.ChartLine,
+        ChartType.Pie => Fs.ChartType.ChartPie,
+        _ => throw new ArgumentOutOfRangeException(nameof(type), type, null)
+    };
+
+    private static Fs.ChartSeries ToFsChartSeries(ChartSeries series) =>
+        new(ToFsCellRef(series.Name), ToFsCellRef(series.ValuesTopLeft), ToFsCellRef(series.ValuesBottomRight));
+
+    private static Fs.ChartEntry ToFsChartEntry(ChartEntry chart) =>
+        new(
+            ToFsChartType(chart.Type),
+            ToOption(chart.Title),
+            ToFsCellRef(chart.CategoriesTopLeft),
+            ToFsCellRef(chart.CategoriesBottomRight),
+            ListModule.OfSeq(chart.Series.Select(ToFsChartSeries)),
+            chart.ShowLegend,
+            ToFsCellRef(chart.TopLeftAnchor),
+            ToFsCellRef(chart.BottomRightAnchor));
 
     private static Fs.Model.Worksheet ToFsWorksheet(Sheet sheet)
     {
@@ -236,7 +257,7 @@ internal static class WorkbookConverter
             baseline.PageSetup,
             ListModule.OfSeq(sheet.Tables.Select(ToFsTableEntry)),
             baseline.SparklineGroups,
-            baseline.Charts,
+            ListModule.OfSeq(sheet.Charts.Select(ToFsChartEntry)),
             baseline.Images,
             baseline.PivotTables);
     }
@@ -418,6 +439,31 @@ internal static class WorkbookConverter
             Style = FromFsTableStyle(table.Style)
         };
 
+    private static ChartType FromFsChartType(Fs.ChartType type) => type switch
+    {
+        { IsChartColumn: true } => ChartType.Column,
+        { IsChartBar: true } => ChartType.Bar,
+        { IsChartLine: true } => ChartType.Line,
+        { IsChartPie: true } => ChartType.Pie,
+        _ => throw new ArgumentOutOfRangeException(nameof(type), type, null)
+    };
+
+    private static ChartSeries FromFsChartSeries(Fs.ChartSeries series) =>
+        new(FromFsCellRef(series.Name), FromFsCellRef(series.ValuesTopLeft), FromFsCellRef(series.ValuesBottomRight));
+
+    private static ChartEntry FromFsChartEntry(Fs.ChartEntry chart) =>
+        new(
+            FromFsChartType(chart.Type),
+            FromFsCellRef(chart.CategoriesTopLeft),
+            FromFsCellRef(chart.CategoriesBottomRight),
+            FromFsCellRef(chart.TopLeftAnchor),
+            FromFsCellRef(chart.BottomRightAnchor),
+            chart.Series.Select(FromFsChartSeries).ToArray())
+        {
+            Title = FromOption(chart.Title),
+            ShowLegend = chart.ShowLegend
+        };
+
     public static Workbook FromFSharp(Fs.Model.Workbook workbook)
     {
         var sheets = workbook.Sheets.Select(fsSheet =>
@@ -448,7 +494,8 @@ internal static class WorkbookConverter
                 MergedRanges = fsSheet.MergedRanges.Select(FromFsMergedRange).ToArray(),
                 FreezePane = FromOption(fsSheet.FreezePane) is { } fp ? FromFsFreezePane(fp) : null,
                 AutoFilter = FromOption(fsSheet.AutoFilter) is { } af ? FromFsAutoFilter(af) : null,
-                Tables = fsSheet.Tables.Select(FromFsTableEntry).ToArray()
+                Tables = fsSheet.Tables.Select(FromFsTableEntry).ToArray(),
+                Charts = fsSheet.Charts.Select(FromFsChartEntry).ToArray()
             };
         });
 

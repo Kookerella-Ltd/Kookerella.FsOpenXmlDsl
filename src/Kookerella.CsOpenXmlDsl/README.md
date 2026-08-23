@@ -75,12 +75,34 @@ column name must be unique (genuine Excel/OOXML requirements) - `WorkbookIO.Save
 `ArgumentException` if either is violated rather than silently producing a file Excel would
 refuse to open cleanly.
 
+Charts are anchored over a range of cells (a "move and size with cells" anchor, matching how
+tables/merged ranges are already addressed) rather than a pixel-precise floating position:
+
+```csharp
+var sheet = Sheet.Create("Sheet1",
+        Row.Of(Cell.Text("Quarter"), Cell.Text("North"), Cell.Text("South")),
+        Row.Of(Cell.Text("Q1"), Cell.Number(12), Cell.Number(9)),
+        Row.Of(Cell.Text("Q2"), Cell.Number(15), Cell.Number(11)))
+    .AddChart(
+        ChartEntry
+            .Of(ChartType.Column, "A2", "A3", "E1", "L15",
+                ChartSeries.Of("B1", "B2", "B3"),
+                ChartSeries.Of("C1", "C2", "C3"))
+            .WithTitle("Sales by Quarter")
+            .WithLegend());
+```
+
+A series' name is a reference to the cell that holds it (its header, typically), not a
+literal string, matching how a real Excel chart's series name live-updates if that cell's
+text changes. `ChartType` covers `Column`/`Bar`/`Line`/`Pie` - the same set the F# core
+models, no scatter/area/stock/3-D/stacked variants in either layer.
+
 ## Scope
 
 This is a deliberately narrow first pass, not the whole F# library ported to C#: cell
 values (text/number/boolean/date/formula), basic styling (font/fill/border/alignment/
-number format), merged ranges, freeze panes, autofilter, tables, VBA (as opaque bytes), and
-`Save`/`Load`. Charts, images, pivot tables, sparklines, conditional formatting, data
+number format), merged ranges, freeze panes, autofilter, tables, charts, VBA (as opaque
+bytes), and `Save`/`Load`. Images, pivot tables, sparklines, conditional formatting, data
 validation, hyperlinks, comments, print settings, defined names, protection, and code
 generation aren't exposed here - reference `Kookerella.FsOpenXmlDsl` directly for those
 (this wrapper doesn't stop you from mixing both in the same project).

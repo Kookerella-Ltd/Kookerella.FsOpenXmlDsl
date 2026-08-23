@@ -2,11 +2,12 @@ namespace Kookerella.CsOpenXmlDsl;
 
 /// <summary>
 /// One worksheet - a name, its rows, a handful of sheet-level facts (merged ranges, frozen
-/// panes, an autofilter range), and Excel Tables. Immutable - every <c>With*</c>/<c>Add*</c>
-/// method returns a new <see cref="Sheet"/> rather than mutating in place. v1 scope is
-/// cells/formulas/basic styling/merged ranges/freeze panes/autofilter/tables only; charts,
-/// images, pivot tables, conditional formatting, and everything else the F# core models
-/// are out of scope here - reference Kookerella.FsOpenXmlDsl directly for those.
+/// panes, an autofilter range), Excel Tables, and charts. Immutable - every
+/// <c>With*</c>/<c>Add*</c> method returns a new <see cref="Sheet"/> rather than mutating
+/// in place. v1 scope is cells/formulas/basic styling/merged ranges/freeze panes/autofilter/
+/// tables/charts only; images, pivot tables, conditional formatting, and everything else
+/// the F# core models are out of scope here - reference Kookerella.FsOpenXmlDsl directly
+/// for those.
 /// </summary>
 public sealed record Sheet
 {
@@ -16,6 +17,7 @@ public sealed record Sheet
     public FreezePane? FreezePane { get; init; }
     public AutoFilterRange? AutoFilter { get; init; }
     public IReadOnlyList<TableEntry> Tables { get; init; } = Array.Empty<TableEntry>();
+    public IReadOnlyList<ChartEntry> Charts { get; init; } = Array.Empty<ChartEntry>();
 
     public Sheet(string name) => Name = name;
 
@@ -39,4 +41,8 @@ public sealed record Sheet
     public Sheet WithTables(params TableEntry[] tables) => this with { Tables = tables };
 
     public Sheet AddTable(TableEntry table) => this with { Tables = Tables.Append(table).ToArray() };
+
+    public Sheet WithCharts(params ChartEntry[] charts) => this with { Charts = charts };
+
+    public Sheet AddChart(ChartEntry chart) => this with { Charts = Charts.Append(chart).ToArray() };
 }

@@ -411,6 +411,102 @@ public class WorkbookTests
     }
 
     [Fact]
+    public void Chart_with_title_and_legend_round_trips()
+    {
+        var path = TempXlsxPath();
+        try
+        {
+            var sheet = Sheet
+                .Create(
+                    "Sheet1",
+                    Row.Of(Cell.Text("Quarter"), Cell.Text("North"), Cell.Text("South")),
+                    Row.Of(Cell.Text("Q1"), Cell.Number(12), Cell.Number(9)),
+                    Row.Of(Cell.Text("Q2"), Cell.Number(15), Cell.Number(11)),
+                    Row.Of(Cell.Text("Q3"), Cell.Number(9), Cell.Number(14)))
+                .AddChart(
+                    ChartEntry
+                        .Of(
+                            ChartType.Column,
+                            "A2",
+                            "A4",
+                            "E1",
+                            "L15",
+                            ChartSeries.Of("B1", "B2", "B4"),
+                            ChartSeries.Of("C1", "C2", "C4"))
+                        .WithTitle("Sales by Quarter")
+                        .WithLegend());
+
+            WorkbookIO.Save(Workbook.Create(sheet), path);
+            AssertSchemaValid(path);
+
+            var loaded = WorkbookIO.Load(path);
+            var chart = Assert.Single(loaded.Sheets.Single().Charts);
+
+            Assert.Equal(ChartType.Column, chart.Type);
+            Assert.Equal("Sales by Quarter", chart.Title);
+            Assert.True(chart.ShowLegend);
+            Assert.Equal(CellPosition.FromA1("A2"), chart.CategoriesTopLeft);
+            Assert.Equal(CellPosition.FromA1("A4"), chart.CategoriesBottomRight);
+            Assert.Equal(CellPosition.FromA1("E1"), chart.TopLeftAnchor);
+            Assert.Equal(CellPosition.FromA1("L15"), chart.BottomRightAnchor);
+
+            Assert.Equal(2, chart.Series.Count);
+            Assert.Equal(CellPosition.FromA1("B1"), chart.Series[0].Name);
+            Assert.Equal(CellPosition.FromA1("B2"), chart.Series[0].ValuesTopLeft);
+            Assert.Equal(CellPosition.FromA1("B4"), chart.Series[0].ValuesBottomRight);
+            Assert.Equal(CellPosition.FromA1("C1"), chart.Series[1].Name);
+        }
+        finally
+        {
+            if (File.Exists(path))
+                File.Delete(path);
+        }
+    }
+
+    [Fact]
+    public void Chart_without_title_or_legend_round_trips()
+    {
+        var path = TempXlsxPath();
+        try
+        {
+            var sheet = Sheet
+                .Create(
+                    "Sheet1",
+                    Row.Of(Cell.Text("Team"), Cell.Text("Score")),
+                    Row.Of(Cell.Text("Alpha"), Cell.Number(42)),
+                    Row.Of(Cell.Text("Beta"), Cell.Number(37)))
+                .AddChart(ChartEntry.Of(ChartType.Bar, "A2", "A3", "D1", "K12", ChartSeries.Of("B1", "B2", "B3")));
+
+            WorkbookIO.Save(Workbook.Create(sheet), path);
+            AssertSchemaValid(path);
+
+            var loaded = WorkbookIO.Load(path);
+            var chart = Assert.Single(loaded.Sheets.Single().Charts);
+
+            Assert.Equal(ChartType.Bar, chart.Type);
+            Assert.Null(chart.Title);
+            Assert.False(chart.ShowLegend);
+            Assert.Single(chart.Series);
+        }
+        finally
+        {
+            if (File.Exists(path))
+                File.Delete(path);
+        }
+    }
+
+    [Fact]
+    public void Sheet_without_charts_defaults_to_empty_and_is_immutable()
+    {
+        var plain = Sheet.Create("Sheet1");
+        Assert.Empty(plain.Charts);
+
+        var withChart = plain.AddChart(ChartEntry.Of(ChartType.Line, "A2", "A3", "D1", "K12", ChartSeries.Of("B1", "B2", "B3")));
+        Assert.Empty(plain.Charts);
+        Assert.Single(withChart.Charts);
+    }
+
+    [Fact]
     public void Table_with_mismatched_column_count_throws_on_save()
     {
         var path = TempXlsxPath();
