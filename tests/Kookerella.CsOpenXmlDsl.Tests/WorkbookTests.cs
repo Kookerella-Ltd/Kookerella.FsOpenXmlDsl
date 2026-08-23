@@ -10,6 +10,15 @@ public class WorkbookTests
     private static string TempXlsxPath() =>
         Path.Combine(Path.GetTempPath(), $"CsOpenXmlDslTest_{Guid.NewGuid():N}.xlsx");
 
+    private static string TempXlsmPath() =>
+        Path.Combine(Path.GetTempPath(), $"CsOpenXmlDslTest_{Guid.NewGuid():N}.xlsm");
+
+    /// <summary>A real vbaProject.bin, shared with the F# test suite (extracted from a
+    /// workbook actually saved by Excel) - see this project's own .csproj for how it's
+    /// linked in rather than copy-pasted.</summary>
+    private static byte[] SampleVbaProject() =>
+        File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Assets", "sample.vbaProject.bin"));
+
     private static void AssertSchemaValid(string path)
     {
         using var document = SpreadsheetDocument.Open(path, false);
@@ -265,6 +274,48 @@ public class WorkbookTests
             if (File.Exists(path))
                 File.Delete(path);
         }
+    }
+
+    [Fact]
+    public void Vba_project_round_trips_byte_for_byte()
+    {
+        var path = TempXlsmPath();
+        try
+        {
+            var vbaProject = SampleVbaProject();
+            var sheet = Sheet.Create("Sheet1", Row.Of(Cell.Text("Run the HelloWorld macro")));
+            var workbook = Workbook.Create(sheet).WithVbaProject(vbaProject);
+
+            WorkbookIO.Save(workbook, path);
+            AssertSchemaValid(path);
+
+            var loaded = WorkbookIO.Load(path);
+            Assert.NotNull(loaded.VbaProject);
+            Assert.Equal(vbaProject, loaded.VbaProject);
+        }
+        finally
+        {
+            if (File.Exists(path))
+                File.Delete(path);
+        }
+    }
+
+    [Fact]
+    public void WithVbaProject_defensively_copies_the_input_array()
+    {
+        var original = new byte[] { 1, 2, 3 };
+        var workbook = Workbook.Create().WithVbaProject(original);
+
+        original[0] = 99;
+
+        Assert.Equal(new byte[] { 1, 2, 3 }, workbook.VbaProject);
+    }
+
+    [Fact]
+    public void Workbook_without_a_vba_project_has_none()
+    {
+        var workbook = Workbook.Create(Sheet.Create("Sheet1"));
+        Assert.Null(workbook.VbaProject);
     }
 
     [Fact]

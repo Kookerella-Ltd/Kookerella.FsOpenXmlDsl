@@ -19,6 +19,15 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Linked rather than copied: this is the same real vbaProject.bin the F# test suite
+         uses (extracted from a workbook actually saved by Excel), and one genuine fixture
+         shared by both suites beats two copies drifting apart. -->
+    <None Include="..\Kookerella.FsOpenXmlDsl.Tests\Assets\sample.vbaProject.bin"
+          Link="Assets\sample.vbaProject.bin"
+          CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\..\src\Kookerella.CsOpenXmlDsl\Kookerella.CsOpenXmlDsl.csproj" />
   </ItemGroup>
 

@@ -77,11 +77,12 @@ mutate `cellStyle`). All I/O is isolated in `WorkbookIO` - `Cell`/`Row`/`Sheet`/
 Covers: cell values (`Cell.Text`/`.Number`/`.Boolean`/`.Date`/`.Formula`), basic styling
 (font, fill, border, alignment, number format via `CellStyle`), merged ranges/freeze panes/
 autofilter (`Sheet.WithMergedRanges`/`.WithFreezePane`/`.WithAutoFilter`, addressed via
-`CellPosition` - zero-based, or `CellPosition.FromA1("B3")`), and `WorkbookIO.Save`/`Load`.
+`CellPosition` - zero-based, or `CellPosition.FromA1("B3")`), VBA as opaque bytes
+(`Workbook.WithVbaProject(byte[])`, save to an `.xlsm` path), and `WorkbookIO.Save`/`Load`.
 
 **Not exposed here** (reference `Kookerella.FsOpenXmlDsl` directly for these — nothing
 stops mixing both in one C# project): tables, charts, images, pivot tables, sparklines,
-VBA, conditional formatting, data validation, hyperlinks, comments, print settings, defined
+conditional formatting, data validation, hyperlinks, comments, print settings, defined
 names, protection, and code generation (there is no C# equivalent of `Workbook.
 generateScript` yet).
 
@@ -134,9 +135,9 @@ core (not the C# wrapper):
   package's scope are dropped rather than partially/incorrectly represented. See
   MAPPING.md's "Known gaps" section (F# core) before assuming a foreign file's feature
   round-trips, and the C# wrapper's own scope list above.
-- **VBA/macros are opaque bytes only** in the F# core (`Workbook.VbaProject: byte[]
-  option`) — no API to author, edit, or list macro source, and not exposed in the C#
-  wrapper or MCP server at all yet.
+- **VBA/macros are opaque bytes only**, in both the F# core (`Workbook.VbaProject: byte[]
+  option`) and the C# wrapper (`Workbook.WithVbaProject(byte[])`) — no API to author, edit,
+  or list macro source in either, and not exposed in the MCP server at all yet.
 - **Pivot tables (F# core only) perform real aggregation** (Sum/Count/CountNumbers/
   Average/Min/Max) but are deliberately capped at one row field, at most one column field,
   and one value field.

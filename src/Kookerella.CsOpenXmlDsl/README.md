@@ -41,15 +41,30 @@ var sheet = Sheet.Create("Sheet1", /* ...rows... */)
 `CellPosition` addresses cells zero-based (`Row 0, Column 0` is "A1") and converts to/from
 A1-style strings via `CellPosition.FromA1("B3")` / `position.ToA1()`.
 
+A VBA project (macros) is opaque bytes, same treatment as the F# core - nothing in this
+stack parses, generates, or edits VBA source, it only embeds and hands back exactly what
+you give it:
+
+```csharp
+var workbook = Workbook.Create(sheet)
+    .WithVbaProject(File.ReadAllBytes("vbaProject.bin"));
+
+WorkbookIO.Save(workbook, "out.xlsm"); // .xlsm, not .xlsx - see below
+```
+
+Save to an `.xlsm` path once a VBA project is attached - the file's content type switches
+to macro-enabled automatically, but real Excel also expects the extension to match before
+it will trust and run macros regardless of what the content type says.
+
 ## Scope
 
 This is a deliberately narrow first pass, not the whole F# library ported to C#: cell
 values (text/number/boolean/date/formula), basic styling (font/fill/border/alignment/
-number format), merged ranges, freeze panes, autofilter, and `Save`/`Load`. Tables, charts,
-images, pivot tables, sparklines, VBA, conditional formatting, data validation, hyperlinks,
-comments, print settings, defined names, protection, and code generation aren't exposed
-here - reference `Kookerella.FsOpenXmlDsl` directly for those (this wrapper doesn't stop
-you from mixing both in the same project).
+number format), merged ranges, freeze panes, autofilter, VBA (as opaque bytes), and `Save`/
+`Load`. Tables, charts, images, pivot tables, sparklines, conditional formatting, data
+validation, hyperlinks, comments, print settings, defined names, protection, and code
+generation aren't exposed here - reference `Kookerella.FsOpenXmlDsl` directly for those
+(this wrapper doesn't stop you from mixing both in the same project).
 
 Formula cells never carry a cached value from this API beyond what you explicitly pass to
 `Cell.Formula` - see the main project's README for why that matters for anything that isn't

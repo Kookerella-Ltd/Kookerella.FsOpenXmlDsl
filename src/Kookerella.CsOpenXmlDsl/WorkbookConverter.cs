@@ -227,8 +227,19 @@ internal static class WorkbookConverter
             baseline.PivotTables);
     }
 
-    public static Fs.Model.Workbook ToFSharp(Workbook workbook) =>
-        Fs.Builders.workbook(ListModule.OfSeq(workbook.Sheets.Select(ToFsWorksheet)));
+    public static Fs.Model.Workbook ToFSharp(Workbook workbook)
+    {
+        // Same reasoning as ToFsWorksheet: build a baseline via the F# builder (for the
+        // fields this wrapper doesn't model) and override only the ones it does, rather
+        // than spelling out every field here.
+        var baseline = Fs.Builders.workbook(ListModule.OfSeq(workbook.Sheets.Select(ToFsWorksheet)));
+
+        return new Fs.Model.Workbook(
+            baseline.Sheets,
+            baseline.DefinedNames,
+            baseline.Protection,
+            ToOption(workbook.VbaProject));
+    }
 
     // ----- F# -> C# (used by WorkbookIO.Load) -----------------------------------------
 
@@ -404,6 +415,6 @@ internal static class WorkbookConverter
             };
         });
 
-        return new Workbook { Sheets = sheets.ToArray() };
+        return new Workbook { Sheets = sheets.ToArray(), VbaProject = FromOption(workbook.VbaProject) };
     }
 }
