@@ -1,5 +1,7 @@
 # Kookerella.FsOpenXmlDsl.Mcp
 
+<!-- mcp-name: io.github.MarkNicholls/fsopenxmldsl-mcp -->
+
 An [MCP](https://modelcontextprotocol.io) (Model Context Protocol) server that exposes
 `Kookerella.FsOpenXmlDsl`'s Excel read/write/code-generation capabilities as tools any
 MCP-compatible AI agent can call directly - build a workbook, read one back, or regenerate

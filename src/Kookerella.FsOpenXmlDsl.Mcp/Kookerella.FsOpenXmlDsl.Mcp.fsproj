@@ -13,7 +13,7 @@
          rather than as a hosted service). -->
     <PackAsTool>true</PackAsTool>
     <ToolCommandName>fsopenxmldsl-mcp</ToolCommandName>
-    <Version>0.1.0</Version>
+    <Version>0.1.2</Version>
     <Authors>Kookerella</Authors>
     <Company>Kookerella Ltd</Company>
     <Description>MCP (Model Context Protocol) server exposing Kookerella.FsOpenXmlDsl's Excel read/write/code-generation capabilities as tools any MCP-compatible AI agent can call directly - build a workbook, read one back, or regenerate its F# source - without the agent needing to write any F# itself.</Description>

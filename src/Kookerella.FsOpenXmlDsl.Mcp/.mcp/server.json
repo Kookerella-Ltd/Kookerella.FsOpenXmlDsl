@@ -1,0 +1,24 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.MarkNicholls/fsopenxmldsl-mcp",
+  "version": "0.1.2",
+  "description": "Exposes Kookerella.FsOpenXmlDsl's Excel read/write/code-gen as MCP tools for AI agents.",
+  "title": "FsOpenXmlDsl MCP Server",
+  "websiteUrl": "https://github.com/Kookerella-Ltd/Kookerella.FsOpenXmlDsl/tree/master/src/Kookerella.FsOpenXmlDsl.Mcp",
+  "packages": [
+    {
+      "registryType": "nuget",
+      "identifier": "Kookerella.FsOpenXmlDsl.Mcp",
+      "version": "0.1.2",
+      "transport": {
+        "type": "stdio"
+      },
+      "packageArguments": [],
+      "environmentVariables": []
+    }
+  ],
+  "repository": {
+    "url": "https://github.com/Kookerella-Ltd/Kookerella.FsOpenXmlDsl",
+    "source": "github"
+  }
+}
