@@ -5,6 +5,36 @@
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
   </PropertyGroup>
 
+  <PropertyGroup>
+    <!-- NuGet package identity and listing metadata. PackageId/AssemblyName default to
+         the project filename (Kookerella.FsOpenXmlDsl), so they're intentionally not
+         overridden here. Version is a plain field to bump by hand per release - there's
+         no CI/release pipeline driving it yet. -->
+    <Version>0.1.0</Version>
+    <Authors>Kookerella</Authors>
+    <Company>Kookerella Ltd</Company>
+    <Description>A typesafe F# DSL for building and reading Excel workbooks (.xlsx/.xlsm), interpreted into calls against the DocumentFormat.OpenXml SDK. Unlike write-only Excel generators, it round-trips: read an existing file back into the same immutable model, and regenerate equivalent F# source from it via built-in code generation. Covers cells, styles, formulas (including shared-formula reconstruction on read), conditional formatting, data validation, tables, charts, images, pivot tables (with real aggregation), sparklines, and VBA macro embedding.</Description>
+    <PackageTags>fsharp;excel;xlsx;xlsm;openxml;spreadsheet;spreadsheetml;dsl;code-generation;round-trip;pivot-table;vba</PackageTags>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+    <!-- PackageProjectUrl/RepositoryUrl are deliberately omitted until the repo has a
+         public remote - NuGet displays and links to both directly, so an unreachable
+         placeholder would be worse than leaving them unset. Add them here once pushed:
+    <PackageProjectUrl>https://github.com/<org>/<repo></PackageProjectUrl>
+    <RepositoryUrl>https://github.com/<org>/<repo></RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    -->
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Packs the repo-root README/LICENSE into the .nupkg so they render on the NuGet
+         gallery page and satisfy PackageReadmeFile above - PackagePath="/" puts them at
+         the package root rather than nested under this project's own folder. -->
+    <None Include="..\..\README.md" Pack="true" PackagePath="/" />
+    <None Include="..\..\LICENSE" Pack="true" PackagePath="/" />
+  </ItemGroup>
+
   <ItemGroup>
     <Compile Include="Reference.fs" />
     <Compile Include="Styles.fs" />
