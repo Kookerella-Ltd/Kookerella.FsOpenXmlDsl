@@ -235,6 +235,29 @@ internal static class WorkbookConverter
     private static Fs.ImageEntry ToFsImageEntry(ImageEntry image) =>
         new(image.Data, ToFsImageFormat(image.Format), ToFsCellRef(image.TopLeftAnchor), ToFsCellRef(image.BottomRightAnchor));
 
+    private static Fs.PivotAggregation ToFsPivotAggregation(PivotAggregation aggregation) => aggregation switch
+    {
+        PivotAggregation.Sum => Fs.PivotAggregation.PivotSum,
+        PivotAggregation.Count => Fs.PivotAggregation.PivotCount,
+        PivotAggregation.CountNumbers => Fs.PivotAggregation.PivotCountNumbers,
+        PivotAggregation.Average => Fs.PivotAggregation.PivotAverage,
+        PivotAggregation.Min => Fs.PivotAggregation.PivotMin,
+        PivotAggregation.Max => Fs.PivotAggregation.PivotMax,
+        _ => throw new ArgumentOutOfRangeException(nameof(aggregation), aggregation, null)
+    };
+
+    private static Fs.PivotTableEntry ToFsPivotTableEntry(PivotTableEntry pivotTable) =>
+        new(
+            ToOption(pivotTable.SourceSheet),
+            ToFsCellRef(pivotTable.SourceTopLeft),
+            ToFsCellRef(pivotTable.SourceBottomRight),
+            pivotTable.RowField,
+            ToOption(pivotTable.ColumnField),
+            pivotTable.ValueField,
+            ToFsPivotAggregation(pivotTable.Aggregation),
+            ToOption(pivotTable.ValueCaption),
+            ToFsCellRef(pivotTable.TopLeftAnchor));
+
     private static Fs.Model.Worksheet ToFsWorksheet(Sheet sheet)
     {
         var nextRow = 0;
@@ -271,7 +294,7 @@ internal static class WorkbookConverter
             baseline.SparklineGroups,
             ListModule.OfSeq(sheet.Charts.Select(ToFsChartEntry)),
             ListModule.OfSeq(sheet.Images.Select(ToFsImageEntry)),
-            baseline.PivotTables);
+            ListModule.OfSeq(sheet.PivotTables.Select(ToFsPivotTableEntry)));
     }
 
     public static Fs.Model.Workbook ToFSharp(Workbook workbook)
@@ -488,6 +511,31 @@ internal static class WorkbookConverter
     private static ImageEntry FromFsImageEntry(Fs.ImageEntry image) =>
         new(image.Data, FromFsImageFormat(image.Format), FromFsCellRef(image.TopLeftAnchor), FromFsCellRef(image.BottomRightAnchor));
 
+    private static PivotAggregation FromFsPivotAggregation(Fs.PivotAggregation aggregation) => aggregation switch
+    {
+        { IsPivotSum: true } => PivotAggregation.Sum,
+        { IsPivotCount: true } => PivotAggregation.Count,
+        { IsPivotCountNumbers: true } => PivotAggregation.CountNumbers,
+        { IsPivotAverage: true } => PivotAggregation.Average,
+        { IsPivotMin: true } => PivotAggregation.Min,
+        { IsPivotMax: true } => PivotAggregation.Max,
+        _ => throw new ArgumentOutOfRangeException(nameof(aggregation), aggregation, null)
+    };
+
+    private static PivotTableEntry FromFsPivotTableEntry(Fs.PivotTableEntry pivotTable) =>
+        new(
+            FromFsCellRef(pivotTable.SourceTopLeft),
+            FromFsCellRef(pivotTable.SourceBottomRight),
+            pivotTable.RowField,
+            pivotTable.ValueField,
+            FromFsCellRef(pivotTable.TopLeftAnchor))
+        {
+            SourceSheet = FromOption(pivotTable.SourceSheet),
+            ColumnField = FromOption(pivotTable.ColumnField),
+            Aggregation = FromFsPivotAggregation(pivotTable.Aggregation),
+            ValueCaption = FromOption(pivotTable.ValueCaption)
+        };
+
     public static Workbook FromFSharp(Fs.Model.Workbook workbook)
     {
         var sheets = workbook.Sheets.Select(fsSheet =>
@@ -520,7 +568,8 @@ internal static class WorkbookConverter
                 AutoFilter = FromOption(fsSheet.AutoFilter) is { } af ? FromFsAutoFilter(af) : null,
                 Tables = fsSheet.Tables.Select(FromFsTableEntry).ToArray(),
                 Charts = fsSheet.Charts.Select(FromFsChartEntry).ToArray(),
-                Images = fsSheet.Images.Select(FromFsImageEntry).ToArray()
+                Images = fsSheet.Images.Select(FromFsImageEntry).ToArray(),
+                PivotTables = fsSheet.PivotTables.Select(FromFsPivotTableEntry).ToArray()
             };
         });
 

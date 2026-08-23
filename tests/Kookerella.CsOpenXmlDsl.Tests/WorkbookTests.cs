@@ -564,6 +564,175 @@ public class WorkbookTests
     }
 
     [Fact]
+    public void Pivot_table_with_row_field_only_computes_grouped_sums()
+    {
+        var path = TempXlsxPath();
+        try
+        {
+            var sheet = Sheet
+                .Create(
+                    "Sheet1",
+                    Row.Of(Cell.Text("Region"), Cell.Text("Sales")),
+                    Row.Of(Cell.Text("East"), Cell.Number(10)),
+                    Row.Of(Cell.Text("West"), Cell.Number(20)),
+                    Row.Of(Cell.Text("East"), Cell.Number(5)),
+                    Row.Of(Cell.Text("West"), Cell.Number(15)))
+                .AddPivotTable(PivotTableEntry.Of("A1", "B5", "Region", "Sales", "D1"));
+
+            WorkbookIO.Save(Workbook.Create(sheet), path);
+            AssertSchemaValid(path);
+
+            var loaded = WorkbookIO.Load(path);
+            var loadedSheet = loaded.Sheets.Single();
+            var pivotTable = Assert.Single(loadedSheet.PivotTables);
+
+            Assert.Null(pivotTable.SourceSheet);
+            Assert.Equal(CellPosition.FromA1("A1"), pivotTable.SourceTopLeft);
+            Assert.Equal(CellPosition.FromA1("B5"), pivotTable.SourceBottomRight);
+            Assert.Equal("Region", pivotTable.RowField);
+            Assert.Null(pivotTable.ColumnField);
+            Assert.Equal("Sales", pivotTable.ValueField);
+            Assert.Equal(PivotAggregation.Sum, pivotTable.Aggregation);
+            Assert.Null(pivotTable.ValueCaption);
+            Assert.Equal(CellPosition.FromA1("D1"), pivotTable.TopLeftAnchor);
+
+            var numberAt = (string a1) =>
+                Assert.IsType<CellValue.Number>(
+                    loadedSheet.Rows.SelectMany(r => r.Cells.Select(c => (Position: new CellPosition(r.Index!.Value, c.Column!.Value), c.Value)))
+                        .Single(c => c.Position == CellPosition.FromA1(a1)).Value).Value;
+
+            Assert.Equal(15.0, numberAt("E2"));
+            Assert.Equal(35.0, numberAt("E3"));
+            Assert.Equal(50.0, numberAt("E4"));
+        }
+        finally
+        {
+            if (File.Exists(path))
+                File.Delete(path);
+        }
+    }
+
+    [Fact]
+    public void Pivot_table_with_row_and_column_fields_computes_a_cross_tab()
+    {
+        var path = TempXlsxPath();
+        try
+        {
+            var sheet = Sheet
+                .Create(
+                    "Sheet1",
+                    Row.Of(Cell.Text("Region"), Cell.Text("Quarter"), Cell.Text("Sales")),
+                    Row.Of(Cell.Text("East"), Cell.Text("Q1"), Cell.Number(10)),
+                    Row.Of(Cell.Text("East"), Cell.Text("Q2"), Cell.Number(5)),
+                    Row.Of(Cell.Text("West"), Cell.Text("Q1"), Cell.Number(20)),
+                    Row.Of(Cell.Text("West"), Cell.Text("Q2"), Cell.Number(15)))
+                .AddPivotTable(
+                    PivotTableEntry
+                        .Of("A1", "C5", "Region", "Sales", "E1")
+                        .WithColumnField("Quarter")
+                        .WithValueCaption("Total Sales"));
+
+            WorkbookIO.Save(Workbook.Create(sheet), path);
+            AssertSchemaValid(path);
+
+            var loaded = WorkbookIO.Load(path);
+            var loadedSheet = loaded.Sheets.Single();
+            var pivotTable = Assert.Single(loadedSheet.PivotTables);
+
+            Assert.Equal("Quarter", pivotTable.ColumnField);
+            Assert.Equal("Total Sales", pivotTable.ValueCaption);
+
+            var numberAt = (string a1) =>
+                Assert.IsType<CellValue.Number>(
+                    loadedSheet.Rows.SelectMany(r => r.Cells.Select(c => (Position: new CellPosition(r.Index!.Value, c.Column!.Value), c.Value)))
+                        .Single(c => c.Position == CellPosition.FromA1(a1)).Value).Value;
+
+            // E1 Region | F1 Q1 | G1 Q2 | H1 Grand Total
+            // E2 East   | F2 10 | G2 5  | H2 15
+            // E3 West   | F3 20 | G3 15 | H3 35
+            // E4 Grand Total | F4 30 | G4 20 | H4 50
+            Assert.Equal(10.0, numberAt("F2"));
+            Assert.Equal(5.0, numberAt("G2"));
+            Assert.Equal(15.0, numberAt("H2"));
+            Assert.Equal(20.0, numberAt("F3"));
+            Assert.Equal(15.0, numberAt("G3"));
+            Assert.Equal(35.0, numberAt("H3"));
+            Assert.Equal(30.0, numberAt("F4"));
+            Assert.Equal(20.0, numberAt("G4"));
+            Assert.Equal(50.0, numberAt("H4"));
+        }
+        finally
+        {
+            if (File.Exists(path))
+                File.Delete(path);
+        }
+    }
+
+    [Fact]
+    public void Pivot_table_sourced_from_another_sheet_round_trips()
+    {
+        var path = TempXlsxPath();
+        try
+        {
+            var sourceSheet = Sheet.Create(
+                "Data",
+                Row.Of(Cell.Text("Category"), Cell.Text("Amount")),
+                Row.Of(Cell.Text("A"), Cell.Number(3)),
+                Row.Of(Cell.Text("B"), Cell.Number(7)),
+                Row.Of(Cell.Text("A"), Cell.Number(4)));
+
+            var reportSheet = Sheet
+                .Create("Report", Row.Of(Cell.Text("Pivot table below:")))
+                .AddPivotTable(
+                    PivotTableEntry
+                        .Of("A1", "B4", "Category", "Amount", "A3")
+                        .WithSourceSheet("Data")
+                        .WithAggregation(PivotAggregation.Count));
+
+            var workbook = Workbook.Create(sourceSheet).AddSheet(reportSheet);
+
+            WorkbookIO.Save(workbook, path);
+            AssertSchemaValid(path);
+
+            var loaded = WorkbookIO.Load(path);
+            var loadedReportSheet = loaded.Sheets.Single(s => s.Name == "Report");
+            var pivotTable = Assert.Single(loadedReportSheet.PivotTables);
+
+            Assert.Equal("Data", pivotTable.SourceSheet);
+            Assert.Equal(PivotAggregation.Count, pivotTable.Aggregation);
+
+            var numberAt = (string a1) =>
+                Assert.IsType<CellValue.Number>(
+                    loadedReportSheet.Rows.SelectMany(r => r.Cells.Select(c => (Position: new CellPosition(r.Index!.Value, c.Column!.Value), c.Value)))
+                        .Single(c => c.Position == CellPosition.FromA1(a1)).Value).Value;
+
+            // A3 Category | B3 Count of Amount
+            // A4 A        | B4 2
+            // A5 B        | B5 1
+            // A6 Grand Total | B6 3
+            Assert.Equal(2.0, numberAt("B4"));
+            Assert.Equal(1.0, numberAt("B5"));
+            Assert.Equal(3.0, numberAt("B6"));
+        }
+        finally
+        {
+            if (File.Exists(path))
+                File.Delete(path);
+        }
+    }
+
+    [Fact]
+    public void Sheet_without_pivot_tables_defaults_to_empty_and_is_immutable()
+    {
+        var plain = Sheet.Create("Sheet1");
+        Assert.Empty(plain.PivotTables);
+
+        var withPivotTable = plain.AddPivotTable(PivotTableEntry.Of("A1", "B2", "Region", "Sales", "D1"));
+        Assert.Empty(plain.PivotTables);
+        Assert.Single(withPivotTable.PivotTables);
+    }
+
+    [Fact]
     public void Table_with_mismatched_column_count_throws_on_save()
     {
         var path = TempXlsxPath();

@@ -109,15 +109,39 @@ var sheet = Sheet.Create("Sheet1", Row.Of(Cell.Text("Logo below:")))
 `ImageFormat` covers `Png`/`Jpeg`/`Gif`/`Bmp` - the four formats every Excel version has
 supported natively, matching the F# core (TIFF/SVG/EMF/WMF aren't modeled in either layer).
 
+Pivot tables are unlike everything else above: `WorkbookIO.Save` doesn't just describe a
+reference for Excel to resolve later, it actually performs the grouping and aggregation
+itself, since a pivot table's file format bakes the *computed* result into the workbook in
+several places that all have to agree. Scoped to the single most common shape - exactly one
+row field, at most one optional column field, and exactly one value field:
+
+```csharp
+var sheet = Sheet.Create("Sheet1",
+        Row.Of(Cell.Text("Region"), Cell.Text("Sales")),
+        Row.Of(Cell.Text("East"), Cell.Number(10)),
+        Row.Of(Cell.Text("West"), Cell.Number(20)),
+        Row.Of(Cell.Text("East"), Cell.Number(5)))
+    .AddPivotTable(
+        PivotTableEntry.Of("A1", "B4", "Region", "Sales", "D1")
+            .WithAggregation(PivotAggregation.Sum));
+```
+
+`RowField`/`ColumnField`/`ValueField` must exactly match header cell text in the source
+range's first row (a genuine Excel/OOXML requirement - the source range must already have a
+header row, the same way tables do). The source range can live on a different sheet than
+the pivot table itself via `WithSourceSheet(name)`. `PivotAggregation` covers
+`Sum`/`Count`/`CountNumbers`/`Average`/`Min`/`Max`, defaulting to `Sum`.
+
 ## Scope
 
 This is a deliberately narrow first pass, not the whole F# library ported to C#: cell
 values (text/number/boolean/date/formula), basic styling (font/fill/border/alignment/
-number format), merged ranges, freeze panes, autofilter, tables, charts, images, VBA (as
-opaque bytes), and `Save`/`Load`. Pivot tables, sparklines, conditional formatting, data
-validation, hyperlinks, comments, print settings, defined names, protection, and code
-generation aren't exposed here - reference `Kookerella.FsOpenXmlDsl` directly for those
-(this wrapper doesn't stop you from mixing both in the same project).
+number format), merged ranges, freeze panes, autofilter, tables, charts, images, pivot
+tables (single row/column/value field only), VBA (as opaque bytes), and `Save`/`Load`.
+Sparklines, conditional formatting, data validation, hyperlinks, comments, print settings,
+defined names, protection, and code generation aren't exposed here - reference
+`Kookerella.FsOpenXmlDsl` directly for those (this wrapper doesn't stop you from mixing both
+in the same project).
 
 Formula cells never carry a cached value from this API beyond what you explicitly pass to
 `Cell.Formula` - see the main project's README for why that matters for anything that isn't

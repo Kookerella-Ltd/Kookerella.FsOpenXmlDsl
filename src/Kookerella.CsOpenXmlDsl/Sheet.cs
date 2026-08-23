@@ -2,12 +2,12 @@ namespace Kookerella.CsOpenXmlDsl;
 
 /// <summary>
 /// One worksheet - a name, its rows, a handful of sheet-level facts (merged ranges, frozen
-/// panes, an autofilter range), Excel Tables, charts, and images. Immutable - every
-/// <c>With*</c>/<c>Add*</c> method returns a new <see cref="Sheet"/> rather than mutating
-/// in place. v1 scope is cells/formulas/basic styling/merged ranges/freeze panes/autofilter/
-/// tables/charts/images only; pivot tables, conditional formatting, and everything else the
-/// F# core models are out of scope here - reference Kookerella.FsOpenXmlDsl directly for
-/// those.
+/// panes, an autofilter range), Excel Tables, charts, images, and pivot tables. Immutable -
+/// every <c>With*</c>/<c>Add*</c> method returns a new <see cref="Sheet"/> rather than
+/// mutating in place. v1 scope is cells/formulas/basic styling/merged ranges/freeze panes/
+/// autofilter/tables/charts/images/pivot tables only; conditional formatting and everything
+/// else the F# core models are out of scope here - reference Kookerella.FsOpenXmlDsl
+/// directly for those.
 /// </summary>
 public sealed record Sheet
 {
@@ -19,6 +19,7 @@ public sealed record Sheet
     public IReadOnlyList<TableEntry> Tables { get; init; } = Array.Empty<TableEntry>();
     public IReadOnlyList<ChartEntry> Charts { get; init; } = Array.Empty<ChartEntry>();
     public IReadOnlyList<ImageEntry> Images { get; init; } = Array.Empty<ImageEntry>();
+    public IReadOnlyList<PivotTableEntry> PivotTables { get; init; } = Array.Empty<PivotTableEntry>();
 
     public Sheet(string name) => Name = name;
 
@@ -50,4 +51,8 @@ public sealed record Sheet
     public Sheet WithImages(params ImageEntry[] images) => this with { Images = images };
 
     public Sheet AddImage(ImageEntry image) => this with { Images = Images.Append(image).ToArray() };
+
+    public Sheet WithPivotTables(params PivotTableEntry[] pivotTables) => this with { PivotTables = pivotTables };
+
+    public Sheet AddPivotTable(PivotTableEntry pivotTable) => this with { PivotTables = PivotTables.Append(pivotTable).ToArray() };
 }
