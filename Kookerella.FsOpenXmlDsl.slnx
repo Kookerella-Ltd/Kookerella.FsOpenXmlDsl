@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/samples/">
+    <Project Path="samples/Kookerella.FsOpenXmlDsl.Sample/Kookerella.FsOpenXmlDsl.Sample.fsproj" />
+  </Folder>
+  <Folder Name="/src/">
+    <Project Path="src/Kookerella.FsOpenXmlDsl/Kookerella.FsOpenXmlDsl.fsproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Kookerella.FsOpenXmlDsl.Tests/Kookerella.FsOpenXmlDsl.Tests.fsproj" />
+  </Folder>
+</Solution>

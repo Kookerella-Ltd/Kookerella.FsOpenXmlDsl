@@ -1,6 +1,6 @@
 # DSL ↔ OOXML mapping
 
-SafeOpenXml's DSL (`src/SafeOpenXml/{Reference,Styles,Model}.fs`) aims to map 1:1 onto
+FsOpenXmlDsl's DSL (`src/Kookerella.FsOpenXmlDsl/{Reference,Styles,Model}.fs`) aims to map 1:1 onto
 SpreadsheetML wherever the DSL models a feature at all. This document lists every place
 where that mapping is inexact, lossy, or simply not implemented yet in Core, so you know
 what to expect from a round trip (`Workbook.save` then `Workbook.load`) and what would
@@ -171,13 +171,13 @@ need to be added to close the gap.
   `Sheet1`, `Sheet2`, ... and `ThisWorkbook` - since there's no DSL concept of a
   caller-chosen codename; see the gap below for when that default doesn't match what the
   macro's original author intended. Verified against a `vbaProject.bin` actually produced by
-  Excel (`tests/SafeOpenXml.Tests/Assets/sample.vbaProject.bin`), and the round-tripped file
+  Excel (`tests/Kookerella.FsOpenXmlDsl.Tests/Assets/sample.vbaProject.bin`), and the round-tripped file
   was confirmed by hand to open in real Excel with the macro intact and runnable.
 - Code generation: `Workbook.generateScript` renders any `Workbook` value (including one
   produced by `Workbook.load`) back out as an `.fsx` script that rebuilds a structurally
   equivalent file when run via `dotnet fsi` - covers every DSL construct above, since it's
   a direct pretty-printer over the same types (`Interpreter/CodeGen.fs`), not a separate
-  model. Verified for every scenario in `tests/SafeOpenXml.Tests/Examples/`: each one's
+  model. Verified for every scenario in `tests/Kookerella.FsOpenXmlDsl.Tests/Examples/`: each one's
   committed `script.fsx` is actually executed (not just generated) by the `Category=Slow`
   test group.
 
@@ -225,7 +225,7 @@ need to be added to close the gap.
 - **Locale-dependent built-in formats.** `Currency` writes the fixed format code
   `"$"#,##0.00`. `ShortDate`/`DateAndTime` use OOXML's built-in numFmtIds 14/22, whose
   on-screen rendering is locale-dependent in Excel itself — this mirrors Excel's own
-  behavior rather than being a SafeOpenXml limitation.
+  behavior rather than being a FsOpenXmlDsl limitation.
 - **Hidden/outlined rows and columns.** Not modeled — hidden state and outline level are
   dropped.
 - **Split panes.** Only the common "frozen leading rows/columns" case is modeled; the

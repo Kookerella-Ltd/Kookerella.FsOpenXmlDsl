@@ -1,0 +1,32 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="Tests.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Not compiled - these are the per-scenario example workbooks (and their
+         regenerating scripts) each test in Tests.fs generates. Listed explicitly so
+         Solution Explorer shows them; F#'s SDK doesn't auto-include files the way C#'s
+         does. -->
+    <None Include="Examples\**\*.xlsx" />
+    <None Include="Examples\**\*.fsx" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector" Version="6.0.4" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Kookerella.FsOpenXmlDsl\Kookerella.FsOpenXmlDsl.fsproj" />
+  </ItemGroup>
+
+</Project>

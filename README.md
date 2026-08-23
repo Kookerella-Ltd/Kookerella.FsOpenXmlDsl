@@ -1,4 +1,4 @@
-# SafeOpenXml
+# Kookerella.FsOpenXmlDsl
 
 A typesafe F# DSL for building Excel workbooks, interpreted into calls against the
 [DocumentFormat.OpenXml](https://github.com/dotnet/Open-XML-SDK) SDK. The DSL is a plain
@@ -11,7 +11,7 @@ approximated, and which aren't modeled yet.
 
 ## Layout
 
-- `src/SafeOpenXml` — the library.
+- `src/Kookerella.FsOpenXmlDsl` — the library.
   - `Reference.fs` — `CellRef` and `"A1"`-style address conversions.
   - `Styles.fs` — cell formatting: `Color`, `FontStyle`, `FillStyle`, `BorderStyle`,
     `AlignmentStyle`, `NumberFormat`, `CellProtection`, `CellStyle`.
@@ -77,7 +77,7 @@ approximated, and which aren't modeled yet.
     self-contained `.fsx` script that rebuilds an equivalent file when run (internal).
   - `Api.fs` — the public `Workbook.save` / `saveToStream` / `load` / `loadFromStream` /
     `generateScript` entry points.
-- `tests/SafeOpenXml.Tests` — one test per feature, each validating the produced file
+- `tests/Kookerella.FsOpenXmlDsl.Tests` — one test per feature, each validating the produced file
   against the OOXML schema (`DocumentFormat.OpenXml.Validation.OpenXmlValidator`) and
   asserting an exact round trip back through the DSL. Each test also writes the workbook
   it builds to `Examples/<test name>/output.xlsx` (checked into the repo), so every
@@ -88,14 +88,14 @@ approximated, and which aren't modeled yet.
   `Assets/` holds the one test fixture too large to inline as a base64 literal like every
   other binary fixture in `Tests.fs` - a real `vbaProject.bin` extracted from a workbook
   actually saved by Excel, used by the macro example.
-- `samples/SafeOpenXml.Sample` — a small console app that builds a workbook, saves it,
+- `samples/Kookerella.FsOpenXmlDsl.Sample` — a small console app that builds a workbook, saves it,
   and reads it back.
 
 ## Quick start
 
 ```fsharp
-open SafeOpenXml
-open type SafeOpenXml.SheetDsl
+open Kookerella.FsOpenXmlDsl
+open type Kookerella.FsOpenXmlDsl.SheetDsl
 
 let headerStyle =
     { CellStyle.Default with
@@ -124,13 +124,28 @@ explicitly and sequential numbering resumes right after it. You don't construct 
 directly, though: `SheetDsl.cell`/`SheetDsl.row` are members with real optional
 parameters (`?col`/`?style` on `cell`, `?index` on `row`) that hide the `None`s for
 the common case - plain `let` functions can't have optional parameters in F#, which is why
-this one bit of the DSL is a type. `open type SafeOpenXml.SheetDsl` (alongside `open SafeOpenXml`) brings `cell`/`row`
+this one bit of the DSL is a type. `open type Kookerella.FsOpenXmlDsl.SheetDsl` (alongside `open Kookerella.FsOpenXmlDsl`) brings `cell`/`row`
 into scope unqualified, same as a module. Explicit column/row jumps go through the same
 two members, just with the optional argument supplied: `cell (value, col = 2)` and
 `row (cells, index = 4)`. `sheet` is the one fold that interprets the resulting item
 list into the canonical `Worksheet` (the same relationship `Writer` has to OOXML). If you
 already have cells pre-addressed by `CellRef` rather than grouped by row, `sheetOfCells`
 builds a `Worksheet` directly from a flat `Cell list` instead.
+
+**A `Formula` cell is `Formula(expression, cachedValue: float option)` - this library never
+evaluates formulas itself, so `cachedValue` is the only number that will ever exist for that
+cell until something else computes one.** Real Excel recalculates on open and overwrites it,
+so leaving it `None` is fine if a human always opens the result in Excel first. It's *not*
+safe for a headless pipeline - e.g. generating a workbook and piping it straight into a PDF
+converter, another automated reader, or anything else that never opens it in real Excel.
+Whether that downstream step shows a correct number, a blank, or a stale one depends
+entirely on whether *it* happens to have its own formula engine; some do (Aspose.Cells,
+Syncfusion, GemBox, real Excel via COM), many lighter-weight or headless converters don't and
+will just render whatever's already in the cell. Since you already have the numbers that fed
+into the formula, always pass the real result as `cachedValue` for anything that isn't
+guaranteed to pass through Excel first - it costs nothing and sidesteps the problem
+entirely, since a downstream reader with no evaluator at all can still show a correct value
+someone else already computed.
 
 Conditional formatting and data validation are `SheetItem`s too:
 
@@ -314,14 +329,14 @@ Given a `Workbook` (typically one you just `Workbook.load`ed from an existing fi
 `Workbook.generateScript` renders it back out as a self-contained `.fsx` script that
 rebuilds an equivalent file when run - a code-generating counterpart to `Workbook.load`,
 one level further than the reverse transform: instead of data, you get DSL *source text*.
-It has no opinion on how the script locates the SafeOpenXml assembly, so you supply the
+It has no opinion on how the script locates the FsOpenXmlDsl assembly, so you supply the
 `#r` lines yourself:
 
 ```fsharp
 let wb = Workbook.load "input.xlsx"
 
 let referenceLines =
-    [ "#r \"path/to/SafeOpenXml.dll\""
+    [ "#r \"path/to/Kookerella.FsOpenXmlDsl.dll\""
       "#r \"path/to/DocumentFormat.OpenXml.dll\"" ]
 
 let script = Workbook.generateScript referenceLines "output.xlsx" wb
@@ -333,7 +348,7 @@ original (zip metadata/timestamps differ) but structurally equivalent through th
 round-trip lens every other test in this repo uses. Generated code only ever mentions
 fields that differ from `CellStyle.Default`/`BorderStyle.None`/etc., and only gives a
 row/cell an explicit `index`/`col` where the source actually has a gap - see
-`Interpreter/CodeGen.fs`. Every scenario under `tests/SafeOpenXml.Tests/Examples/` has a
+`Interpreter/CodeGen.fs`. Every scenario under `tests/Kookerella.FsOpenXmlDsl.Tests/Examples/` has a
 committed `script.fsx` generated exactly this way; the `Category=Slow` test group is what
 actually runs each one via `dotnet fsi` and checks it reproduces the committed `.xlsx`.
 
@@ -342,7 +357,7 @@ actually runs each one via `dotnet fsi` and checks it reproduces the committed `
 ```bash
 dotnet build
 dotnet test --filter "Category!=Slow"
-dotnet run --project samples/SafeOpenXml.Sample
+dotnet run --project samples/Kookerella.FsOpenXmlDsl.Sample
 ```
 
 The default loop above skips the slow `Category=Slow` tests, which actually invoke
