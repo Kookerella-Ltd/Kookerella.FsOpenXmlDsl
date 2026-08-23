@@ -4,9 +4,11 @@
   </Folder>
   <Folder Name="/src/">
     <Project Path="src/Kookerella.FsOpenXmlDsl/Kookerella.FsOpenXmlDsl.fsproj" />
+    <Project Path="src/Kookerella.CsOpenXmlDsl/Kookerella.CsOpenXmlDsl.csproj" />
     <Project Path="src/Kookerella.FsOpenXmlDsl.Mcp/Kookerella.FsOpenXmlDsl.Mcp.fsproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/Kookerella.CsOpenXmlDsl.Tests/Kookerella.CsOpenXmlDsl.Tests.csproj" />
     <Project Path="tests/Kookerella.FsOpenXmlDsl.Tests/Kookerella.FsOpenXmlDsl.Tests.fsproj" />
   </Folder>
 </Solution>

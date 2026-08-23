@@ -90,6 +90,15 @@ approximated, and which aren't modeled yet.
   actually saved by Excel, used by the macro example.
 - `samples/Kookerella.FsOpenXmlDsl.Sample` — a small console app that builds a workbook, saves it,
   and reads it back.
+- `src/Kookerella.CsOpenXmlDsl` — an idiomatic, immutable, fluent C# wrapper over this
+  library, for callers who'd rather not touch F# discriminated unions/option types
+  directly. Deliberately narrow first pass (cell values, formulas, basic styling, `Save`/
+  `Load`) - see its own README for scope and an example. `tests/Kookerella.CsOpenXmlDsl.Tests`
+  is its own C# xUnit suite, exercising the wrapper the way a real C# caller would rather
+  than reusing the F# test project.
+- `src/Kookerella.FsOpenXmlDsl.Mcp` — a local MCP (Model Context Protocol) server exposing
+  this library's read/write/code-generation capabilities as tools any MCP-compatible AI
+  agent can call directly - see its own README for the tool list and how to configure it.
 
 ## Quick start
 
