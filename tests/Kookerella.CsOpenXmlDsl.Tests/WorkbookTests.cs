@@ -330,4 +330,103 @@ public class WorkbookTests
         Assert.Empty(plain.MergedRanges);
         Assert.Single(withMerge.MergedRanges);
     }
+
+    [Fact]
+    public void Table_round_trips()
+    {
+        var path = TempXlsxPath();
+        try
+        {
+            var sheet = Sheet
+                .Create(
+                    "Sheet1",
+                    Row.Of(Cell.Text("Item"), Cell.Text("Quantity")),
+                    Row.Of(Cell.Text("Widgets"), Cell.Number(12)),
+                    Row.Of(Cell.Text("Gadgets"), Cell.Number(5)))
+                .WithTables(TableEntry.Of("A1", "B3", "Inventory", new TableColumn("Item"), new TableColumn("Quantity")));
+
+            WorkbookIO.Save(Workbook.Create(sheet), path);
+            AssertSchemaValid(path);
+
+            var loaded = WorkbookIO.Load(path);
+            var table = Assert.Single(loaded.Sheets.Single().Tables);
+
+            Assert.Equal("Inventory", table.Name);
+            Assert.Equal(CellPosition.FromA1("A1"), table.TopLeft);
+            Assert.Equal(CellPosition.FromA1("B3"), table.BottomRight);
+            Assert.Equal(["Item", "Quantity"], table.Columns.Select(c => c.Name));
+            Assert.All(table.Columns, c => Assert.Null(c.CalculatedFormula));
+            Assert.Equal("TableStyleMedium2", table.Style.Name);
+            Assert.True(table.Style.ShowRowStripes);
+        }
+        finally
+        {
+            if (File.Exists(path))
+                File.Delete(path);
+        }
+    }
+
+    [Fact]
+    public void Table_with_calculated_column_and_custom_style_round_trips()
+    {
+        var path = TempXlsxPath();
+        try
+        {
+            var style = TableStyle.Default.WithName("TableStyleLight9").WithColumnStripes().WithoutRowStripes();
+
+            var sheet = Sheet
+                .Create(
+                    "Sheet1",
+                    Row.Of(Cell.Text("Quantity"), Cell.Text("Unit Price"), Cell.Text("Total")),
+                    Row.Of(Cell.Number(12), Cell.Number(2.5), Cell.Formula("[@Quantity]*[@[Unit Price]]", 30.0)),
+                    Row.Of(Cell.Number(5), Cell.Number(9), Cell.Formula("[@Quantity]*[@[Unit Price]]", 45.0)))
+                .WithTables(
+                    TableEntry
+                        .Of(
+                            "A1",
+                            "C3",
+                            "Orders",
+                            new TableColumn("Quantity"),
+                            new TableColumn("Unit Price"),
+                            new TableColumn("Total", "[@Quantity]*[@[Unit Price]]"))
+                        .WithStyle(style));
+
+            WorkbookIO.Save(Workbook.Create(sheet), path);
+            AssertSchemaValid(path);
+
+            var loaded = WorkbookIO.Load(path);
+            var table = Assert.Single(loaded.Sheets.Single().Tables);
+
+            var total = table.Columns.Single(c => c.Name == "Total");
+            Assert.Equal("[@Quantity]*[@[Unit Price]]", total.CalculatedFormula);
+            Assert.Equal("TableStyleLight9", table.Style.Name);
+            Assert.True(table.Style.ShowColumnStripes);
+            Assert.False(table.Style.ShowRowStripes);
+        }
+        finally
+        {
+            if (File.Exists(path))
+                File.Delete(path);
+        }
+    }
+
+    [Fact]
+    public void Table_with_mismatched_column_count_throws_on_save()
+    {
+        var path = TempXlsxPath();
+        try
+        {
+            // Range is 2 columns wide (A1:B2) but only 1 TableColumn is given.
+            var sheet = Sheet
+                .Create("Sheet1", Row.Of(Cell.Text("A"), Cell.Text("B")), Row.Of(Cell.Text("1"), Cell.Text("2")))
+                .WithTables(TableEntry.Of("A1", "B2", "Bad", new TableColumn("A")));
+
+            Assert.Throws<ArgumentException>(() => WorkbookIO.Save(Workbook.Create(sheet), path));
+        }
+        finally
+        {
+            if (File.Exists(path))
+                File.Delete(path);
+        }
+    }
 }

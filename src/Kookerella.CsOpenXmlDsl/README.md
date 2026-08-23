@@ -56,12 +56,31 @@ Save to an `.xlsm` path once a VBA project is attached - the file's content type
 to macro-enabled automatically, but real Excel also expects the extension to match before
 it will trust and run macros regardless of what the content type says.
 
+Excel Tables (`ListObject`s, the things structured references like `Table1[Column]` point
+at) are added the same fluent way, with columns and a visual style:
+
+```csharp
+var sheet = Sheet.Create("Sheet1",
+        Row.Of(Cell.Text("Item"), Cell.Text("Quantity")),
+        Row.Of(Cell.Text("Widgets"), Cell.Number(12)))
+    .WithTables(
+        TableEntry.Of("A1", "B2", "Inventory", new TableColumn("Item"), new TableColumn("Quantity"))
+            .WithStyle(TableStyle.Default.WithName("TableStyleLight9")));
+```
+
+This wrapper doesn't synthesize the header row's text for you - it must already be there as
+ordinary cells, the same way merged ranges/autofilter only describe metadata layered on top
+of cells you've already placed. `Columns`' count must equal the range's width and every
+column name must be unique (genuine Excel/OOXML requirements) - `WorkbookIO.Save` throws an
+`ArgumentException` if either is violated rather than silently producing a file Excel would
+refuse to open cleanly.
+
 ## Scope
 
 This is a deliberately narrow first pass, not the whole F# library ported to C#: cell
 values (text/number/boolean/date/formula), basic styling (font/fill/border/alignment/
-number format), merged ranges, freeze panes, autofilter, VBA (as opaque bytes), and `Save`/
-`Load`. Tables, charts, images, pivot tables, sparklines, conditional formatting, data
+number format), merged ranges, freeze panes, autofilter, tables, VBA (as opaque bytes), and
+`Save`/`Load`. Charts, images, pivot tables, sparklines, conditional formatting, data
 validation, hyperlinks, comments, print settings, defined names, protection, and code
 generation aren't exposed here - reference `Kookerella.FsOpenXmlDsl` directly for those
 (this wrapper doesn't stop you from mixing both in the same project).

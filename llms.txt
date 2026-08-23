@@ -77,11 +77,14 @@ mutate `cellStyle`). All I/O is isolated in `WorkbookIO` - `Cell`/`Row`/`Sheet`/
 Covers: cell values (`Cell.Text`/`.Number`/`.Boolean`/`.Date`/`.Formula`), basic styling
 (font, fill, border, alignment, number format via `CellStyle`), merged ranges/freeze panes/
 autofilter (`Sheet.WithMergedRanges`/`.WithFreezePane`/`.WithAutoFilter`, addressed via
-`CellPosition` - zero-based, or `CellPosition.FromA1("B3")`), VBA as opaque bytes
-(`Workbook.WithVbaProject(byte[])`, save to an `.xlsm` path), and `WorkbookIO.Save`/`Load`.
+`CellPosition` - zero-based, or `CellPosition.FromA1("B3")`), Excel Tables
+(`Sheet.WithTables(TableEntry.Of(...))`/`TableColumn`/`TableStyle` - `Save` throws
+`ArgumentException` if column count/uniqueness is violated, same as the F# core), VBA as
+opaque bytes (`Workbook.WithVbaProject(byte[])`, save to an `.xlsm` path), and
+`WorkbookIO.Save`/`Load`.
 
 **Not exposed here** (reference `Kookerella.FsOpenXmlDsl` directly for these — nothing
-stops mixing both in one C# project): tables, charts, images, pivot tables, sparklines,
+stops mixing both in one C# project): charts, images, pivot tables, sparklines,
 conditional formatting, data validation, hyperlinks, comments, print settings, defined
 names, protection, and code generation (there is no C# equivalent of `Workbook.
 generateScript` yet).

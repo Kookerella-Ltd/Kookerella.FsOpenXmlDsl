@@ -188,6 +188,20 @@ internal static class WorkbookConverter
             Fs.CellRefModule.create(range.TopLeft.Row, range.TopLeft.Column),
             Fs.CellRefModule.create(range.BottomRight.Row, range.BottomRight.Column));
 
+    private static Fs.TableColumn ToFsTableColumn(TableColumn column) =>
+        new(column.Name, ToOption(column.CalculatedFormula));
+
+    private static Fs.TableStyle ToFsTableStyle(TableStyle style) =>
+        new(ToOption(style.Name), style.ShowFirstColumn, style.ShowLastColumn, style.ShowRowStripes, style.ShowColumnStripes);
+
+    private static Fs.TableEntry ToFsTableEntry(TableEntry table) =>
+        new(
+            Fs.CellRefModule.create(table.TopLeft.Row, table.TopLeft.Column),
+            Fs.CellRefModule.create(table.BottomRight.Row, table.BottomRight.Column),
+            table.Name,
+            ListModule.OfSeq(table.Columns.Select(ToFsTableColumn)),
+            ToFsTableStyle(table.Style));
+
     private static Fs.Model.Worksheet ToFsWorksheet(Sheet sheet)
     {
         var nextRow = 0;
@@ -200,10 +214,10 @@ internal static class WorkbookConverter
             nextRow = rowIndex + 1;
         }
 
-        // Everything besides Cells/MergedRanges/FreezePane/AutoFilter is read straight off
-        // this baseline (rather than re-derived here) so this doesn't need updating if the
-        // F# core's Worksheet record ever grows another field - only the four this wrapper
-        // actually models are overridden.
+        // Everything besides Cells/MergedRanges/FreezePane/AutoFilter/Tables is read
+        // straight off this baseline (rather than re-derived here) so this doesn't need
+        // updating if the F# core's Worksheet record ever grows another field - only the
+        // fields this wrapper actually models are overridden.
         var baseline = Fs.Builders.sheetOfCells(sheet.Name, ListModule.OfSeq(cells));
 
         return new Fs.Model.Worksheet(
@@ -220,7 +234,7 @@ internal static class WorkbookConverter
             baseline.Hyperlinks,
             baseline.Comments,
             baseline.PageSetup,
-            baseline.Tables,
+            ListModule.OfSeq(sheet.Tables.Select(ToFsTableEntry)),
             baseline.SparklineGroups,
             baseline.Charts,
             baseline.Images,
@@ -382,6 +396,28 @@ internal static class WorkbookConverter
     private static AutoFilterRange FromFsAutoFilter(Fs.Model.AutoFilterRange range) =>
         new(FromFsCellRef(range.TopLeft), FromFsCellRef(range.BottomRight));
 
+    private static TableColumn FromFsTableColumn(Fs.TableColumn column) =>
+        new(column.Name, FromOption(column.CalculatedFormula));
+
+    private static TableStyle FromFsTableStyle(Fs.TableStyle style) => new()
+    {
+        Name = FromOption(style.Name),
+        ShowFirstColumn = style.ShowFirstColumn,
+        ShowLastColumn = style.ShowLastColumn,
+        ShowRowStripes = style.ShowRowStripes,
+        ShowColumnStripes = style.ShowColumnStripes
+    };
+
+    private static TableEntry FromFsTableEntry(Fs.TableEntry table) =>
+        new(
+            FromFsCellRef(table.TopLeft),
+            FromFsCellRef(table.BottomRight),
+            table.Name,
+            table.Columns.Select(FromFsTableColumn).ToArray())
+        {
+            Style = FromFsTableStyle(table.Style)
+        };
+
     public static Workbook FromFSharp(Fs.Model.Workbook workbook)
     {
         var sheets = workbook.Sheets.Select(fsSheet =>
@@ -411,7 +447,8 @@ internal static class WorkbookConverter
                 Rows = rows,
                 MergedRanges = fsSheet.MergedRanges.Select(FromFsMergedRange).ToArray(),
                 FreezePane = FromOption(fsSheet.FreezePane) is { } fp ? FromFsFreezePane(fp) : null,
-                AutoFilter = FromOption(fsSheet.AutoFilter) is { } af ? FromFsAutoFilter(af) : null
+                AutoFilter = FromOption(fsSheet.AutoFilter) is { } af ? FromFsAutoFilter(af) : null,
+                Tables = fsSheet.Tables.Select(FromFsTableEntry).ToArray()
             };
         });
 

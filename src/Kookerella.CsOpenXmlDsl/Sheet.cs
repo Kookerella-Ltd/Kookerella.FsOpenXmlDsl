@@ -1,10 +1,10 @@
 namespace Kookerella.CsOpenXmlDsl;
 
 /// <summary>
-/// One worksheet - a name, its rows, and a handful of sheet-level facts (merged ranges,
-/// frozen panes, an autofilter range). Immutable - every <c>With*</c>/<c>Add*</c> method
-/// returns a new <see cref="Sheet"/> rather than mutating in place. v1 scope is cells/
-/// formulas/basic styling/merged ranges/freeze panes/autofilter only; tables, charts,
+/// One worksheet - a name, its rows, a handful of sheet-level facts (merged ranges, frozen
+/// panes, an autofilter range), and Excel Tables. Immutable - every <c>With*</c>/<c>Add*</c>
+/// method returns a new <see cref="Sheet"/> rather than mutating in place. v1 scope is
+/// cells/formulas/basic styling/merged ranges/freeze panes/autofilter/tables only; charts,
 /// images, pivot tables, conditional formatting, and everything else the F# core models
 /// are out of scope here - reference Kookerella.FsOpenXmlDsl directly for those.
 /// </summary>
@@ -15,6 +15,7 @@ public sealed record Sheet
     public IReadOnlyList<MergedRange> MergedRanges { get; init; } = Array.Empty<MergedRange>();
     public FreezePane? FreezePane { get; init; }
     public AutoFilterRange? AutoFilter { get; init; }
+    public IReadOnlyList<TableEntry> Tables { get; init; } = Array.Empty<TableEntry>();
 
     public Sheet(string name) => Name = name;
 
@@ -34,4 +35,8 @@ public sealed record Sheet
     public Sheet WithFreezePane(int rows, int columns) => this with { FreezePane = new FreezePane(rows, columns) };
 
     public Sheet WithAutoFilter(AutoFilterRange range) => this with { AutoFilter = range };
+
+    public Sheet WithTables(params TableEntry[] tables) => this with { Tables = tables };
+
+    public Sheet AddTable(TableEntry table) => this with { Tables = Tables.Append(table).ToArray() };
 }
