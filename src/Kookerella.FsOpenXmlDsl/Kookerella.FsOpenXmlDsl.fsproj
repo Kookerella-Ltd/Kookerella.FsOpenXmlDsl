@@ -18,13 +18,9 @@
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-    <!-- PackageProjectUrl/RepositoryUrl are deliberately omitted until the repo has a
-         public remote - NuGet displays and links to both directly, so an unreachable
-         placeholder would be worse than leaving them unset. Add them here once pushed:
-    <PackageProjectUrl>https://github.com/<org>/<repo></PackageProjectUrl>
-    <RepositoryUrl>https://github.com/<org>/<repo></RepositoryUrl>
+    <PackageProjectUrl>https://github.com/Kookerella-Ltd/Kookerella.FsOpenXmlDsl</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/Kookerella-Ltd/Kookerella.FsOpenXmlDsl</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
-    -->
   </PropertyGroup>
 
   <ItemGroup>

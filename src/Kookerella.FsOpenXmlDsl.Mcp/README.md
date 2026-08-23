@@ -53,9 +53,9 @@ values and formulas only, addressed by a row/column grid per sheet. Cell styling
 charts, images, pivot tables, sparklines, VBA, conditional formatting, and everything else
 `Kookerella.FsOpenXmlDsl` supports are not exposed as tools here — an agent that needs those
 should reference the library directly (or use `generate_fsharp_script` on a file that
-already has them, to see the F# for it). See the main project's `MAPPING.md` (in this same
-repository, one level up) for the full picture of what the underlying library does and
-doesn't model.
+already has them, to see the F# for it). See the main project's
+[MAPPING.md](https://github.com/Kookerella-Ltd/Kookerella.FsOpenXmlDsl/blob/master/MAPPING.md)
+for the full picture of what the underlying library does and doesn't model.
 
 `create_workbook`'s formula cells never carry a cached value (there's no formula
 evaluation engine anywhere in this stack - see the main project's README for why that

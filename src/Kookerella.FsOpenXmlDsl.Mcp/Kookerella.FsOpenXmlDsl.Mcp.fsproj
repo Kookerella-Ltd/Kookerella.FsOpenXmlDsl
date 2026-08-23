@@ -20,6 +20,9 @@
     <PackageTags>mcp;model-context-protocol;ai;agent;excel;xlsx;openxml;fsharp;dotnet-tool</PackageTags>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageProjectUrl>https://github.com/Kookerella-Ltd/Kookerella.FsOpenXmlDsl</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/Kookerella-Ltd/Kookerella.FsOpenXmlDsl</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
   </PropertyGroup>
 
   <ItemGroup>
