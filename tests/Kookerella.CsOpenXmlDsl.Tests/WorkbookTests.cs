@@ -306,6 +306,30 @@ public class WorkbookTests
     }
 
     [Fact]
+    public void CellStyle_without_protection_defaults_to_null()
+    {
+        Assert.Null(CellStyle.Default.Protection);
+    }
+
+    [Fact]
+    public void CellProtection_default_is_locked_and_not_hidden()
+    {
+        Assert.True(CellProtection.Default.Locked);
+        Assert.False(CellProtection.Default.Hidden);
+    }
+
+    [Fact]
+    public void CellProtection_fluent_methods_do_not_mutate_the_original_instance()
+    {
+        var original = CellProtection.Default;
+        var unlocked = original.WithLocked(false);
+
+        Assert.True(original.Locked);
+        Assert.False(unlocked.Locked);
+        Assert.NotSame(original, unlocked);
+    }
+
+    [Fact]
     public void Generate_produces_readable_source_for_a_simple_workbook()
     {
         var sheet = Sheet.Create(

@@ -135,6 +135,9 @@ internal static class WorkbookConverter
         };
     }
 
+    private static Fs.Styles.CellProtection ToFsCellProtection(CellProtection protection) =>
+        new(protection.Locked, protection.Hidden);
+
     private static FSharpOption<Fs.Styles.CellStyle> ToFsStyle(CellStyle? style)
     {
         if (style is null)
@@ -146,7 +149,7 @@ internal static class WorkbookConverter
             ToOption(ToFsBorder(style.Border)),
             ToOption(ToFsNumberFormat(style)),
             ToOption(ToFsAlignment(style)),
-            FSharpOption<Fs.Styles.CellProtection>.None);
+            style.Protection is { } protection ? FSharpOption<Fs.Styles.CellProtection>.Some(ToFsCellProtection(protection)) : FSharpOption<Fs.Styles.CellProtection>.None);
 
         return FSharpOption<Fs.Styles.CellStyle>.Some(fsStyle);
     }
@@ -604,6 +607,9 @@ internal static class WorkbookConverter
                 _ => style
             };
         }
+
+        if (FromOption(fsStyle.Protection) is { } protection)
+            style = style with { Protection = new CellProtection { Locked = protection.Locked, Hidden = protection.Hidden } };
 
         return style;
     }

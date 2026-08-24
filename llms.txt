@@ -14,9 +14,8 @@ If working in **C#**, prefer `Kookerella.CsOpenXmlDsl` — a genuinely idiomatic
 fluent wrapper (records, `with`-expression-based fluent methods), not just an assembly
 reference to the F# core: referencing `Kookerella.FsOpenXmlDsl` directly from C# is
 possible but considerably less pleasant (F# discriminated unions and `option` types don't
-translate cleanly). The C# wrapper now covers every feature the F# core models at the
-worksheet/workbook level — the one gap is **per-cell** lock/hide protection — see its own
-section below before assuming full parity.
+translate cleanly). The C# wrapper now covers every feature the F# core models — see its
+own section below for details.
 
 ## F# core: `Kookerella.FsOpenXmlDsl`
 
@@ -73,10 +72,14 @@ rather than mutating (`cellStyle.AsBold()` returns a copy with `Bold = true`, it
 mutate `cellStyle`). All I/O is isolated in `WorkbookIO` - `Cell`/`Row`/`Sheet`/`Workbook`/
 `CellStyle` have no I/O methods of their own.
 
-### v1 scope — covers every worksheet/workbook-level feature except per-cell protection
+### v1 scope — full parity with the F# core
 
 Covers: cell values (`Cell.Text`/`.Number`/`.Boolean`/`.Date`/`.Formula`), basic styling
-(font, fill, border, alignment, number format via `CellStyle`), merged ranges/freeze panes/
+(font, fill, border, alignment, number format via `CellStyle`), per-cell lock/hide
+protection (`CellStyle.Protection`/`CellProtection` - `Locked` defaults to `true` matching
+Excel's own implicit default, `Hidden` (formula hidden from the formula bar once protected)
+defaults to `false`; only takes effect once the containing sheet is itself protected via
+`SheetProtection`), merged ranges/freeze panes/
 autofilter (`Sheet.WithMergedRanges`/`.WithFreezePane`/`.WithAutoFilter`, addressed via
 `CellPosition` - zero-based, or `CellPosition.FromA1("B3")`), Excel Tables
 (`Sheet.WithTables(TableEntry.Of(...))`/`TableColumn`/`TableStyle` - `Save` throws
@@ -122,10 +125,6 @@ opaque bytes (`Workbook.WithVbaProject(byte[])`, save to an `.xlsm` path), `Work
 the C# equivalent of `Workbook.generateScript`, covering everything this wrapper models;
 emits a .NET 10 "file-based app" runnable via `dotnet run script.cs`, not an F# script).
 
-**Not exposed here** (reference `Kookerella.FsOpenXmlDsl` directly for this — nothing stops
-mixing both in one C# project): per-cell lock/hide protection (`CellStyle.Protection` in the
-F# core).
-
 ### Building a workbook
 
 ```csharp
@@ -153,15 +152,16 @@ Registry as `io.github.MarkNicholls/fsopenxmldsl-mcp`. Exposes four tools:
 
 - `create_workbook(path, sheets)` — builds an `.xlsx` from a plain row/column grid of cell
   text (a leading `=` makes a formula, `true`/`false` a boolean, a bare number numeric,
-  else text). No styling/tables/charts/etc. — same narrow scope reasoning as the C# wrapper.
+  else text). No styling/tables/charts/etc. — a deliberately minimal tool, unrelated to
+  either package's own scope (both now cover the full feature set).
 - `read_workbook(path)` — reads a file back as JSON using the same text convention.
 - `generate_fsharp_script(path, outputFileName)` — reads a workbook via the F# core and
   returns F# source via the full DSL, runnable with `dotnet fsi`.
 - `generate_csharp_script(path, outputFileName)` — the C# equivalent: reads a workbook via
-  `Kookerella.CsOpenXmlDsl` (so its narrower v1 scope, not full DSL parity) and returns a
-  self-contained `.cs` file targeting .NET 10 file-based apps (`dotnet run <file>.cs`),
-  referencing the published `Kookerella.CsOpenXmlDsl` NuGet package rather than a local
-  path — runs on any machine with the .NET 10 SDK.
+  `Kookerella.CsOpenXmlDsl` and returns a self-contained `.cs` file targeting .NET 10
+  file-based apps (`dotnet run <file>.cs`), referencing the published
+  `Kookerella.CsOpenXmlDsl` NuGet package rather than a local path — runs on any machine
+  with the .NET 10 SDK.
 
 `create_workbook`/`read_workbook` go through the F# core directly; the two `generate_*`
 tools are the only ones that go through the C# wrapper (for `generate_csharp_script`) or

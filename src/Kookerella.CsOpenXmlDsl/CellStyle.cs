@@ -75,8 +75,7 @@ public enum NumberFormatKind
 /// <c>With*</c>/<c>As*</c> method returns a new <see cref="CellStyle"/> via a record
 /// <c>with</c>-expression rather than mutating in place, so a style can be built up once
 /// and safely reused/branched across many cells without aliasing surprises. Mirrors the F#
-/// core's <c>CellStyle</c> record; per-cell lock/hide protection isn't exposed at this
-/// layer - reference Kookerella.FsOpenXmlDsl directly for that.
+/// core's <c>CellStyle</c> record.
 /// </summary>
 public sealed record CellStyle
 {
@@ -107,6 +106,11 @@ public sealed record CellStyle
     /// cref="NumberFormat"/> when set. Setting one clears the other.</summary>
     public string? CustomNumberFormat { get; init; }
 
+    /// <summary>Per-cell lock/hide flags - see <see cref="CellProtection"/>. <see
+    /// langword="null"/> means Excel's own implicit default (locked, not hidden), same as an
+    /// explicit <see cref="CellProtection.Default"/>.</summary>
+    public CellProtection? Protection { get; init; }
+
     public static readonly CellStyle Default = new();
 
     public CellStyle WithFontName(string name) => this with { FontName = name };
@@ -123,4 +127,5 @@ public sealed record CellStyle
     public CellStyle AsWrapText() => this with { WrapText = true };
     public CellStyle WithNumberFormat(NumberFormatKind format) => this with { NumberFormat = format, CustomNumberFormat = null };
     public CellStyle WithCustomNumberFormat(string formatCode) => this with { NumberFormat = null, CustomNumberFormat = formatCode };
+    public CellStyle WithProtection(CellProtection protection) => this with { Protection = protection };
 }

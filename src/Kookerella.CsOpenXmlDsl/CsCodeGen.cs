@@ -132,6 +132,22 @@ public static class CsCodeGen
             sb.Append($".WithNumberFormat(NumberFormatKind.{numberFormat})");
         if (style.CustomNumberFormat is { } customNumberFormat)
             sb.Append($".WithCustomNumberFormat({RenderString(customNumberFormat)})");
+        if (style.Protection is { } protection)
+            sb.Append($".WithProtection({RenderCellProtection(protection)})");
+
+        return sb.ToString();
+    }
+
+    private static string RenderCellProtection(CellProtection protection)
+    {
+        if (protection == CellProtection.Default)
+            return "CellProtection.Default";
+
+        var sb = new StringBuilder("CellProtection.Default");
+        if (protection.Locked != CellProtection.Default.Locked)
+            sb.Append($".WithLocked({RenderBool(protection.Locked)})");
+        if (protection.Hidden != CellProtection.Default.Hidden)
+            sb.Append($".WithHidden({RenderBool(protection.Hidden)})");
 
         return sb.ToString();
     }

@@ -949,6 +949,29 @@ public class ExampleTests
     }
 
     [Fact]
+    public void CellLocking()
+    {
+        // Unlocked so it stays editable once the sheet is protected; the label cell keeps
+        // the implicit Locked = true default (Excel locks every cell unless told otherwise).
+        var unlocked = CellStyle.Default.WithProtection(CellProtection.Default.WithLocked(false));
+
+        var sheet = Sheet
+            .Create(
+                "Sheet1",
+                Row.Of(Cell.Text("Enter quantity:"), Cell.Number(0).WithStyle(unlocked)))
+            .WithProtection(SheetProtection.Default);
+
+        var loaded = VerifyScenario(nameof(CellLocking), Workbook.Create(sheet));
+        var labelCell = loaded.Sheets.Single().Rows[0].Cells[0];
+        var quantityCell = loaded.Sheets.Single().Rows[0].Cells[1];
+
+        Assert.Null(labelCell.Style?.Protection);
+        Assert.NotNull(quantityCell.Style?.Protection);
+        Assert.False(quantityCell.Style!.Protection!.Locked);
+        Assert.False(quantityCell.Style.Protection.Hidden);
+    }
+
+    [Fact]
     public void SheetProtectionWithPassword()
     {
         var sheet = Sheet

@@ -298,10 +298,23 @@ backwards by naming it explicitly rather than relying on a comment. `WorkbookPro
 has no such trap - `WithLockStructure`/`WithLockWindows` are already plain "true means
 protected". `Password` on either type is hashed with a legacy, non-reversible algorithm on
 save (a casual-editing speed bump, never real security) and always reads back
-`null` - re-supply it yourself if you need to know whether one was set. Per-cell lock/hide
-protection isn't exposed at this layer - reference `Kookerella.FsOpenXmlDsl` directly for
-that; without it, protecting a sheet through this wrapper alone locks every cell (Excel's
-own default), with no way to unlock specific input cells first.
+`null` - re-supply it yourself if you need to know whether one was set.
+
+Per-cell lock/hide is a separate flag pair on `CellStyle` itself - `CellStyle.Protection`,
+a `CellProtection` with `Locked` (defaults to `true`, matching Excel's own implicit default)
+and `Hidden` (formula hidden from the formula bar once protected, defaults to `false`).
+These only do anything once the sheet itself is protected:
+
+```csharp
+var unlockedInput = CellStyle.Default.WithProtection(CellProtection.Default.WithLocked(false));
+
+var sheet = Sheet.Create("Sheet1",
+        Row.Of(Cell.Text("Enter quantity:"), Cell.Number(0).WithStyle(unlockedInput)))
+    .WithProtection(SheetProtection.Default);
+```
+
+Here the label cell keeps the implicit `Locked = true` default and the quantity cell stays
+editable once the sheet is protected.
 
 `CsCodeGen.Generate` renders a `Workbook` back out as a self-contained C# file that
 regenerates an equivalent file when run - the reverse of `WorkbookIO.Load` one level
@@ -339,13 +352,11 @@ regenerate it yourself.
 
 This wrapper now covers every feature the F# core models at the worksheet/workbook level:
 cell values (text/number/boolean/date/formula), basic styling (font/fill/border/alignment/
-number format), merged ranges, freeze panes, autofilter, tables, charts, images, pivot
-tables (single row/column/value field only), sparklines, conditional formatting, data
-validation, hyperlinks, comments, print settings, defined names, sheet/workbook protection,
-VBA (as opaque bytes), `Save`/`Load`, and code generation (`CsCodeGen`, covering everything
-this wrapper itself models). The one thing still out of scope is **per-cell** lock/hide
-protection (`CellStyle.Protection` in the F# core) - reference `Kookerella.FsOpenXmlDsl`
-directly for that (this wrapper doesn't stop you from mixing both in the same project).
+number format), per-cell lock/hide protection, merged ranges, freeze panes, autofilter,
+tables, charts, images, pivot tables (single row/column/value field only), sparklines,
+conditional formatting, data validation, hyperlinks, comments, print settings, defined
+names, sheet/workbook protection, VBA (as opaque bytes), `Save`/`Load`, and code generation
+(`CsCodeGen`, covering everything this wrapper itself models).
 
 Formula cells never carry a cached value from this API beyond what you explicitly pass to
 `Cell.Formula` - see the main project's README for why that matters for anything that isn't
