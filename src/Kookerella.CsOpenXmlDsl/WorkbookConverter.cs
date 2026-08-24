@@ -318,6 +318,37 @@ internal static class WorkbookConverter
     private static Fs.ConditionalFormatEntry ToFsConditionalFormatEntry(ConditionalFormatEntry entry) =>
         new(ToFsCellRef(entry.TopLeft), ToFsCellRef(entry.BottomRight), ToFsConditionalFormatRule(entry.Rule));
 
+    private static Fs.ErrorAlertStyle ToFsErrorAlertStyle(ErrorAlertStyle style) => style switch
+    {
+        ErrorAlertStyle.Stop => Fs.ErrorAlertStyle.Stop,
+        ErrorAlertStyle.Warning => Fs.ErrorAlertStyle.Warning,
+        ErrorAlertStyle.Information => Fs.ErrorAlertStyle.Information,
+        _ => throw new ArgumentOutOfRangeException(nameof(style), style, null)
+    };
+
+    private static Fs.ValidationAlert ToFsValidationAlert(ValidationAlert alert) =>
+        new(
+            alert.AllowBlank,
+            ToFsErrorAlertStyle(alert.ErrorStyle),
+            ToOption(alert.ErrorTitle),
+            ToOption(alert.ErrorMessage),
+            ToOption(alert.InputTitle),
+            ToOption(alert.InputMessage));
+
+    private static Fs.ValidationKind ToFsValidationKind(ValidationKind kind) => kind switch
+    {
+        ValidationKind.ListValidation k => Fs.ValidationKind.NewListValidation(ListModule.OfSeq(k.Items)),
+        ValidationKind.ListFromRangeValidation k => Fs.ValidationKind.NewListFromRangeValidation(ToFsCellRef(k.TopLeft), ToFsCellRef(k.BottomRight)),
+        ValidationKind.WholeNumberValidation k => Fs.ValidationKind.NewWholeNumberValidation(ToFsComparisonOperator(k.Operator), k.Formula1, ToOption(k.Formula2)),
+        ValidationKind.DecimalValidation k => Fs.ValidationKind.NewDecimalValidation(ToFsComparisonOperator(k.Operator), k.Formula1, ToOption(k.Formula2)),
+        ValidationKind.TextLengthValidation k => Fs.ValidationKind.NewTextLengthValidation(ToFsComparisonOperator(k.Operator), k.Formula1, ToOption(k.Formula2)),
+        ValidationKind.CustomValidation k => Fs.ValidationKind.NewCustomValidation(k.Formula),
+        _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, null)
+    };
+
+    private static Fs.DataValidationEntry ToFsDataValidationEntry(DataValidationEntry entry) =>
+        new(ToFsCellRef(entry.TopLeft), ToFsCellRef(entry.BottomRight), ToFsValidationKind(entry.Kind), ToFsValidationAlert(entry.Alert));
+
     private static Fs.Model.Worksheet ToFsWorksheet(Sheet sheet)
     {
         var nextRow = 0;
@@ -346,7 +377,7 @@ internal static class WorkbookConverter
             sheet.AutoFilter is { } af ? FSharpOption<Fs.Model.AutoFilterRange>.Some(ToFsAutoFilter(af)) : FSharpOption<Fs.Model.AutoFilterRange>.None,
             baseline.Protection,
             ListModule.OfSeq(sheet.ConditionalFormats.Select(ToFsConditionalFormatEntry)),
-            baseline.DataValidations,
+            ListModule.OfSeq(sheet.DataValidations.Select(ToFsDataValidationEntry)),
             baseline.Hyperlinks,
             baseline.Comments,
             baseline.PageSetup,
@@ -659,6 +690,41 @@ internal static class WorkbookConverter
     private static ConditionalFormatEntry FromFsConditionalFormatEntry(Fs.ConditionalFormatEntry entry) =>
         new(FromFsCellRef(entry.TopLeft), FromFsCellRef(entry.BottomRight), FromFsConditionalFormatRule(entry.Rule));
 
+    private static ErrorAlertStyle FromFsErrorAlertStyle(Fs.ErrorAlertStyle style) => style switch
+    {
+        { IsStop: true } => ErrorAlertStyle.Stop,
+        { IsWarning: true } => ErrorAlertStyle.Warning,
+        { IsInformation: true } => ErrorAlertStyle.Information,
+        _ => throw new ArgumentOutOfRangeException(nameof(style), style, null)
+    };
+
+    private static ValidationAlert FromFsValidationAlert(Fs.ValidationAlert alert) => new()
+    {
+        AllowBlank = alert.AllowBlank,
+        ErrorStyle = FromFsErrorAlertStyle(alert.ErrorStyle),
+        ErrorTitle = FromOption(alert.ErrorTitle),
+        ErrorMessage = FromOption(alert.ErrorMessage),
+        InputTitle = FromOption(alert.InputTitle),
+        InputMessage = FromOption(alert.InputMessage)
+    };
+
+    private static ValidationKind FromFsValidationKind(Fs.ValidationKind kind) => kind switch
+    {
+        Fs.ValidationKind.ListValidation k => new ValidationKind.ListValidation(k.items.ToArray()),
+        Fs.ValidationKind.ListFromRangeValidation k => new ValidationKind.ListFromRangeValidation(FromFsCellRef(k.topLeft), FromFsCellRef(k.bottomRight)),
+        Fs.ValidationKind.WholeNumberValidation k => new ValidationKind.WholeNumberValidation(FromFsComparisonOperator(k.@operator), k.formula1, FromOption(k.formula2)),
+        Fs.ValidationKind.DecimalValidation k => new ValidationKind.DecimalValidation(FromFsComparisonOperator(k.@operator), k.formula1, FromOption(k.formula2)),
+        Fs.ValidationKind.TextLengthValidation k => new ValidationKind.TextLengthValidation(FromFsComparisonOperator(k.@operator), k.formula1, FromOption(k.formula2)),
+        Fs.ValidationKind.CustomValidation k => new ValidationKind.CustomValidation(k.formula),
+        _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, null)
+    };
+
+    private static DataValidationEntry FromFsDataValidationEntry(Fs.DataValidationEntry entry) =>
+        new(FromFsCellRef(entry.TopLeft), FromFsCellRef(entry.BottomRight), FromFsValidationKind(entry.Kind))
+        {
+            Alert = FromFsValidationAlert(entry.Alert)
+        };
+
     public static Workbook FromFSharp(Fs.Model.Workbook workbook)
     {
         var sheets = workbook.Sheets.Select(fsSheet =>
@@ -694,7 +760,8 @@ internal static class WorkbookConverter
                 Images = fsSheet.Images.Select(FromFsImageEntry).ToArray(),
                 PivotTables = fsSheet.PivotTables.Select(FromFsPivotTableEntry).ToArray(),
                 SparklineGroups = fsSheet.SparklineGroups.Select(FromFsSparklineGroupEntry).ToArray(),
-                ConditionalFormats = fsSheet.ConditionalFormats.Select(FromFsConditionalFormatEntry).ToArray()
+                ConditionalFormats = fsSheet.ConditionalFormats.Select(FromFsConditionalFormatEntry).ToArray(),
+                DataValidations = fsSheet.DataValidations.Select(FromFsDataValidationEntry).ToArray()
             };
         });
 

@@ -92,16 +92,21 @@ rather than just describing a reference), sparklines
 once), conditional formatting (`Sheet.AddConditionalFormat(ConditionalFormatEntry.Of(...))`/
 `ConditionalFormatRule` - a closed set of cases (`CellValueRule`/`FormulaRule`/`ColorScale2`/
 `ColorScale3`/`DataBarRule`/`DuplicateValuesRule`/`UniqueValuesRule`), same sealed-hierarchy
-pattern as `CellValue`; icon sets/top-bottom-N/text-blank-error rules aren't modeled), VBA as
-opaque bytes (`Workbook.WithVbaProject(byte[])`, save to an `.xlsm` path),
-`WorkbookIO.Save`/`Load`, and code generation
+pattern as `CellValue`; icon sets/top-bottom-N/text-blank-error rules aren't modeled), data
+validation (`Sheet.AddDataValidation(DataValidationEntry.Of(...))`/`ValidationKind` - a
+closed set of cases (`ListValidation`/`ListFromRangeValidation`/`WholeNumberValidation`/
+`DecimalValidation`/`TextLengthValidation`/`CustomValidation`), plus `ValidationAlert` for
+the optional blank/error/input prompt config, shared `ComparisonOperator` with conditional
+formatting's `CellValueRule`; `Date`/`Time` validation and cross-sheet named-range list
+sources aren't modeled), VBA as opaque bytes (`Workbook.WithVbaProject(byte[])`, save to an
+`.xlsm` path), `WorkbookIO.Save`/`Load`, and code generation
 (`CsCodeGen.Generate(referenceLines, outputFileName, workbook)` - the C# equivalent of
 `Workbook.generateScript`, covering everything this wrapper models; emits a .NET 10
 "file-based app" runnable via `dotnet run script.cs`, not an F# script).
 
 **Not exposed here** (reference `Kookerella.FsOpenXmlDsl` directly for these — nothing
-stops mixing both in one C# project): data validation, hyperlinks, comments, print settings,
-defined names, and protection.
+stops mixing both in one C# project): hyperlinks, comments, print settings, defined names,
+and protection.
 
 ### Building a workbook
 

@@ -162,6 +162,28 @@ public class WorkbookTests
     }
 
     [Fact]
+    public void Sheet_without_data_validations_defaults_to_empty_and_is_immutable()
+    {
+        var plain = Sheet.Create("Sheet1");
+        Assert.Empty(plain.DataValidations);
+
+        var withValidation = plain.AddDataValidation(DataValidationEntry.Of("A1", "A1", new ValidationKind.CustomValidation("TRUE")));
+        Assert.Empty(plain.DataValidations);
+        Assert.Single(withValidation.DataValidations);
+    }
+
+    [Fact]
+    public void ValidationAlert_fluent_methods_do_not_mutate_the_original_instance()
+    {
+        var original = ValidationAlert.Default;
+        var withoutBlank = original.WithAllowBlank(false);
+
+        Assert.True(original.AllowBlank);
+        Assert.False(withoutBlank.AllowBlank);
+        Assert.NotSame(original, withoutBlank);
+    }
+
+    [Fact]
     public void Generate_produces_readable_source_for_a_simple_workbook()
     {
         var sheet = Sheet.Create(

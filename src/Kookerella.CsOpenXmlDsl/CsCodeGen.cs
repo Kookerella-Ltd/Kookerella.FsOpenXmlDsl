@@ -295,6 +295,50 @@ public static class CsCodeGen
     private static string RenderConditionalFormatEntry(ConditionalFormatEntry entry) =>
         $"ConditionalFormatEntry.Of({RenderString(entry.TopLeft.ToA1())}, {RenderString(entry.BottomRight.ToA1())}, {RenderConditionalFormatRule(entry.Rule)})";
 
+    private static string RenderValidationKind(ValidationKind kind) => kind switch
+    {
+        ValidationKind.ListValidation k => $"new ValidationKind.ListValidation({string.Join(", ", k.Items.Select(RenderString))})",
+        ValidationKind.ListFromRangeValidation k =>
+            $"new ValidationKind.ListFromRangeValidation({RenderCellPosition(k.TopLeft)}, {RenderCellPosition(k.BottomRight)})",
+        ValidationKind.WholeNumberValidation k =>
+            $"new ValidationKind.WholeNumberValidation(ComparisonOperator.{k.Operator}, {RenderString(k.Formula1)}, {(k.Formula2 is { } f2 ? RenderString(f2) : "null")})",
+        ValidationKind.DecimalValidation k =>
+            $"new ValidationKind.DecimalValidation(ComparisonOperator.{k.Operator}, {RenderString(k.Formula1)}, {(k.Formula2 is { } f2 ? RenderString(f2) : "null")})",
+        ValidationKind.TextLengthValidation k =>
+            $"new ValidationKind.TextLengthValidation(ComparisonOperator.{k.Operator}, {RenderString(k.Formula1)}, {(k.Formula2 is { } f2 ? RenderString(f2) : "null")})",
+        ValidationKind.CustomValidation k => $"new ValidationKind.CustomValidation({RenderString(k.Formula)})",
+        _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, null)
+    };
+
+    private static string RenderValidationAlert(ValidationAlert alert)
+    {
+        if (alert == ValidationAlert.Default)
+            return "ValidationAlert.Default";
+
+        var sb = new StringBuilder("ValidationAlert.Default");
+
+        if (alert.AllowBlank != ValidationAlert.Default.AllowBlank)
+            sb.Append($".WithAllowBlank({RenderBool(alert.AllowBlank)})");
+        if (alert.ErrorStyle != ValidationAlert.Default.ErrorStyle)
+            sb.Append($".WithErrorStyle(ErrorAlertStyle.{alert.ErrorStyle})");
+        if (alert.ErrorTitle is { } errorTitle)
+            sb.Append($".WithErrorTitle({RenderString(errorTitle)})");
+        if (alert.ErrorMessage is { } errorMessage)
+            sb.Append($".WithErrorMessage({RenderString(errorMessage)})");
+        if (alert.InputTitle is { } inputTitle)
+            sb.Append($".WithInputTitle({RenderString(inputTitle)})");
+        if (alert.InputMessage is { } inputMessage)
+            sb.Append($".WithInputMessage({RenderString(inputMessage)})");
+
+        return sb.ToString();
+    }
+
+    private static string RenderDataValidationEntry(DataValidationEntry entry)
+    {
+        var expr = $"DataValidationEntry.Of({RenderString(entry.TopLeft.ToA1())}, {RenderString(entry.BottomRight.ToA1())}, {RenderValidationKind(entry.Kind)})";
+        return entry.Alert == ValidationAlert.Default ? expr : $"{expr}.WithAlert({RenderValidationAlert(entry.Alert)})";
+    }
+
     /// <summary>Resolves the same <c>Index ?? nextRow</c>/<c>Column ?? nextColumn</c>
     /// convention <see cref="WorkbookIO"/> itself uses at save time, then only emits an
     /// explicit <c>.AtIndex</c>/<c>.AtColumn</c> where the resolved position actually
@@ -351,6 +395,8 @@ public static class CsCodeGen
             sb.Append("\n    .WithSparklineGroups(").Append(string.Join(", ", sheet.SparklineGroups.Select(RenderSparklineGroupEntry))).Append(')');
         if (sheet.ConditionalFormats.Count > 0)
             sb.Append("\n    .WithConditionalFormats(").Append(string.Join(", ", sheet.ConditionalFormats.Select(RenderConditionalFormatEntry))).Append(')');
+        if (sheet.DataValidations.Count > 0)
+            sb.Append("\n    .WithDataValidations(").Append(string.Join(", ", sheet.DataValidations.Select(RenderDataValidationEntry))).Append(')');
 
         sb.Append(';');
         return sb.ToString();

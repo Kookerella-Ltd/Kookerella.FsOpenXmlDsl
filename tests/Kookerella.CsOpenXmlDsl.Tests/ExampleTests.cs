@@ -658,6 +658,117 @@ public class ExampleTests
         Assert.Equal(new RgbColor(198, 239, 206), rule.Style.FillColor);
     }
 
+    [Fact]
+    public void DataValidation_List()
+    {
+        var sheet = Sheet
+            .Create("Sheet1", Row.Of(Cell.Text("Size")))
+            .AddDataValidation(DataValidationEntry.Of("A2", "A2", new ValidationKind.ListValidation("Small", "Medium", "Large")));
+
+        var loaded = VerifyScenario(nameof(DataValidation_List), Workbook.Create(sheet));
+        var entry = Assert.Single(loaded.Sheets.Single().DataValidations);
+
+        var kind = Assert.IsType<ValidationKind.ListValidation>(entry.Kind);
+        Assert.Equal(["Small", "Medium", "Large"], kind.Items);
+    }
+
+    [Fact]
+    public void DataValidation_ListFromRange()
+    {
+        var sheet = Sheet
+            .Create(
+                "Sheet1",
+                Row.Of(Cell.Text("Small"), Cell.Text("Medium"), Cell.Text("Large")),
+                Row.Of(Cell.Text("Size")))
+            .AddDataValidation(DataValidationEntry.Of("A2", "A2", new ValidationKind.ListFromRangeValidation(CellPosition.FromA1("A1"), CellPosition.FromA1("C1"))));
+
+        var loaded = VerifyScenario(nameof(DataValidation_ListFromRange), Workbook.Create(sheet));
+        var entry = Assert.Single(loaded.Sheets.Single().DataValidations);
+
+        var kind = Assert.IsType<ValidationKind.ListFromRangeValidation>(entry.Kind);
+        Assert.Equal(CellPosition.FromA1("A1"), kind.TopLeft);
+        Assert.Equal(CellPosition.FromA1("C1"), kind.BottomRight);
+    }
+
+    [Fact]
+    public void DataValidation_WholeNumber()
+    {
+        var sheet = Sheet
+            .Create("Sheet1", Row.Of(Cell.Text("Quantity")))
+            .AddDataValidation(
+                DataValidationEntry
+                    .Of("A2", "A2", new ValidationKind.WholeNumberValidation(ComparisonOperator.GreaterThan, "0", null))
+                    .WithAlert(
+                        ValidationAlert.Default
+                            .WithErrorTitle("Invalid quantity")
+                            .WithErrorMessage("Quantity must be a positive whole number.")));
+
+        var loaded = VerifyScenario(nameof(DataValidation_WholeNumber), Workbook.Create(sheet));
+        var entry = Assert.Single(loaded.Sheets.Single().DataValidations);
+
+        var kind = Assert.IsType<ValidationKind.WholeNumberValidation>(entry.Kind);
+        Assert.Equal(ComparisonOperator.GreaterThan, kind.Operator);
+        Assert.Equal("0", kind.Formula1);
+        Assert.Equal("Invalid quantity", entry.Alert.ErrorTitle);
+        Assert.Equal("Quantity must be a positive whole number.", entry.Alert.ErrorMessage);
+    }
+
+    [Fact]
+    public void DataValidation_Decimal()
+    {
+        var sheet = Sheet
+            .Create("Sheet1", Row.Of(Cell.Text("Fraction (0-1)")))
+            .AddDataValidation(DataValidationEntry.Of("A2", "A2", new ValidationKind.DecimalValidation(ComparisonOperator.Between, "0", "1")));
+
+        var loaded = VerifyScenario(nameof(DataValidation_Decimal), Workbook.Create(sheet));
+        var entry = Assert.Single(loaded.Sheets.Single().DataValidations);
+
+        var kind = Assert.IsType<ValidationKind.DecimalValidation>(entry.Kind);
+        Assert.Equal(ComparisonOperator.Between, kind.Operator);
+        Assert.Equal("0", kind.Formula1);
+        Assert.Equal("1", kind.Formula2);
+    }
+
+    [Fact]
+    public void DataValidation_TextLength()
+    {
+        var sheet = Sheet
+            .Create("Sheet1", Row.Of(Cell.Text("Short code (<= 10 chars)")))
+            .AddDataValidation(DataValidationEntry.Of("A2", "A2", new ValidationKind.TextLengthValidation(ComparisonOperator.LessThanOrEqual, "10", null)));
+
+        var loaded = VerifyScenario(nameof(DataValidation_TextLength), Workbook.Create(sheet));
+        var entry = Assert.Single(loaded.Sheets.Single().DataValidations);
+
+        var kind = Assert.IsType<ValidationKind.TextLengthValidation>(entry.Kind);
+        Assert.Equal(ComparisonOperator.LessThanOrEqual, kind.Operator);
+        Assert.Equal("10", kind.Formula1);
+        Assert.Null(kind.Formula2);
+    }
+
+    [Fact]
+    public void DataValidation_Custom()
+    {
+        var sheet = Sheet
+            .Create("Sheet1", Row.Of(Cell.Text("Must be a number")))
+            .AddDataValidation(
+                DataValidationEntry
+                    .Of("A2", "A2", new ValidationKind.CustomValidation("ISNUMBER(A2)"))
+                    .WithAlert(
+                        ValidationAlert.Default
+                            .WithAllowBlank(false)
+                            .WithInputTitle("Note")
+                            .WithInputMessage("Enter a numeric value.")));
+
+        var loaded = VerifyScenario(nameof(DataValidation_Custom), Workbook.Create(sheet));
+        var entry = Assert.Single(loaded.Sheets.Single().DataValidations);
+
+        var kind = Assert.IsType<ValidationKind.CustomValidation>(entry.Kind);
+        Assert.Equal("ISNUMBER(A2)", kind.Formula);
+        Assert.False(entry.Alert.AllowBlank);
+        Assert.Equal("Note", entry.Alert.InputTitle);
+        Assert.Equal("Enter a numeric value.", entry.Alert.InputMessage);
+    }
+
     // --- Generated-script verification (slow: actually runs `dotnet run`) ------------------
     //
     // Every scenario above writes its own Examples/<name>/script.cs as a side effect of

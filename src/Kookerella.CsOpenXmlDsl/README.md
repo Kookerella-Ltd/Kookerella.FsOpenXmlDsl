@@ -174,9 +174,30 @@ var sheet = Sheet.Create("Sheet1",
 `CellValueRule`'s `Formula1`/`Formula2` and `FormulaRule`'s `Formula` are raw formula text
 (same convention as `Cell.Formula`) - for `CellValueRule` these are literal values or cell
 references compared against, not `=`-prefixed formulas. `ComparisonOperator` is shared with
-data validation's own numeric rules once those are exposed. Icon sets, "top/bottom N", and
-the text/blank/error-contains rule kinds aren't modeled - reference `Kookerella.FsOpenXmlDsl`
+data validation's own numeric rules (below). Icon sets, "top/bottom N", and the
+text/blank/error-contains rule kinds aren't modeled - reference `Kookerella.FsOpenXmlDsl`
 directly for those.
+
+Data validation rules are also a closed set of cases (`ValidationKind.ListValidation`/
+`.ListFromRangeValidation`/`.WholeNumberValidation`/`.DecimalValidation`/
+`.TextLengthValidation`/`.CustomValidation`):
+
+```csharp
+var sheet = Sheet.Create("Sheet1", Row.Of(Cell.Text("Quantity")))
+    .AddDataValidation(
+        DataValidationEntry
+            .Of("A2", "A2", new ValidationKind.WholeNumberValidation(ComparisonOperator.GreaterThan, "0", null))
+            .WithAlert(
+                ValidationAlert.Default
+                    .WithErrorTitle("Invalid quantity")
+                    .WithErrorMessage("Quantity must be a positive whole number.")));
+```
+
+`ValidationAlert` (defaulting to `ValidationAlert.Default` - blanks allowed, a `Stop` alert,
+no custom messages) is kept separate from `ValidationKind` so the common case (just a rule,
+no custom prompts) doesn't need to mention any of it; set it via `DataValidationEntry
+.WithAlert(...)`. `Date`/`Time` validation and cross-sheet named-range list sources aren't
+modeled - reference `Kookerella.FsOpenXmlDsl` directly for those.
 
 `CsCodeGen.Generate` renders a `Workbook` back out as a self-contained C# file that
 regenerates an equivalent file when run - the reverse of `WorkbookIO.Load` one level
@@ -215,11 +236,11 @@ regenerate it yourself.
 This is a deliberately narrow first pass, not the whole F# library ported to C#: cell
 values (text/number/boolean/date/formula), basic styling (font/fill/border/alignment/
 number format), merged ranges, freeze panes, autofilter, tables, charts, images, pivot
-tables (single row/column/value field only), sparklines, conditional formatting, VBA (as
-opaque bytes), `Save`/`Load`, and code generation (`CsCodeGen`, covering everything this
-wrapper itself models). Data validation, hyperlinks, comments, print settings, defined
-names, and protection aren't exposed here - reference `Kookerella.FsOpenXmlDsl` directly
-for those (this wrapper doesn't stop you from mixing both in the same project).
+tables (single row/column/value field only), sparklines, conditional formatting, data
+validation, VBA (as opaque bytes), `Save`/`Load`, and code generation (`CsCodeGen`,
+covering everything this wrapper itself models). Hyperlinks, comments, print settings,
+defined names, and protection aren't exposed here - reference `Kookerella.FsOpenXmlDsl`
+directly for those (this wrapper doesn't stop you from mixing both in the same project).
 
 Formula cells never carry a cached value from this API beyond what you explicitly pass to
 `Cell.Formula` - see the main project's README for why that matters for anything that isn't
