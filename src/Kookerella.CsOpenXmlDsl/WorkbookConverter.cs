@@ -403,6 +403,26 @@ internal static class WorkbookConverter
             ToOption(pageSetup.FirstHeader),
             ToOption(pageSetup.FirstFooter));
 
+    private static Fs.SheetProtection ToFsSheetProtection(SheetProtection protection) =>
+        new(
+            ToOption(protection.Password),
+            protection.Sheet,
+            ToOptionStruct(protection.ObjectsBlocked),
+            ToOptionStruct(protection.ScenariosBlocked),
+            ToOptionStruct(protection.FormatCellsBlocked),
+            ToOptionStruct(protection.FormatColumnsBlocked),
+            ToOptionStruct(protection.FormatRowsBlocked),
+            ToOptionStruct(protection.InsertColumnsBlocked),
+            ToOptionStruct(protection.InsertRowsBlocked),
+            ToOptionStruct(protection.InsertHyperlinksBlocked),
+            ToOptionStruct(protection.DeleteColumnsBlocked),
+            ToOptionStruct(protection.DeleteRowsBlocked),
+            ToOptionStruct(protection.SelectLockedCellsBlocked),
+            ToOptionStruct(protection.SortBlocked),
+            ToOptionStruct(protection.AutoFilterBlocked),
+            ToOptionStruct(protection.PivotTablesBlocked),
+            ToOptionStruct(protection.SelectUnlockedCellsBlocked));
+
     private static Fs.Model.Worksheet ToFsWorksheet(Sheet sheet)
     {
         var nextRow = 0;
@@ -429,7 +449,7 @@ internal static class WorkbookConverter
             ListModule.OfSeq(sheet.MergedRanges.Select(ToFsMergedRange)),
             sheet.FreezePane is { } fp ? FSharpOption<Fs.Model.FreezePane>.Some(ToFsFreezePane(fp)) : FSharpOption<Fs.Model.FreezePane>.None,
             sheet.AutoFilter is { } af ? FSharpOption<Fs.Model.AutoFilterRange>.Some(ToFsAutoFilter(af)) : FSharpOption<Fs.Model.AutoFilterRange>.None,
-            baseline.Protection,
+            sheet.Protection is { } protection ? FSharpOption<Fs.SheetProtection>.Some(ToFsSheetProtection(protection)) : FSharpOption<Fs.SheetProtection>.None,
             ListModule.OfSeq(sheet.ConditionalFormats.Select(ToFsConditionalFormatEntry)),
             ListModule.OfSeq(sheet.DataValidations.Select(ToFsDataValidationEntry)),
             ListModule.OfSeq(sheet.Hyperlinks.Select(ToFsHyperlinkEntry)),
@@ -452,6 +472,9 @@ internal static class WorkbookConverter
     private static Fs.DefinedNameEntry ToFsDefinedNameEntry(DefinedNameEntry entry) =>
         new(entry.Name, entry.Formula, ToFsDefinedNameScope(entry.Scope), entry.Hidden);
 
+    private static Fs.WorkbookProtection ToFsWorkbookProtection(WorkbookProtection protection) =>
+        new(ToOption(protection.Password), ToOptionStruct(protection.LockStructure), ToOptionStruct(protection.LockWindows));
+
     public static Fs.Model.Workbook ToFSharp(Workbook workbook)
     {
         // Same reasoning as ToFsWorksheet: build a baseline via the F# builder (for the
@@ -462,7 +485,7 @@ internal static class WorkbookConverter
         return new Fs.Model.Workbook(
             baseline.Sheets,
             ListModule.OfSeq(workbook.DefinedNames.Select(ToFsDefinedNameEntry)),
-            baseline.Protection,
+            workbook.Protection is { } protection ? FSharpOption<Fs.WorkbookProtection>.Some(ToFsWorkbookProtection(protection)) : FSharpOption<Fs.WorkbookProtection>.None,
             ToOption(workbook.VbaProject));
     }
 
@@ -855,6 +878,34 @@ internal static class WorkbookConverter
         FirstFooter = FromOption(pageSetup.FirstFooter)
     };
 
+    private static SheetProtection FromFsSheetProtection(Fs.SheetProtection protection) => new()
+    {
+        Password = FromOption(protection.Password),
+        Sheet = protection.Sheet,
+        ObjectsBlocked = FromOptionStruct(protection.Objects),
+        ScenariosBlocked = FromOptionStruct(protection.Scenarios),
+        FormatCellsBlocked = FromOptionStruct(protection.FormatCells),
+        FormatColumnsBlocked = FromOptionStruct(protection.FormatColumns),
+        FormatRowsBlocked = FromOptionStruct(protection.FormatRows),
+        InsertColumnsBlocked = FromOptionStruct(protection.InsertColumns),
+        InsertRowsBlocked = FromOptionStruct(protection.InsertRows),
+        InsertHyperlinksBlocked = FromOptionStruct(protection.InsertHyperlinks),
+        DeleteColumnsBlocked = FromOptionStruct(protection.DeleteColumns),
+        DeleteRowsBlocked = FromOptionStruct(protection.DeleteRows),
+        SelectLockedCellsBlocked = FromOptionStruct(protection.SelectLockedCells),
+        SortBlocked = FromOptionStruct(protection.Sort),
+        AutoFilterBlocked = FromOptionStruct(protection.AutoFilter),
+        PivotTablesBlocked = FromOptionStruct(protection.PivotTables),
+        SelectUnlockedCellsBlocked = FromOptionStruct(protection.SelectUnlockedCells)
+    };
+
+    private static WorkbookProtection FromFsWorkbookProtection(Fs.WorkbookProtection protection) => new()
+    {
+        Password = FromOption(protection.Password),
+        LockStructure = FromOptionStruct(protection.LockStructure),
+        LockWindows = FromOptionStruct(protection.LockWindows)
+    };
+
     private static DefinedNameScope FromFsDefinedNameScope(Fs.DefinedNameScope scope) => scope switch
     {
         { IsWorkbookScope: true } => new DefinedNameScope.WorkbookScope(),
@@ -904,7 +955,8 @@ internal static class WorkbookConverter
                 DataValidations = fsSheet.DataValidations.Select(FromFsDataValidationEntry).ToArray(),
                 Hyperlinks = fsSheet.Hyperlinks.Select(FromFsHyperlinkEntry).ToArray(),
                 Comments = fsSheet.Comments.Select(FromFsCommentEntry).ToArray(),
-                PageSetup = FromOption(fsSheet.PageSetup) is { } pageSetup ? FromFsPageSetup(pageSetup) : null
+                PageSetup = FromOption(fsSheet.PageSetup) is { } pageSetup ? FromFsPageSetup(pageSetup) : null,
+                Protection = FromOption(fsSheet.Protection) is { } sheetProtection ? FromFsSheetProtection(sheetProtection) : null
             };
         });
 
@@ -912,6 +964,7 @@ internal static class WorkbookConverter
         {
             Sheets = sheets.ToArray(),
             DefinedNames = workbook.DefinedNames.Select(FromFsDefinedNameEntry).ToArray(),
+            Protection = FromOption(workbook.Protection) is { } workbookProtection ? FromFsWorkbookProtection(workbookProtection) : null,
             VbaProject = FromOption(workbook.VbaProject)
         };
     }

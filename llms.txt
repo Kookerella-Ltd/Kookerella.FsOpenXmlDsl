@@ -14,8 +14,9 @@ If working in **C#**, prefer `Kookerella.CsOpenXmlDsl` — a genuinely idiomatic
 fluent wrapper (records, `with`-expression-based fluent methods), not just an assembly
 reference to the F# core: referencing `Kookerella.FsOpenXmlDsl` directly from C# is
 possible but considerably less pleasant (F# discriminated unions and `option` types don't
-translate cleanly). The C# wrapper covers a deliberately **narrower** slice than the F#
-core as of this version — see its own section below before assuming feature parity.
+translate cleanly). The C# wrapper now covers every feature the F# core models at the
+worksheet/workbook level — the one gap is **per-cell** lock/hide protection — see its own
+section below before assuming full parity.
 
 ## F# core: `Kookerella.FsOpenXmlDsl`
 
@@ -72,7 +73,7 @@ rather than mutating (`cellStyle.AsBold()` returns a copy with `Bold = true`, it
 mutate `cellStyle`). All I/O is isolated in `WorkbookIO` - `Cell`/`Row`/`Sheet`/`Workbook`/
 `CellStyle` have no I/O methods of their own.
 
-### v1 scope — narrower than the F# core, do not assume parity
+### v1 scope — covers every worksheet/workbook-level feature except per-cell protection
 
 Covers: cell values (`Cell.Text`/`.Number`/`.Boolean`/`.Date`/`.Formula`), basic styling
 (font, fill, border, alignment, number format via `CellStyle`), merged ranges/freeze panes/
@@ -108,14 +109,22 @@ text, author))`/`CommentEntry` - a classic OOXML `comment`/Excel "Note", not the
 first-page variants; `Sheet.PageSetup` is `null` by default, Excel's own print defaults
 apply until set), defined names (`Workbook.WithDefinedNames(DefinedNameEntry.Of(...))` -
 workbook-level, not sheet-level; `Of(name, formula)` is workbook-scoped,
-`Of(name, formula, sheetName)` restricts to one sheet), VBA as opaque bytes
-(`Workbook.WithVbaProject(byte[])`, save to an `.xlsm` path), `WorkbookIO.Save`/`Load`, and
-code generation (`CsCodeGen.Generate(referenceLines, outputFileName, workbook)` - the C#
-equivalent of `Workbook.generateScript`, covering everything this wrapper models; emits a
-.NET 10 "file-based app" runnable via `dotnet run script.cs`, not an F# script).
+`Of(name, formula, sheetName)` restricts to one sheet), sheet/workbook protection
+(`Sheet.WithProtection(SheetProtection)`/`Workbook.WithProtection(WorkbookProtection)` -
+`SheetProtection`'s 15 optional flags all carry an explicit `Blocked` suffix
+(`FormatCellsBlocked`, `SortBlocked`, ...), a deliberate departure from this wrapper's usual
+"mirror F# field names" convention to avoid the F# core's inverted-meaning footgun
+(`FormatCells = true` means formatting becomes *blocked*, not enabled); `WorkbookProtection`'s
+`LockStructure`/`LockWindows` needed no renaming. Both `Password` fields are hashed with a
+legacy, non-reversible algorithm on save and always read back `null` after load), VBA as
+opaque bytes (`Workbook.WithVbaProject(byte[])`, save to an `.xlsm` path), `WorkbookIO.Save`/
+`Load`, and code generation (`CsCodeGen.Generate(referenceLines, outputFileName, workbook)` -
+the C# equivalent of `Workbook.generateScript`, covering everything this wrapper models;
+emits a .NET 10 "file-based app" runnable via `dotnet run script.cs`, not an F# script).
 
 **Not exposed here** (reference `Kookerella.FsOpenXmlDsl` directly for this — nothing stops
-mixing both in one C# project): protection.
+mixing both in one C# project): per-cell lock/hide protection (`CellStyle.Protection` in the
+F# core).
 
 ### Building a workbook
 

@@ -442,6 +442,68 @@ public static class CsCodeGen
         return sb.ToString();
     }
 
+    private static string RenderSheetProtection(SheetProtection protection)
+    {
+        if (protection == SheetProtection.Default)
+            return "SheetProtection.Default";
+
+        var sb = new StringBuilder("SheetProtection.Default");
+
+        if (protection.Password is { } password)
+            sb.Append($".WithPassword({RenderString(password)})");
+        if (protection.Sheet != SheetProtection.Default.Sheet)
+            sb.Append($".WithSheet({RenderBool(protection.Sheet)})");
+        if (protection.ObjectsBlocked is { } objectsBlocked)
+            sb.Append($".WithObjectsBlocked({RenderBool(objectsBlocked)})");
+        if (protection.ScenariosBlocked is { } scenariosBlocked)
+            sb.Append($".WithScenariosBlocked({RenderBool(scenariosBlocked)})");
+        if (protection.FormatCellsBlocked is { } formatCellsBlocked)
+            sb.Append($".WithFormatCellsBlocked({RenderBool(formatCellsBlocked)})");
+        if (protection.FormatColumnsBlocked is { } formatColumnsBlocked)
+            sb.Append($".WithFormatColumnsBlocked({RenderBool(formatColumnsBlocked)})");
+        if (protection.FormatRowsBlocked is { } formatRowsBlocked)
+            sb.Append($".WithFormatRowsBlocked({RenderBool(formatRowsBlocked)})");
+        if (protection.InsertColumnsBlocked is { } insertColumnsBlocked)
+            sb.Append($".WithInsertColumnsBlocked({RenderBool(insertColumnsBlocked)})");
+        if (protection.InsertRowsBlocked is { } insertRowsBlocked)
+            sb.Append($".WithInsertRowsBlocked({RenderBool(insertRowsBlocked)})");
+        if (protection.InsertHyperlinksBlocked is { } insertHyperlinksBlocked)
+            sb.Append($".WithInsertHyperlinksBlocked({RenderBool(insertHyperlinksBlocked)})");
+        if (protection.DeleteColumnsBlocked is { } deleteColumnsBlocked)
+            sb.Append($".WithDeleteColumnsBlocked({RenderBool(deleteColumnsBlocked)})");
+        if (protection.DeleteRowsBlocked is { } deleteRowsBlocked)
+            sb.Append($".WithDeleteRowsBlocked({RenderBool(deleteRowsBlocked)})");
+        if (protection.SelectLockedCellsBlocked is { } selectLockedCellsBlocked)
+            sb.Append($".WithSelectLockedCellsBlocked({RenderBool(selectLockedCellsBlocked)})");
+        if (protection.SortBlocked is { } sortBlocked)
+            sb.Append($".WithSortBlocked({RenderBool(sortBlocked)})");
+        if (protection.AutoFilterBlocked is { } autoFilterBlocked)
+            sb.Append($".WithAutoFilterBlocked({RenderBool(autoFilterBlocked)})");
+        if (protection.PivotTablesBlocked is { } pivotTablesBlocked)
+            sb.Append($".WithPivotTablesBlocked({RenderBool(pivotTablesBlocked)})");
+        if (protection.SelectUnlockedCellsBlocked is { } selectUnlockedCellsBlocked)
+            sb.Append($".WithSelectUnlockedCellsBlocked({RenderBool(selectUnlockedCellsBlocked)})");
+
+        return sb.ToString();
+    }
+
+    private static string RenderWorkbookProtection(WorkbookProtection protection)
+    {
+        if (protection == WorkbookProtection.Default)
+            return "WorkbookProtection.Default";
+
+        var sb = new StringBuilder("WorkbookProtection.Default");
+
+        if (protection.Password is { } password)
+            sb.Append($".WithPassword({RenderString(password)})");
+        if (protection.LockStructure is { } lockStructure)
+            sb.Append($".WithLockStructure({RenderBool(lockStructure)})");
+        if (protection.LockWindows is { } lockWindows)
+            sb.Append($".WithLockWindows({RenderBool(lockWindows)})");
+
+        return sb.ToString();
+    }
+
     /// <summary>Resolves the same <c>Index ?? nextRow</c>/<c>Column ?? nextColumn</c>
     /// convention <see cref="WorkbookIO"/> itself uses at save time, then only emits an
     /// explicit <c>.AtIndex</c>/<c>.AtColumn</c> where the resolved position actually
@@ -506,6 +568,8 @@ public static class CsCodeGen
             sb.Append("\n    .WithComments(").Append(string.Join(", ", sheet.Comments.Select(RenderCommentEntry))).Append(')');
         if (sheet.PageSetup is { } pageSetup)
             sb.Append("\n    .WithPageSetup(").Append(RenderPageSetup(pageSetup)).Append(')');
+        if (sheet.Protection is { } sheetProtection)
+            sb.Append("\n    .WithProtection(").Append(RenderSheetProtection(sheetProtection)).Append(')');
 
         sb.Append(';');
         return sb.ToString();
@@ -554,6 +618,8 @@ public static class CsCodeGen
         var workbookExpr = $"Workbook.Create({string.Join(", ", sheetVariableNames)})";
         if (workbook.DefinedNames.Count > 0)
             workbookExpr += $"\n    .WithDefinedNames({string.Join(", ", workbook.DefinedNames.Select(RenderDefinedNameEntry))})";
+        if (workbook.Protection is { } workbookProtection)
+            workbookExpr += $"\n    .WithProtection({RenderWorkbookProtection(workbookProtection)})";
         if (workbook.VbaProject is { } vbaProject)
             workbookExpr += $"\n    .WithVbaProject(System.Convert.FromBase64String({RenderString(Convert.ToBase64String(vbaProject))}))";
 

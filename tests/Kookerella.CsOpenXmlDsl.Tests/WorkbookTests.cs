@@ -264,6 +264,48 @@ public class WorkbookTests
     }
 
     [Fact]
+    public void Sheet_without_protection_defaults_to_null_and_is_immutable()
+    {
+        var plain = Sheet.Create("Sheet1");
+        Assert.Null(plain.Protection);
+
+        var withProtection = plain.WithProtection(SheetProtection.Default.WithFormatCellsBlocked());
+        Assert.Null(plain.Protection);
+        Assert.True(withProtection.Protection!.FormatCellsBlocked);
+    }
+
+    [Fact]
+    public void Workbook_without_protection_defaults_to_null_and_is_immutable()
+    {
+        var plain = Workbook.Create();
+        Assert.Null(plain.Protection);
+
+        var withProtection = plain.WithProtection(WorkbookProtection.Default.WithLockStructure());
+        Assert.Null(plain.Protection);
+        Assert.True(withProtection.Protection!.LockStructure);
+    }
+
+    [Fact]
+    public void SheetProtection_fluent_methods_do_not_mutate_the_original_instance()
+    {
+        var original = SheetProtection.Default;
+        var blocked = original.WithFormatCellsBlocked();
+
+        Assert.Null(original.FormatCellsBlocked);
+        Assert.True(blocked.FormatCellsBlocked);
+        Assert.NotSame(original, blocked);
+    }
+
+    [Fact]
+    public void SheetProtection_default_protects_the_sheet_with_no_other_flags_set()
+    {
+        Assert.True(SheetProtection.Default.Sheet);
+        Assert.Null(SheetProtection.Default.Password);
+        Assert.Null(SheetProtection.Default.FormatCellsBlocked);
+        Assert.Null(SheetProtection.Default.SelectUnlockedCellsBlocked);
+    }
+
+    [Fact]
     public void Generate_produces_readable_source_for_a_simple_workbook()
     {
         var sheet = Sheet.Create(

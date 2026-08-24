@@ -276,6 +276,33 @@ reference/formula text, the same convention as `Cell.Formula`: whatever Excel wo
 after the `=` - or, for a plain range reference (the common case), no `=` at all, just the
 reference text itself (e.g. `"Sheet1!$A$1:$B$10"`).
 
+Protection is split the same way Excel splits it: `Sheet.WithProtection(SheetProtection)`
+for one sheet's cell editing, `Workbook.WithProtection(WorkbookProtection)` for the
+workbook's structure/window layout - both `null` by default (unprotected):
+
+```csharp
+var sheet = Sheet.Create("Sheet1", Row.Of(Cell.Text("Protected sheet")))
+    .WithProtection(
+        SheetProtection.Default
+            .WithPassword("hunter2")
+            .WithFormatCellsBlocked()
+            .WithSortBlocked());
+```
+
+**Every `SheetProtection` flag except `Sheet` (the master on/off switch) is named with a
+deliberate `Blocked` suffix**, diverging from the F# core's own plain field names on
+purpose: setting one to `true` doesn't *enable* that action once the sheet is
+protected, it *blocks* it (`WithFormatCellsBlocked()` means formatting becomes blocked, not
+allowed) - the same trap the F# core's own doc comments warn about, made impossible to get
+backwards by naming it explicitly rather than relying on a comment. `WorkbookProtection`
+has no such trap - `WithLockStructure`/`WithLockWindows` are already plain "true means
+protected". `Password` on either type is hashed with a legacy, non-reversible algorithm on
+save (a casual-editing speed bump, never real security) and always reads back
+`null` - re-supply it yourself if you need to know whether one was set. Per-cell lock/hide
+protection isn't exposed at this layer - reference `Kookerella.FsOpenXmlDsl` directly for
+that; without it, protecting a sheet through this wrapper alone locks every cell (Excel's
+own default), with no way to unlock specific input cells first.
+
 `CsCodeGen.Generate` renders a `Workbook` back out as a self-contained C# file that
 regenerates an equivalent file when run - the reverse of `WorkbookIO.Load` one level
 further: loading turns a file into these types, this turns those types into C# *source
@@ -310,14 +337,15 @@ regenerate it yourself.
 
 ## Scope
 
-This is a deliberately narrow first pass, not the whole F# library ported to C#: cell
-values (text/number/boolean/date/formula), basic styling (font/fill/border/alignment/
+This wrapper now covers every feature the F# core models at the worksheet/workbook level:
+cell values (text/number/boolean/date/formula), basic styling (font/fill/border/alignment/
 number format), merged ranges, freeze panes, autofilter, tables, charts, images, pivot
 tables (single row/column/value field only), sparklines, conditional formatting, data
-validation, hyperlinks, comments, print settings, defined names, VBA (as opaque bytes),
-`Save`/`Load`, and code generation (`CsCodeGen`, covering everything this wrapper itself
-models). Protection isn't exposed here - reference `Kookerella.FsOpenXmlDsl` directly for
-that (this wrapper doesn't stop you from mixing both in the same project).
+validation, hyperlinks, comments, print settings, defined names, sheet/workbook protection,
+VBA (as opaque bytes), `Save`/`Load`, and code generation (`CsCodeGen`, covering everything
+this wrapper itself models). The one thing still out of scope is **per-cell** lock/hide
+protection (`CellStyle.Protection` in the F# core) - reference `Kookerella.FsOpenXmlDsl`
+directly for that (this wrapper doesn't stop you from mixing both in the same project).
 
 Formula cells never carry a cached value from this API beyond what you explicitly pass to
 `Cell.Formula` - see the main project's README for why that matters for anything that isn't

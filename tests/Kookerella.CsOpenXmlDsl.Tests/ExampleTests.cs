@@ -948,6 +948,54 @@ public class ExampleTests
         Assert.Equal("Sheet1", scope.SheetName);
     }
 
+    [Fact]
+    public void SheetProtectionWithPassword()
+    {
+        var sheet = Sheet
+            .Create("Sheet1", Row.Of(Cell.Text("Protected sheet")))
+            .WithProtection(
+                SheetProtection.Default
+                    .WithPassword("hunter2")
+                    .WithFormatCellsBlocked()
+                    .WithSortBlocked()
+                    .WithAutoFilterBlocked());
+
+        var loaded = VerifyScenario(nameof(SheetProtectionWithPassword), Workbook.Create(sheet));
+        var protection = loaded.Sheets.Single().Protection;
+
+        Assert.NotNull(protection);
+        // Password never round-trips - the hash isn't reversible (see SheetProtection's
+        // own doc comment) - so this asserts it reads back null, not "hunter2".
+        Assert.Null(protection!.Password);
+        Assert.True(protection.Sheet);
+        Assert.True(protection.FormatCellsBlocked);
+        Assert.True(protection.SortBlocked);
+        Assert.True(protection.AutoFilterBlocked);
+        Assert.Null(protection.ObjectsBlocked);
+    }
+
+    [Fact]
+    public void WorkbookProtectionScenario()
+    {
+        var sheet = Sheet.Create("Sheet1", Row.Of(Cell.Text("Sheets can't be added, removed, or renamed")));
+
+        var workbook = Workbook
+            .Create(sheet)
+            .WithProtection(WorkbookProtection.Default.WithPassword("hunter2").WithLockStructure());
+
+        // Named "WorkbookProtection" (not nameof(WorkbookProtectionScenario)) to match the
+        // F# test suite's own Examples/WorkbookProtection folder name - this test method
+        // itself can't be named WorkbookProtection, since that's ambiguous with the type.
+        var loaded = VerifyScenario("WorkbookProtection", workbook);
+        var protection = loaded.Protection;
+
+        Assert.NotNull(protection);
+        // Password never round-trips - same reason as SheetProtection's own.
+        Assert.Null(protection!.Password);
+        Assert.True(protection.LockStructure);
+        Assert.Null(protection.LockWindows);
+    }
+
     // --- Generated-script verification (slow: actually runs `dotnet run`) ------------------
     //
     // Every scenario above writes its own Examples/<name>/script.cs as a side effect of
@@ -1008,8 +1056,10 @@ public class ExampleTests
             Assert.Equal(b.Hyperlinks.Count, a.Hyperlinks.Count);
             Assert.Equal(b.Comments.Count, a.Comments.Count);
             Assert.Equal(b.PageSetup is not null, a.PageSetup is not null);
+            Assert.Equal(b.Protection is not null, a.Protection is not null);
         }
 
+        Assert.Equal(before.Protection is not null, after.Protection is not null);
         Assert.Equal(before.VbaProject, after.VbaProject);
     }
 
