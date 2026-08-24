@@ -154,6 +154,30 @@ colors default to its own automatic choices), and the `With*` toggles (`WithHigh
 these points" options on Excel's Sparkline Design ribbon - `WithMarkers`/`WithLineWeight`
 are only meaningful for `SparklineType.Line`.
 
+Conditional formatting rules are a closed set of cases (`ConditionalFormatRule.CellValueRule`/
+`.FormulaRule`/`.ColorScale2`/`.ColorScale3`/`.DataBarRule`/`.DuplicateValuesRule`/
+`.UniqueValuesRule`), the same "sealed hierarchy" pattern `CellValue` uses:
+
+```csharp
+var sheet = Sheet.Create("Sheet1",
+        Row.Of(Cell.Number(50)),
+        Row.Of(Cell.Number(150)),
+        Row.Of(Cell.Number(90)))
+    .AddConditionalFormat(
+        ConditionalFormatEntry.Of(
+            "A1", "A3",
+            new ConditionalFormatRule.CellValueRule(
+                ComparisonOperator.GreaterThan, "100", null,
+                CellStyle.Default.WithFillColor(new RgbColor(255, 199, 206)))));
+```
+
+`CellValueRule`'s `Formula1`/`Formula2` and `FormulaRule`'s `Formula` are raw formula text
+(same convention as `Cell.Formula`) - for `CellValueRule` these are literal values or cell
+references compared against, not `=`-prefixed formulas. `ComparisonOperator` is shared with
+data validation's own numeric rules once those are exposed. Icon sets, "top/bottom N", and
+the text/blank/error-contains rule kinds aren't modeled - reference `Kookerella.FsOpenXmlDsl`
+directly for those.
+
 `CsCodeGen.Generate` renders a `Workbook` back out as a self-contained C# file that
 regenerates an equivalent file when run - the reverse of `WorkbookIO.Load` one level
 further: loading turns a file into these types, this turns those types into C# *source
@@ -191,9 +215,9 @@ regenerate it yourself.
 This is a deliberately narrow first pass, not the whole F# library ported to C#: cell
 values (text/number/boolean/date/formula), basic styling (font/fill/border/alignment/
 number format), merged ranges, freeze panes, autofilter, tables, charts, images, pivot
-tables (single row/column/value field only), sparklines, VBA (as opaque bytes), `Save`/
-`Load`, and code generation (`CsCodeGen`, covering everything this wrapper itself models).
-Conditional formatting, data validation, hyperlinks, comments, print settings, defined
+tables (single row/column/value field only), sparklines, conditional formatting, VBA (as
+opaque bytes), `Save`/`Load`, and code generation (`CsCodeGen`, covering everything this
+wrapper itself models). Data validation, hyperlinks, comments, print settings, defined
 names, and protection aren't exposed here - reference `Kookerella.FsOpenXmlDsl` directly
 for those (this wrapper doesn't stop you from mixing both in the same project).
 

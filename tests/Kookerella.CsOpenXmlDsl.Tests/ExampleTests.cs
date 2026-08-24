@@ -538,6 +538,126 @@ public class ExampleTests
         Assert.Single(group.Sparklines);
     }
 
+    /// <summary>Matches the F# suite's own <c>redFillStyle</c>/<c>greenFillStyle</c> fixtures
+    /// exactly, shared across the conditional formatting scenarios below.</summary>
+    private static readonly CellStyle RedFillStyle = CellStyle.Default.WithFillColor(new RgbColor(255, 199, 206));
+
+    private static readonly CellStyle GreenFillStyle = CellStyle.Default.WithFillColor(new RgbColor(198, 239, 206));
+
+    [Fact]
+    public void ConditionalFormat_CellValueRule()
+    {
+        var sheet = Sheet
+            .Create("Sheet1", Row.Of(Cell.Number(50)), Row.Of(Cell.Number(150)), Row.Of(Cell.Number(90)))
+            .AddConditionalFormat(
+                ConditionalFormatEntry.Of(
+                    "A1",
+                    "A3",
+                    new ConditionalFormatRule.CellValueRule(ComparisonOperator.GreaterThan, "100", null, RedFillStyle)));
+
+        var loaded = VerifyScenario(nameof(ConditionalFormat_CellValueRule), Workbook.Create(sheet));
+        var entry = Assert.Single(loaded.Sheets.Single().ConditionalFormats);
+
+        Assert.Equal(CellPosition.FromA1("A1"), entry.TopLeft);
+        Assert.Equal(CellPosition.FromA1("A3"), entry.BottomRight);
+        var rule = Assert.IsType<ConditionalFormatRule.CellValueRule>(entry.Rule);
+        Assert.Equal(ComparisonOperator.GreaterThan, rule.Operator);
+        Assert.Equal("100", rule.Formula1);
+        Assert.Null(rule.Formula2);
+        Assert.Equal(new RgbColor(255, 199, 206), rule.Style.FillColor);
+    }
+
+    [Fact]
+    public void ConditionalFormat_FormulaRule()
+    {
+        var sheet = Sheet
+            .Create("Sheet1", Row.Of(Cell.Number(10), Cell.Number(20)), Row.Of(Cell.Number(30), Cell.Number(5)))
+            .AddConditionalFormat(
+                ConditionalFormatEntry.Of("A1", "A2", new ConditionalFormatRule.FormulaRule("A1>B1", GreenFillStyle)));
+
+        var loaded = VerifyScenario(nameof(ConditionalFormat_FormulaRule), Workbook.Create(sheet));
+        var entry = Assert.Single(loaded.Sheets.Single().ConditionalFormats);
+
+        var rule = Assert.IsType<ConditionalFormatRule.FormulaRule>(entry.Rule);
+        Assert.Equal("A1>B1", rule.Formula);
+        Assert.Equal(new RgbColor(198, 239, 206), rule.Style.FillColor);
+    }
+
+    [Fact]
+    public void ConditionalFormat_ColorScale2()
+    {
+        var sheet = Sheet
+            .Create("Sheet1", Row.Of(Cell.Number(10)), Row.Of(Cell.Number(50)), Row.Of(Cell.Number(90)))
+            .AddConditionalFormat(
+                ConditionalFormatEntry.Of("A1", "A3", new ConditionalFormatRule.ColorScale2(RgbColor.White, RgbColor.Red)));
+
+        var loaded = VerifyScenario(nameof(ConditionalFormat_ColorScale2), Workbook.Create(sheet));
+        var entry = Assert.Single(loaded.Sheets.Single().ConditionalFormats);
+
+        var rule = Assert.IsType<ConditionalFormatRule.ColorScale2>(entry.Rule);
+        Assert.Equal(RgbColor.White, rule.MinColor);
+        Assert.Equal(RgbColor.Red, rule.MaxColor);
+    }
+
+    [Fact]
+    public void ConditionalFormat_ColorScale3()
+    {
+        var sheet = Sheet
+            .Create("Sheet1", Row.Of(Cell.Number(10)), Row.Of(Cell.Number(50)), Row.Of(Cell.Number(90)))
+            .AddConditionalFormat(
+                ConditionalFormatEntry.Of("A1", "A3", new ConditionalFormatRule.ColorScale3(RgbColor.Red, RgbColor.Yellow, RgbColor.Green)));
+
+        var loaded = VerifyScenario(nameof(ConditionalFormat_ColorScale3), Workbook.Create(sheet));
+        var entry = Assert.Single(loaded.Sheets.Single().ConditionalFormats);
+
+        var rule = Assert.IsType<ConditionalFormatRule.ColorScale3>(entry.Rule);
+        Assert.Equal(RgbColor.Red, rule.MinColor);
+        Assert.Equal(RgbColor.Yellow, rule.MidColor);
+        Assert.Equal(RgbColor.Green, rule.MaxColor);
+    }
+
+    [Fact]
+    public void ConditionalFormat_DataBar()
+    {
+        var sheet = Sheet
+            .Create("Sheet1", Row.Of(Cell.Number(10)), Row.Of(Cell.Number(50)), Row.Of(Cell.Number(90)))
+            .AddConditionalFormat(ConditionalFormatEntry.Of("A1", "A3", new ConditionalFormatRule.DataBarRule(RgbColor.Blue)));
+
+        var loaded = VerifyScenario(nameof(ConditionalFormat_DataBar), Workbook.Create(sheet));
+        var entry = Assert.Single(loaded.Sheets.Single().ConditionalFormats);
+
+        var rule = Assert.IsType<ConditionalFormatRule.DataBarRule>(entry.Rule);
+        Assert.Equal(RgbColor.Blue, rule.Color);
+    }
+
+    [Fact]
+    public void ConditionalFormat_DuplicateValues()
+    {
+        var sheet = Sheet
+            .Create("Sheet1", Row.Of(Cell.Text("Apple")), Row.Of(Cell.Text("Banana")), Row.Of(Cell.Text("Apple")))
+            .AddConditionalFormat(ConditionalFormatEntry.Of("A1", "A3", new ConditionalFormatRule.DuplicateValuesRule(RedFillStyle)));
+
+        var loaded = VerifyScenario(nameof(ConditionalFormat_DuplicateValues), Workbook.Create(sheet));
+        var entry = Assert.Single(loaded.Sheets.Single().ConditionalFormats);
+
+        var rule = Assert.IsType<ConditionalFormatRule.DuplicateValuesRule>(entry.Rule);
+        Assert.Equal(new RgbColor(255, 199, 206), rule.Style.FillColor);
+    }
+
+    [Fact]
+    public void ConditionalFormat_UniqueValues()
+    {
+        var sheet = Sheet
+            .Create("Sheet1", Row.Of(Cell.Text("Apple")), Row.Of(Cell.Text("Banana")), Row.Of(Cell.Text("Apple")))
+            .AddConditionalFormat(ConditionalFormatEntry.Of("A1", "A3", new ConditionalFormatRule.UniqueValuesRule(GreenFillStyle)));
+
+        var loaded = VerifyScenario(nameof(ConditionalFormat_UniqueValues), Workbook.Create(sheet));
+        var entry = Assert.Single(loaded.Sheets.Single().ConditionalFormats);
+
+        var rule = Assert.IsType<ConditionalFormatRule.UniqueValuesRule>(entry.Rule);
+        Assert.Equal(new RgbColor(198, 239, 206), rule.Style.FillColor);
+    }
+
     // --- Generated-script verification (slow: actually runs `dotnet run`) ------------------
     //
     // Every scenario above writes its own Examples/<name>/script.cs as a side effect of

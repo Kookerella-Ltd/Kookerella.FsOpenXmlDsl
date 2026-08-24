@@ -150,6 +150,18 @@ public class WorkbookTests
     }
 
     [Fact]
+    public void Sheet_without_conditional_formats_defaults_to_empty_and_is_immutable()
+    {
+        var plain = Sheet.Create("Sheet1");
+        Assert.Empty(plain.ConditionalFormats);
+
+        var withFormat = plain.AddConditionalFormat(
+            ConditionalFormatEntry.Of("A1", "A1", new ConditionalFormatRule.DuplicateValuesRule(CellStyle.Default)));
+        Assert.Empty(plain.ConditionalFormats);
+        Assert.Single(withFormat.ConditionalFormats);
+    }
+
+    [Fact]
     public void Generate_produces_readable_source_for_a_simple_workbook()
     {
         var sheet = Sheet.Create(

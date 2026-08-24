@@ -284,6 +284,40 @@ internal static class WorkbookConverter
     private static Fs.SparklineGroupEntry ToFsSparklineGroupEntry(SparklineGroupEntry group) =>
         new(ToFsSparklineStyle(group.Style), ListModule.OfSeq(group.Sparklines.Select(ToFsSparklineCell)));
 
+    /// <summary><see cref="ToFsStyle"/> always returns <c>Some</c> for a non-null input -
+    /// this just unwraps that for call sites (like <see cref="ToFsConditionalFormatRule"/>)
+    /// where the F# field is a plain <c>CellStyle</c>, not an <c>option</c>.</summary>
+    private static Fs.Styles.CellStyle ToFsRawStyle(CellStyle style) => ToFsStyle(style).Value;
+
+    private static Fs.ComparisonOperator ToFsComparisonOperator(ComparisonOperator op) => op switch
+    {
+        ComparisonOperator.Equal => Fs.ComparisonOperator.Equal,
+        ComparisonOperator.NotEqual => Fs.ComparisonOperator.NotEqual,
+        ComparisonOperator.GreaterThan => Fs.ComparisonOperator.GreaterThan,
+        ComparisonOperator.LessThan => Fs.ComparisonOperator.LessThan,
+        ComparisonOperator.GreaterThanOrEqual => Fs.ComparisonOperator.GreaterThanOrEqual,
+        ComparisonOperator.LessThanOrEqual => Fs.ComparisonOperator.LessThanOrEqual,
+        ComparisonOperator.Between => Fs.ComparisonOperator.Between,
+        ComparisonOperator.NotBetween => Fs.ComparisonOperator.NotBetween,
+        _ => throw new ArgumentOutOfRangeException(nameof(op), op, null)
+    };
+
+    private static Fs.ConditionalFormatRule ToFsConditionalFormatRule(ConditionalFormatRule rule) => rule switch
+    {
+        ConditionalFormatRule.CellValueRule r => Fs.ConditionalFormatRule.NewCellValueRule(
+            ToFsComparisonOperator(r.Operator), r.Formula1, ToOption(r.Formula2), ToFsRawStyle(r.Style)),
+        ConditionalFormatRule.FormulaRule r => Fs.ConditionalFormatRule.NewFormulaRule(r.Formula, ToFsRawStyle(r.Style)),
+        ConditionalFormatRule.ColorScale2 r => Fs.ConditionalFormatRule.NewColorScale2(ToFsColor(r.MinColor), ToFsColor(r.MaxColor)),
+        ConditionalFormatRule.ColorScale3 r => Fs.ConditionalFormatRule.NewColorScale3(ToFsColor(r.MinColor), ToFsColor(r.MidColor), ToFsColor(r.MaxColor)),
+        ConditionalFormatRule.DataBarRule r => Fs.ConditionalFormatRule.NewDataBarRule(ToFsColor(r.Color)),
+        ConditionalFormatRule.DuplicateValuesRule r => Fs.ConditionalFormatRule.NewDuplicateValuesRule(ToFsRawStyle(r.Style)),
+        ConditionalFormatRule.UniqueValuesRule r => Fs.ConditionalFormatRule.NewUniqueValuesRule(ToFsRawStyle(r.Style)),
+        _ => throw new ArgumentOutOfRangeException(nameof(rule), rule, null)
+    };
+
+    private static Fs.ConditionalFormatEntry ToFsConditionalFormatEntry(ConditionalFormatEntry entry) =>
+        new(ToFsCellRef(entry.TopLeft), ToFsCellRef(entry.BottomRight), ToFsConditionalFormatRule(entry.Rule));
+
     private static Fs.Model.Worksheet ToFsWorksheet(Sheet sheet)
     {
         var nextRow = 0;
@@ -311,7 +345,7 @@ internal static class WorkbookConverter
             sheet.FreezePane is { } fp ? FSharpOption<Fs.Model.FreezePane>.Some(ToFsFreezePane(fp)) : FSharpOption<Fs.Model.FreezePane>.None,
             sheet.AutoFilter is { } af ? FSharpOption<Fs.Model.AutoFilterRange>.Some(ToFsAutoFilter(af)) : FSharpOption<Fs.Model.AutoFilterRange>.None,
             baseline.Protection,
-            baseline.ConditionalFormats,
+            ListModule.OfSeq(sheet.ConditionalFormats.Select(ToFsConditionalFormatEntry)),
             baseline.DataValidations,
             baseline.Hyperlinks,
             baseline.Comments,
@@ -589,6 +623,42 @@ internal static class WorkbookConverter
     private static SparklineGroupEntry FromFsSparklineGroupEntry(Fs.SparklineGroupEntry group) =>
         new(group.Sparklines.Select(FromFsSparklineCell).ToArray()) { Style = FromFsSparklineStyle(group.Style) };
 
+    /// <summary>Wraps a raw (non-<c>option</c>) F# <c>CellStyle</c> - the shape
+    /// <see cref="ConditionalFormatRule"/>'s cases carry - so it can reuse <see
+    /// cref="ApplyFsStyle"/>'s translation logic rather than duplicating it.</summary>
+    private static CellStyle ApplyFsRawStyle(Fs.Styles.CellStyle style) => ApplyFsStyle(FSharpOption<Fs.Styles.CellStyle>.Some(style));
+
+    private static ComparisonOperator FromFsComparisonOperator(Fs.ComparisonOperator op) => op switch
+    {
+        { IsEqual: true } => ComparisonOperator.Equal,
+        { IsNotEqual: true } => ComparisonOperator.NotEqual,
+        { IsGreaterThan: true } => ComparisonOperator.GreaterThan,
+        { IsLessThan: true } => ComparisonOperator.LessThan,
+        { IsGreaterThanOrEqual: true } => ComparisonOperator.GreaterThanOrEqual,
+        { IsLessThanOrEqual: true } => ComparisonOperator.LessThanOrEqual,
+        { IsBetween: true } => ComparisonOperator.Between,
+        { IsNotBetween: true } => ComparisonOperator.NotBetween,
+        _ => throw new ArgumentOutOfRangeException(nameof(op), op, null)
+    };
+
+    private static ConditionalFormatRule FromFsConditionalFormatRule(Fs.ConditionalFormatRule rule) => rule switch
+    {
+        Fs.ConditionalFormatRule.CellValueRule r =>
+            new ConditionalFormatRule.CellValueRule(FromFsComparisonOperator(r.@operator), r.formula1, FromOption(r.formula2), ApplyFsRawStyle(r.style)),
+        Fs.ConditionalFormatRule.FormulaRule r => new ConditionalFormatRule.FormulaRule(r.formula, ApplyFsRawStyle(r.style)),
+        Fs.ConditionalFormatRule.ColorScale2 r =>
+            new ConditionalFormatRule.ColorScale2(FromFsColor(r.minColor) ?? RgbColor.Black, FromFsColor(r.maxColor) ?? RgbColor.Black),
+        Fs.ConditionalFormatRule.ColorScale3 r =>
+            new ConditionalFormatRule.ColorScale3(FromFsColor(r.minColor) ?? RgbColor.Black, FromFsColor(r.midColor) ?? RgbColor.Black, FromFsColor(r.maxColor) ?? RgbColor.Black),
+        Fs.ConditionalFormatRule.DataBarRule r => new ConditionalFormatRule.DataBarRule(FromFsColor(r.color) ?? RgbColor.Black),
+        Fs.ConditionalFormatRule.DuplicateValuesRule r => new ConditionalFormatRule.DuplicateValuesRule(ApplyFsRawStyle(r.style)),
+        Fs.ConditionalFormatRule.UniqueValuesRule r => new ConditionalFormatRule.UniqueValuesRule(ApplyFsRawStyle(r.style)),
+        _ => throw new ArgumentOutOfRangeException(nameof(rule), rule, null)
+    };
+
+    private static ConditionalFormatEntry FromFsConditionalFormatEntry(Fs.ConditionalFormatEntry entry) =>
+        new(FromFsCellRef(entry.TopLeft), FromFsCellRef(entry.BottomRight), FromFsConditionalFormatRule(entry.Rule));
+
     public static Workbook FromFSharp(Fs.Model.Workbook workbook)
     {
         var sheets = workbook.Sheets.Select(fsSheet =>
@@ -623,7 +693,8 @@ internal static class WorkbookConverter
                 Charts = fsSheet.Charts.Select(FromFsChartEntry).ToArray(),
                 Images = fsSheet.Images.Select(FromFsImageEntry).ToArray(),
                 PivotTables = fsSheet.PivotTables.Select(FromFsPivotTableEntry).ToArray(),
-                SparklineGroups = fsSheet.SparklineGroups.Select(FromFsSparklineGroupEntry).ToArray()
+                SparklineGroups = fsSheet.SparklineGroups.Select(FromFsSparklineGroupEntry).ToArray(),
+                ConditionalFormats = fsSheet.ConditionalFormats.Select(FromFsConditionalFormatEntry).ToArray()
             };
         });
 
