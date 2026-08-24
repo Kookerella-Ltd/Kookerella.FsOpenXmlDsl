@@ -161,3 +161,31 @@ type WorkbookTools =
               hashR typeof<DocumentFormat.OpenXml.Packaging.SpreadsheetDocument>.Assembly.Location ]
 
         Workbook.generateScript referenceLines outputFileName wb
+
+    [<McpServerTool(Name = "generate_csharp_script")>]
+    [<Description(
+        "Reads an existing Excel workbook and returns a self-contained C# file (using Kookerella.CsOpenXmlDsl) \
+         that rebuilds an equivalent file when run via `dotnet run <file>.cs` (.NET 10's file-based apps \
+         feature - no .csproj needed). The C# equivalent of generate_fsharp_script, for a caller who wants \
+         pasteable/runnable C# rather than F# - useful for explaining how a file is structured, or as a \
+         starting point for the wrapper's fluent API (styling, tables, charts, pivot tables, sparklines, \
+         etc.) beyond what create_workbook exposes. Covers a narrower feature set than \
+         generate_fsharp_script - see Kookerella.CsOpenXmlDsl's own README for its scope."
+    )>]
+    static member GenerateCSharpScript
+        (
+            [<Description("Path to an existing .xlsx/.xlsm file to reverse-engineer into C# source.")>] path: string,
+            [<Description("The output filename the generated script should save its rebuilt file to, e.g. \"output.xlsx\".")>] outputFileName: string
+        ) : string =
+        let wb = Kookerella.CsOpenXmlDsl.WorkbookIO.Load(path)
+
+        // Unlike generate_fsharp_script's `#r` (a raw, machine-specific DLL path - .NET file-based
+        // apps don't support `#r` at all, only `#:package`/`#:project`), this points at the published
+        // NuGet package matching whatever version of the wrapper this server itself was built against -
+        // portable to any machine with the .NET 10 SDK, not just this one.
+        let packageVersion: Version = typeof<Kookerella.CsOpenXmlDsl.Workbook>.Assembly.GetName().Version
+
+        let referenceLines =
+            [| sprintf "#:package Kookerella.CsOpenXmlDsl@%d.%d.%d" packageVersion.Major packageVersion.Minor packageVersion.Build |]
+
+        Kookerella.CsOpenXmlDsl.CsCodeGen.Generate(referenceLines, outputFileName, wb)

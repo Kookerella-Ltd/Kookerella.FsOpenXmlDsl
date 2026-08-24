@@ -42,6 +42,11 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Kookerella.FsOpenXmlDsl\Kookerella.FsOpenXmlDsl.fsproj" />
+    <!-- Needed only for generate_csharp_script - it loads the workbook through the C#
+         wrapper's own WorkbookIO.Load (rather than the F# core's Workbook.load) so it can
+         feed a Workbook the wrapper's own CsCodeGen.Generate understands, without needing
+         WorkbookConverter (internal to that assembly) exposed publicly. -->
+    <ProjectReference Include="..\Kookerella.CsOpenXmlDsl\Kookerella.CsOpenXmlDsl.csproj" />
   </ItemGroup>
 
 </Project>

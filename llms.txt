@@ -122,15 +122,23 @@ to jump to a specific position.
 
 A local (stdio) MCP server, distributed as a `dotnet tool` (`fsopenxmldsl-mcp` command,
 `dotnet tool install -g Kookerella.FsOpenXmlDsl.Mcp`). Already listed in the official MCP
-Registry as `io.github.MarkNicholls/fsopenxmldsl-mcp`. Exposes three tools, all via the F#
-core (not the C# wrapper):
+Registry as `io.github.MarkNicholls/fsopenxmldsl-mcp`. Exposes four tools:
 
 - `create_workbook(path, sheets)` — builds an `.xlsx` from a plain row/column grid of cell
   text (a leading `=` makes a formula, `true`/`false` a boolean, a bare number numeric,
   else text). No styling/tables/charts/etc. — same narrow scope reasoning as the C# wrapper.
 - `read_workbook(path)` — reads a file back as JSON using the same text convention.
-- `generate_fsharp_script(path, outputFileName)` — returns F# source via the full DSL. No
-  C# equivalent exists yet.
+- `generate_fsharp_script(path, outputFileName)` — reads a workbook via the F# core and
+  returns F# source via the full DSL, runnable with `dotnet fsi`.
+- `generate_csharp_script(path, outputFileName)` — the C# equivalent: reads a workbook via
+  `Kookerella.CsOpenXmlDsl` (so its narrower v1 scope, not full DSL parity) and returns a
+  self-contained `.cs` file targeting .NET 10 file-based apps (`dotnet run <file>.cs`),
+  referencing the published `Kookerella.CsOpenXmlDsl` NuGet package rather than a local
+  path — runs on any machine with the .NET 10 SDK.
+
+`create_workbook`/`read_workbook` go through the F# core directly; the two `generate_*`
+tools are the only ones that go through the C# wrapper (for `generate_csharp_script`) or
+expose it as an option at all.
 
 ## Load-bearing gotchas — read before generating code against any of these three packages
 
