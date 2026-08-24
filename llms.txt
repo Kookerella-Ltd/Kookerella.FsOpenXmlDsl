@@ -100,15 +100,16 @@ the optional blank/error/input prompt config, shared `ComparisonOperator` with c
 formatting's `CellValueRule`; `Date`/`Time` validation and cross-sheet named-range list
 sources aren't modeled), hyperlinks (`Sheet.AddHyperlink(HyperlinkEntry.Of(...))`/
 `HyperlinkTarget` - `ExternalHyperlink`/`InternalHyperlink`; `Of(cellA1, target)` handles
-the common single-cell case directly), VBA as opaque bytes
+the common single-cell case directly), comments (`Sheet.AddComment(CommentEntry.Of(cellA1,
+text, author))`/`CommentEntry` - a classic OOXML `comment`/Excel "Note", not the newer
+@mention/reply Comments part; `Author` defaults to `""`), VBA as opaque bytes
 (`Workbook.WithVbaProject(byte[])`, save to an `.xlsm` path), `WorkbookIO.Save`/`Load`, and
 code generation (`CsCodeGen.Generate(referenceLines, outputFileName, workbook)` - the C#
 equivalent of `Workbook.generateScript`, covering everything this wrapper models; emits a
 .NET 10 "file-based app" runnable via `dotnet run script.cs`, not an F# script).
 
 **Not exposed here** (reference `Kookerella.FsOpenXmlDsl` directly for these — nothing
-stops mixing both in one C# project): comments, print settings, defined names, and
-protection.
+stops mixing both in one C# project): print settings, defined names, and protection.
 
 ### Building a workbook
 

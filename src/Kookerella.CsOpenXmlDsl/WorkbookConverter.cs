@@ -359,6 +359,8 @@ internal static class WorkbookConverter
     private static Fs.HyperlinkEntry ToFsHyperlinkEntry(HyperlinkEntry entry) =>
         new(ToFsCellRef(entry.TopLeft), ToFsCellRef(entry.BottomRight), ToFsHyperlinkTarget(entry.Target), ToOption(entry.Tooltip), ToOption(entry.Display));
 
+    private static Fs.CommentEntry ToFsCommentEntry(CommentEntry entry) => new(ToFsCellRef(entry.Cell), entry.Author, entry.Text);
+
     private static Fs.Model.Worksheet ToFsWorksheet(Sheet sheet)
     {
         var nextRow = 0;
@@ -389,7 +391,7 @@ internal static class WorkbookConverter
             ListModule.OfSeq(sheet.ConditionalFormats.Select(ToFsConditionalFormatEntry)),
             ListModule.OfSeq(sheet.DataValidations.Select(ToFsDataValidationEntry)),
             ListModule.OfSeq(sheet.Hyperlinks.Select(ToFsHyperlinkEntry)),
-            baseline.Comments,
+            ListModule.OfSeq(sheet.Comments.Select(ToFsCommentEntry)),
             baseline.PageSetup,
             ListModule.OfSeq(sheet.Tables.Select(ToFsTableEntry)),
             ListModule.OfSeq(sheet.SparklineGroups.Select(ToFsSparklineGroupEntry)),
@@ -749,6 +751,8 @@ internal static class WorkbookConverter
             Display = FromOption(entry.Display)
         };
 
+    private static CommentEntry FromFsCommentEntry(Fs.CommentEntry entry) => new(FromFsCellRef(entry.Cell), entry.Text, entry.Author);
+
     public static Workbook FromFSharp(Fs.Model.Workbook workbook)
     {
         var sheets = workbook.Sheets.Select(fsSheet =>
@@ -786,7 +790,8 @@ internal static class WorkbookConverter
                 SparklineGroups = fsSheet.SparklineGroups.Select(FromFsSparklineGroupEntry).ToArray(),
                 ConditionalFormats = fsSheet.ConditionalFormats.Select(FromFsConditionalFormatEntry).ToArray(),
                 DataValidations = fsSheet.DataValidations.Select(FromFsDataValidationEntry).ToArray(),
-                Hyperlinks = fsSheet.Hyperlinks.Select(FromFsHyperlinkEntry).ToArray()
+                Hyperlinks = fsSheet.Hyperlinks.Select(FromFsHyperlinkEntry).ToArray(),
+                Comments = fsSheet.Comments.Select(FromFsCommentEntry).ToArray()
             };
         });
 

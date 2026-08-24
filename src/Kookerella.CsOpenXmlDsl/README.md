@@ -218,6 +218,20 @@ such as `"Sheet2!A1"` or a defined name. `Display` is OOXML's fallback label tha
 of older Excel versions and interop tools show instead of the cell's own text - modern
 Excel ignores it, so it's rarely worth setting.
 
+Comments are what the OOXML spec calls a `comment` and current Excel's UI now calls a
+"Note" (Excel's newer @mention/reply "Comments" are a different, separate part format not
+modeled here):
+
+```csharp
+var sheet = Sheet.Create("Sheet1",
+        Row.Of(Cell.Text("Revenue"), Cell.Number(1250)),
+        Row.Of(Cell.Text("Costs"), Cell.Number(900)))
+    .AddComment(CommentEntry.Of("B1", "Figure is provisional pending audit.", "Alex"))
+    .AddComment(CommentEntry.Of("A1", "Double check this label."));
+```
+
+`Author` defaults to `""`, matching how Excel itself allows an unnamed comment author.
+
 `CsCodeGen.Generate` renders a `Workbook` back out as a self-contained C# file that
 regenerates an equivalent file when run - the reverse of `WorkbookIO.Load` one level
 further: loading turns a file into these types, this turns those types into C# *source
@@ -256,10 +270,10 @@ This is a deliberately narrow first pass, not the whole F# library ported to C#:
 values (text/number/boolean/date/formula), basic styling (font/fill/border/alignment/
 number format), merged ranges, freeze panes, autofilter, tables, charts, images, pivot
 tables (single row/column/value field only), sparklines, conditional formatting, data
-validation, hyperlinks, VBA (as opaque bytes), `Save`/`Load`, and code generation
-(`CsCodeGen`, covering everything this wrapper itself models). Comments, print settings,
-defined names, and protection aren't exposed here - reference `Kookerella.FsOpenXmlDsl`
-directly for those (this wrapper doesn't stop you from mixing both in the same project).
+validation, hyperlinks, comments, VBA (as opaque bytes), `Save`/`Load`, and code generation
+(`CsCodeGen`, covering everything this wrapper itself models). Print settings, defined
+names, and protection aren't exposed here - reference `Kookerella.FsOpenXmlDsl` directly
+for those (this wrapper doesn't stop you from mixing both in the same project).
 
 Formula cells never carry a cached value from this API beyond what you explicitly pass to
 `Cell.Formula` - see the main project's README for why that matters for anything that isn't

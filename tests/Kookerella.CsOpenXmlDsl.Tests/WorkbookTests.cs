@@ -195,6 +195,24 @@ public class WorkbookTests
     }
 
     [Fact]
+    public void Sheet_without_comments_defaults_to_empty_and_is_immutable()
+    {
+        var plain = Sheet.Create("Sheet1");
+        Assert.Empty(plain.Comments);
+
+        var withComment = plain.AddComment(CommentEntry.Of("A1", "A note"));
+        Assert.Empty(plain.Comments);
+        Assert.Single(withComment.Comments);
+    }
+
+    [Fact]
+    public void CommentEntry_author_defaults_to_empty_string()
+    {
+        var comment = CommentEntry.Of("A1", "A note");
+        Assert.Equal("", comment.Author);
+    }
+
+    [Fact]
     public void Generate_produces_readable_source_for_a_simple_workbook()
     {
         var sheet = Sheet.Create(

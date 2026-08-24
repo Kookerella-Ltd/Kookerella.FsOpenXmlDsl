@@ -810,6 +810,27 @@ public class ExampleTests
         Assert.Null(entry.Display);
     }
 
+    [Fact]
+    public void Comments()
+    {
+        var sheet = Sheet
+            .Create(
+                "Sheet1",
+                Row.Of(Cell.Text("Revenue"), Cell.Number(1250)),
+                Row.Of(Cell.Text("Costs"), Cell.Number(900)))
+            .AddComment(CommentEntry.Of("B1", "Figure is provisional pending audit.", "Alex"))
+            .AddComment(CommentEntry.Of("B2", "Includes one-off relocation costs.", "Alex"))
+            .AddComment(CommentEntry.Of("A1", "Double check this label."));
+
+        var loaded = VerifyScenario(nameof(Comments), Workbook.Create(sheet));
+        var comments = loaded.Sheets.Single().Comments;
+
+        Assert.Equal(3, comments.Count);
+        Assert.Contains(comments, c => c.Cell == CellPosition.FromA1("B1") && c.Author == "Alex" && c.Text == "Figure is provisional pending audit.");
+        Assert.Contains(comments, c => c.Cell == CellPosition.FromA1("B2") && c.Author == "Alex" && c.Text == "Includes one-off relocation costs.");
+        Assert.Contains(comments, c => c.Cell == CellPosition.FromA1("A1") && c.Author == "" && c.Text == "Double check this label.");
+    }
+
     // --- Generated-script verification (slow: actually runs `dotnet run`) ------------------
     //
     // Every scenario above writes its own Examples/<name>/script.cs as a side effect of

@@ -360,6 +360,11 @@ public static class CsCodeGen
         return expr;
     }
 
+    private static string RenderCommentEntry(CommentEntry entry) =>
+        entry.Author.Length == 0
+            ? $"CommentEntry.Of({RenderString(entry.Cell.ToA1())}, {RenderString(entry.Text)})"
+            : $"CommentEntry.Of({RenderString(entry.Cell.ToA1())}, {RenderString(entry.Text)}, {RenderString(entry.Author)})";
+
     /// <summary>Resolves the same <c>Index ?? nextRow</c>/<c>Column ?? nextColumn</c>
     /// convention <see cref="WorkbookIO"/> itself uses at save time, then only emits an
     /// explicit <c>.AtIndex</c>/<c>.AtColumn</c> where the resolved position actually
@@ -420,6 +425,8 @@ public static class CsCodeGen
             sb.Append("\n    .WithDataValidations(").Append(string.Join(", ", sheet.DataValidations.Select(RenderDataValidationEntry))).Append(')');
         if (sheet.Hyperlinks.Count > 0)
             sb.Append("\n    .WithHyperlinks(").Append(string.Join(", ", sheet.Hyperlinks.Select(RenderHyperlinkEntry))).Append(')');
+        if (sheet.Comments.Count > 0)
+            sb.Append("\n    .WithComments(").Append(string.Join(", ", sheet.Comments.Select(RenderCommentEntry))).Append(')');
 
         sb.Append(';');
         return sb.ToString();
