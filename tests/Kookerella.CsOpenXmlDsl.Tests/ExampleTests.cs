@@ -769,6 +769,47 @@ public class ExampleTests
         Assert.Equal("Enter a numeric value.", entry.Alert.InputMessage);
     }
 
+    [Fact]
+    public void Hyperlink_External()
+    {
+        var sheet = Sheet
+            .Create("Sheet1", Row.Of(Cell.Text("Open-XML-SDK on GitHub")))
+            .AddHyperlink(
+                HyperlinkEntry
+                    .Of("A1", new HyperlinkTarget.ExternalHyperlink("https://github.com/dotnet/Open-XML-SDK"))
+                    .WithTooltip("Open in browser")
+                    .WithDisplay("dotnet/Open-XML-SDK"));
+
+        var loaded = VerifyScenario(nameof(Hyperlink_External), Workbook.Create(sheet));
+        var entry = Assert.Single(loaded.Sheets.Single().Hyperlinks);
+
+        Assert.Equal(CellPosition.FromA1("A1"), entry.TopLeft);
+        Assert.Equal(CellPosition.FromA1("A1"), entry.BottomRight);
+        var target = Assert.IsType<HyperlinkTarget.ExternalHyperlink>(entry.Target);
+        Assert.Equal("https://github.com/dotnet/Open-XML-SDK", target.Url);
+        Assert.Equal("Open in browser", entry.Tooltip);
+        Assert.Equal("dotnet/Open-XML-SDK", entry.Display);
+    }
+
+    [Fact]
+    public void Hyperlink_Internal()
+    {
+        var sheet1 = Sheet
+            .Create("Sheet1", Row.Of(Cell.Text("Go to Sheet2")))
+            .AddHyperlink(HyperlinkEntry.Of("A1", new HyperlinkTarget.InternalHyperlink("Sheet2!A1")));
+
+        var sheet2 = Sheet.Create("Sheet2", Row.Of(Cell.Text("You made it!")));
+
+        var loaded = VerifyScenario(nameof(Hyperlink_Internal), Workbook.Create(sheet1).AddSheet(sheet2));
+        var loadedSheet1 = loaded.Sheets.Single(s => s.Name == "Sheet1");
+        var entry = Assert.Single(loadedSheet1.Hyperlinks);
+
+        var target = Assert.IsType<HyperlinkTarget.InternalHyperlink>(entry.Target);
+        Assert.Equal("Sheet2!A1", target.Location);
+        Assert.Null(entry.Tooltip);
+        Assert.Null(entry.Display);
+    }
+
     // --- Generated-script verification (slow: actually runs `dotnet run`) ------------------
     //
     // Every scenario above writes its own Examples/<name>/script.cs as a side effect of

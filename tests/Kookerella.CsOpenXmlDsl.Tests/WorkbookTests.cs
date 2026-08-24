@@ -184,6 +184,17 @@ public class WorkbookTests
     }
 
     [Fact]
+    public void Sheet_without_hyperlinks_defaults_to_empty_and_is_immutable()
+    {
+        var plain = Sheet.Create("Sheet1");
+        Assert.Empty(plain.Hyperlinks);
+
+        var withHyperlink = plain.AddHyperlink(HyperlinkEntry.Of("A1", new HyperlinkTarget.ExternalHyperlink("https://example.com")));
+        Assert.Empty(plain.Hyperlinks);
+        Assert.Single(withHyperlink.Hyperlinks);
+    }
+
+    [Fact]
     public void Generate_produces_readable_source_for_a_simple_workbook()
     {
         var sheet = Sheet.Create(

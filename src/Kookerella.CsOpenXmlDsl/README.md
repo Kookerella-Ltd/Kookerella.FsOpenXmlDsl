@@ -199,6 +199,25 @@ no custom prompts) doesn't need to mention any of it; set it via `DataValidation
 .WithAlert(...)`. `Date`/`Time` validation and cross-sheet named-range list sources aren't
 modeled - reference `Kookerella.FsOpenXmlDsl` directly for those.
 
+Hyperlinks apply over a range - a single cell is the degenerate case where the range's two
+corners are the same, which `HyperlinkEntry.Of(cellA1, target)` handles directly:
+
+```csharp
+var sheet = Sheet.Create("Sheet1", Row.Of(Cell.Text("Open-XML-SDK on GitHub")))
+    .AddHyperlink(
+        HyperlinkEntry
+            .Of("A1", new HyperlinkTarget.ExternalHyperlink("https://github.com/dotnet/Open-XML-SDK"))
+            .WithTooltip("Open in browser")
+            .WithDisplay("dotnet/Open-XML-SDK"));
+```
+
+`HyperlinkTarget.ExternalHyperlink` covers ordinary URLs and `mailto:` addresses alike -
+OOXML treats both as an external relationship, just with a different URI scheme, so there's
+no separate email case. `HyperlinkTarget.InternalHyperlink` is a same-workbook reference
+such as `"Sheet2!A1"` or a defined name. `Display` is OOXML's fallback label that a handful
+of older Excel versions and interop tools show instead of the cell's own text - modern
+Excel ignores it, so it's rarely worth setting.
+
 `CsCodeGen.Generate` renders a `Workbook` back out as a self-contained C# file that
 regenerates an equivalent file when run - the reverse of `WorkbookIO.Load` one level
 further: loading turns a file into these types, this turns those types into C# *source
@@ -237,8 +256,8 @@ This is a deliberately narrow first pass, not the whole F# library ported to C#:
 values (text/number/boolean/date/formula), basic styling (font/fill/border/alignment/
 number format), merged ranges, freeze panes, autofilter, tables, charts, images, pivot
 tables (single row/column/value field only), sparklines, conditional formatting, data
-validation, VBA (as opaque bytes), `Save`/`Load`, and code generation (`CsCodeGen`,
-covering everything this wrapper itself models). Hyperlinks, comments, print settings,
+validation, hyperlinks, VBA (as opaque bytes), `Save`/`Load`, and code generation
+(`CsCodeGen`, covering everything this wrapper itself models). Comments, print settings,
 defined names, and protection aren't exposed here - reference `Kookerella.FsOpenXmlDsl`
 directly for those (this wrapper doesn't stop you from mixing both in the same project).
 

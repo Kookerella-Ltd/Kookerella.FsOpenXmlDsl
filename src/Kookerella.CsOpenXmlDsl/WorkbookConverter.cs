@@ -349,6 +349,16 @@ internal static class WorkbookConverter
     private static Fs.DataValidationEntry ToFsDataValidationEntry(DataValidationEntry entry) =>
         new(ToFsCellRef(entry.TopLeft), ToFsCellRef(entry.BottomRight), ToFsValidationKind(entry.Kind), ToFsValidationAlert(entry.Alert));
 
+    private static Fs.HyperlinkTarget ToFsHyperlinkTarget(HyperlinkTarget target) => target switch
+    {
+        HyperlinkTarget.ExternalHyperlink t => Fs.HyperlinkTarget.NewExternalHyperlink(t.Url),
+        HyperlinkTarget.InternalHyperlink t => Fs.HyperlinkTarget.NewInternalHyperlink(t.Location),
+        _ => throw new ArgumentOutOfRangeException(nameof(target), target, null)
+    };
+
+    private static Fs.HyperlinkEntry ToFsHyperlinkEntry(HyperlinkEntry entry) =>
+        new(ToFsCellRef(entry.TopLeft), ToFsCellRef(entry.BottomRight), ToFsHyperlinkTarget(entry.Target), ToOption(entry.Tooltip), ToOption(entry.Display));
+
     private static Fs.Model.Worksheet ToFsWorksheet(Sheet sheet)
     {
         var nextRow = 0;
@@ -378,7 +388,7 @@ internal static class WorkbookConverter
             baseline.Protection,
             ListModule.OfSeq(sheet.ConditionalFormats.Select(ToFsConditionalFormatEntry)),
             ListModule.OfSeq(sheet.DataValidations.Select(ToFsDataValidationEntry)),
-            baseline.Hyperlinks,
+            ListModule.OfSeq(sheet.Hyperlinks.Select(ToFsHyperlinkEntry)),
             baseline.Comments,
             baseline.PageSetup,
             ListModule.OfSeq(sheet.Tables.Select(ToFsTableEntry)),
@@ -725,6 +735,20 @@ internal static class WorkbookConverter
             Alert = FromFsValidationAlert(entry.Alert)
         };
 
+    private static HyperlinkTarget FromFsHyperlinkTarget(Fs.HyperlinkTarget target) => target switch
+    {
+        Fs.HyperlinkTarget.ExternalHyperlink t => new HyperlinkTarget.ExternalHyperlink(t.url),
+        Fs.HyperlinkTarget.InternalHyperlink t => new HyperlinkTarget.InternalHyperlink(t.location),
+        _ => throw new ArgumentOutOfRangeException(nameof(target), target, null)
+    };
+
+    private static HyperlinkEntry FromFsHyperlinkEntry(Fs.HyperlinkEntry entry) =>
+        new(FromFsCellRef(entry.TopLeft), FromFsCellRef(entry.BottomRight), FromFsHyperlinkTarget(entry.Target))
+        {
+            Tooltip = FromOption(entry.Tooltip),
+            Display = FromOption(entry.Display)
+        };
+
     public static Workbook FromFSharp(Fs.Model.Workbook workbook)
     {
         var sheets = workbook.Sheets.Select(fsSheet =>
@@ -761,7 +785,8 @@ internal static class WorkbookConverter
                 PivotTables = fsSheet.PivotTables.Select(FromFsPivotTableEntry).ToArray(),
                 SparklineGroups = fsSheet.SparklineGroups.Select(FromFsSparklineGroupEntry).ToArray(),
                 ConditionalFormats = fsSheet.ConditionalFormats.Select(FromFsConditionalFormatEntry).ToArray(),
-                DataValidations = fsSheet.DataValidations.Select(FromFsDataValidationEntry).ToArray()
+                DataValidations = fsSheet.DataValidations.Select(FromFsDataValidationEntry).ToArray(),
+                Hyperlinks = fsSheet.Hyperlinks.Select(FromFsHyperlinkEntry).ToArray()
             };
         });
 

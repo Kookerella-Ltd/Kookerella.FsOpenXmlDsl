@@ -339,6 +339,27 @@ public static class CsCodeGen
         return entry.Alert == ValidationAlert.Default ? expr : $"{expr}.WithAlert({RenderValidationAlert(entry.Alert)})";
     }
 
+    private static string RenderHyperlinkTarget(HyperlinkTarget target) => target switch
+    {
+        HyperlinkTarget.ExternalHyperlink t => $"new HyperlinkTarget.ExternalHyperlink({RenderString(t.Url)})",
+        HyperlinkTarget.InternalHyperlink t => $"new HyperlinkTarget.InternalHyperlink({RenderString(t.Location)})",
+        _ => throw new ArgumentOutOfRangeException(nameof(target), target, null)
+    };
+
+    private static string RenderHyperlinkEntry(HyperlinkEntry entry)
+    {
+        var expr = entry.TopLeft == entry.BottomRight
+            ? $"HyperlinkEntry.Of({RenderString(entry.TopLeft.ToA1())}, {RenderHyperlinkTarget(entry.Target)})"
+            : $"HyperlinkEntry.Of({RenderString(entry.TopLeft.ToA1())}, {RenderString(entry.BottomRight.ToA1())}, {RenderHyperlinkTarget(entry.Target)})";
+
+        if (entry.Tooltip is { } tooltip)
+            expr += $".WithTooltip({RenderString(tooltip)})";
+        if (entry.Display is { } display)
+            expr += $".WithDisplay({RenderString(display)})";
+
+        return expr;
+    }
+
     /// <summary>Resolves the same <c>Index ?? nextRow</c>/<c>Column ?? nextColumn</c>
     /// convention <see cref="WorkbookIO"/> itself uses at save time, then only emits an
     /// explicit <c>.AtIndex</c>/<c>.AtColumn</c> where the resolved position actually
@@ -397,6 +418,8 @@ public static class CsCodeGen
             sb.Append("\n    .WithConditionalFormats(").Append(string.Join(", ", sheet.ConditionalFormats.Select(RenderConditionalFormatEntry))).Append(')');
         if (sheet.DataValidations.Count > 0)
             sb.Append("\n    .WithDataValidations(").Append(string.Join(", ", sheet.DataValidations.Select(RenderDataValidationEntry))).Append(')');
+        if (sheet.Hyperlinks.Count > 0)
+            sb.Append("\n    .WithHyperlinks(").Append(string.Join(", ", sheet.Hyperlinks.Select(RenderHyperlinkEntry))).Append(')');
 
         sb.Append(';');
         return sb.ToString();
