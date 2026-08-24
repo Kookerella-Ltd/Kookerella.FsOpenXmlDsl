@@ -49,25 +49,25 @@ config with a `mcpServers` map:
   `dotnet fsi`, using the full `Kookerella.FsOpenXmlDsl` API.
 - **`generate_csharp_script(path, outputFileName)`** — the C# equivalent, for a caller who
   wants pasteable/runnable C# rather than F#. Reads an existing workbook through
-  `Kookerella.CsOpenXmlDsl` (the idiomatic C# wrapper, so a narrower feature set than
-  `generate_fsharp_script` - see its own scope below) and returns a self-contained `.cs`
-  file targeting .NET 10's file-based apps feature: `dotnet run <file>.cs`, no `.csproj`
-  needed. References the published `Kookerella.CsOpenXmlDsl` NuGet package (via a
-  `#:package` directive pinned to the version this server was built against), so the
-  result runs on any machine with the .NET 10 SDK, not just this one.
+  `Kookerella.CsOpenXmlDsl` (the idiomatic C# wrapper - now full feature parity with the F#
+  core, see its own scope below) and returns a self-contained `.cs` file targeting .NET 10's
+  file-based apps feature: `dotnet run <file>.cs`, no `.csproj` needed. References the
+  published `Kookerella.CsOpenXmlDsl` NuGet package (via a `#:package` directive pinned to
+  the version this server was built against), so the result runs on any machine with the
+  .NET 10 SDK, not just this one.
 
 ## Scope
 
-This is a deliberately narrow first pass over the library, not the whole thing: plain cell
-values and formulas only, addressed by a row/column grid per sheet. Cell styling, tables,
-charts, images, pivot tables, sparklines, VBA, conditional formatting, and everything else
-`Kookerella.FsOpenXmlDsl` supports are not exposed as tools here — an agent that needs those
-should reference the library directly (or use `generate_fsharp_script`/`generate_csharp_script`
-on a file that already has them, to see the source for it - note `generate_csharp_script`
-only round-trips whatever `Kookerella.CsOpenXmlDsl` itself models: tables/charts/images/
-pivot tables/sparklines/VBA are covered, but conditional formatting, data validation,
-hyperlinks, comments, print settings, defined names, and protection are still beyond that
-wrapper's own scope). See the main project's
+`create_workbook`/`read_workbook` are a deliberately narrow first pass over the library, not
+the whole thing: plain cell values and formulas only, addressed by a row/column grid per
+sheet. Cell styling, tables, charts, images, pivot tables, sparklines, conditional
+formatting, and everything else `Kookerella.FsOpenXmlDsl` supports aren't exposed as tools
+here — an agent that needs those should reference the library directly, or use
+`generate_fsharp_script`/`generate_csharp_script` on a file that already has them to see the
+source for it. Both `generate_*` tools cover everything their respective package models -
+`generate_fsharp_script` the full F# core, `generate_csharp_script` everything
+`Kookerella.CsOpenXmlDsl` models, which is now the same worksheet/workbook-level feature set
+as the F# core. See the main project's
 [MAPPING.md](https://github.com/Kookerella-Ltd/Kookerella.FsOpenXmlDsl/blob/master/MAPPING.md)
 for the full picture of what the underlying library does and doesn't model.
 

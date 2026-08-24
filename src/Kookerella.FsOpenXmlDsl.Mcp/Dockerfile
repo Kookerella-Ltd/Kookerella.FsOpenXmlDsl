@@ -1,12 +1,15 @@
 # Build from the repo root as context, since this project references its sibling
-# Kookerella.FsOpenXmlDsl library via a plain ProjectReference:
+# Kookerella.FsOpenXmlDsl and Kookerella.CsOpenXmlDsl libraries via plain ProjectReferences
+# (the latter needed only for generate_csharp_script - see the fsproj's own comment):
 #   docker build -f src/Kookerella.FsOpenXmlDsl.Mcp/Dockerfile -t fsopenxmldsl-mcp .
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 COPY src/Kookerella.FsOpenXmlDsl/Kookerella.FsOpenXmlDsl.fsproj src/Kookerella.FsOpenXmlDsl/
+COPY src/Kookerella.CsOpenXmlDsl/Kookerella.CsOpenXmlDsl.csproj src/Kookerella.CsOpenXmlDsl/
 COPY src/Kookerella.FsOpenXmlDsl.Mcp/Kookerella.FsOpenXmlDsl.Mcp.fsproj src/Kookerella.FsOpenXmlDsl.Mcp/
 RUN dotnet restore src/Kookerella.FsOpenXmlDsl.Mcp/Kookerella.FsOpenXmlDsl.Mcp.fsproj
 COPY src/Kookerella.FsOpenXmlDsl/ src/Kookerella.FsOpenXmlDsl/
+COPY src/Kookerella.CsOpenXmlDsl/ src/Kookerella.CsOpenXmlDsl/
 COPY src/Kookerella.FsOpenXmlDsl.Mcp/ src/Kookerella.FsOpenXmlDsl.Mcp/
 RUN dotnet publish src/Kookerella.FsOpenXmlDsl.Mcp/Kookerella.FsOpenXmlDsl.Mcp.fsproj -c Release -o /app --no-restore
 
