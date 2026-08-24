@@ -258,6 +258,32 @@ internal static class WorkbookConverter
             ToOption(pivotTable.ValueCaption),
             ToFsCellRef(pivotTable.TopLeftAnchor));
 
+    private static Fs.SparklineType ToFsSparklineType(SparklineType type) => type switch
+    {
+        SparklineType.Line => Fs.SparklineType.Line,
+        SparklineType.Column => Fs.SparklineType.Column,
+        SparklineType.WinLoss => Fs.SparklineType.WinLoss,
+        _ => throw new ArgumentOutOfRangeException(nameof(type), type, null)
+    };
+
+    private static Fs.SparklineCell ToFsSparklineCell(SparklineCell cell) =>
+        new(ToFsCellRef(cell.Cell), ToFsCellRef(cell.DataTopLeft), ToFsCellRef(cell.DataBottomRight));
+
+    private static Fs.SparklineStyle ToFsSparklineStyle(SparklineStyle style) =>
+        new(
+            ToFsSparklineType(style.Type),
+            style.Color is { } color ? FSharpOption<Fs.Styles.Color>.Some(ToFsColor(color)) : FSharpOption<Fs.Styles.Color>.None,
+            ToOptionStruct(style.LineWeight),
+            style.ShowMarkers,
+            style.ShowHigh,
+            style.ShowLow,
+            style.ShowFirst,
+            style.ShowLast,
+            style.ShowNegative);
+
+    private static Fs.SparklineGroupEntry ToFsSparklineGroupEntry(SparklineGroupEntry group) =>
+        new(ToFsSparklineStyle(group.Style), ListModule.OfSeq(group.Sparklines.Select(ToFsSparklineCell)));
+
     private static Fs.Model.Worksheet ToFsWorksheet(Sheet sheet)
     {
         var nextRow = 0;
@@ -291,7 +317,7 @@ internal static class WorkbookConverter
             baseline.Comments,
             baseline.PageSetup,
             ListModule.OfSeq(sheet.Tables.Select(ToFsTableEntry)),
-            baseline.SparklineGroups,
+            ListModule.OfSeq(sheet.SparklineGroups.Select(ToFsSparklineGroupEntry)),
             ListModule.OfSeq(sheet.Charts.Select(ToFsChartEntry)),
             ListModule.OfSeq(sheet.Images.Select(ToFsImageEntry)),
             ListModule.OfSeq(sheet.PivotTables.Select(ToFsPivotTableEntry)));
@@ -536,6 +562,33 @@ internal static class WorkbookConverter
             ValueCaption = FromOption(pivotTable.ValueCaption)
         };
 
+    private static SparklineType FromFsSparklineType(Fs.SparklineType type) => type switch
+    {
+        { IsLine: true } => SparklineType.Line,
+        { IsColumn: true } => SparklineType.Column,
+        { IsWinLoss: true } => SparklineType.WinLoss,
+        _ => throw new ArgumentOutOfRangeException(nameof(type), type, null)
+    };
+
+    private static SparklineCell FromFsSparklineCell(Fs.SparklineCell cell) =>
+        new(FromFsCellRef(cell.Cell), FromFsCellRef(cell.DataTopLeft), FromFsCellRef(cell.DataBottomRight));
+
+    private static SparklineStyle FromFsSparklineStyle(Fs.SparklineStyle style) => new()
+    {
+        Type = FromFsSparklineType(style.Type),
+        Color = FromOption(style.Color) is { } color ? FromFsColor(color) : null,
+        LineWeight = FromOptionStruct(style.LineWeight),
+        ShowMarkers = style.ShowMarkers,
+        ShowHigh = style.ShowHigh,
+        ShowLow = style.ShowLow,
+        ShowFirst = style.ShowFirst,
+        ShowLast = style.ShowLast,
+        ShowNegative = style.ShowNegative
+    };
+
+    private static SparklineGroupEntry FromFsSparklineGroupEntry(Fs.SparklineGroupEntry group) =>
+        new(group.Sparklines.Select(FromFsSparklineCell).ToArray()) { Style = FromFsSparklineStyle(group.Style) };
+
     public static Workbook FromFSharp(Fs.Model.Workbook workbook)
     {
         var sheets = workbook.Sheets.Select(fsSheet =>
@@ -569,7 +622,8 @@ internal static class WorkbookConverter
                 Tables = fsSheet.Tables.Select(FromFsTableEntry).ToArray(),
                 Charts = fsSheet.Charts.Select(FromFsChartEntry).ToArray(),
                 Images = fsSheet.Images.Select(FromFsImageEntry).ToArray(),
-                PivotTables = fsSheet.PivotTables.Select(FromFsPivotTableEntry).ToArray()
+                PivotTables = fsSheet.PivotTables.Select(FromFsPivotTableEntry).ToArray(),
+                SparklineGroups = fsSheet.SparklineGroups.Select(FromFsSparklineGroupEntry).ToArray()
             };
         });
 

@@ -487,6 +487,57 @@ public class ExampleTests
         Assert.Equal(vbaProject, loaded.VbaProject);
     }
 
+    [Fact]
+    public void SparklinesLineGroup()
+    {
+        var sheet = Sheet
+            .Create(
+                "Sheet1",
+                Row.Of(Cell.Text("Widgets"), Cell.Number(3), Cell.Number(8), Cell.Number(5), Cell.Number(9)),
+                Row.Of(Cell.Text("Gadgets"), Cell.Number(6), Cell.Number(4), Cell.Number(7), Cell.Number(2)))
+            .AddSparklineGroup(
+                new SparklineGroupEntry(
+                        SparklineCell.Of("F1", "B1", "E1"),
+                        SparklineCell.Of("F2", "B2", "E2"))
+                    .WithStyle(SparklineStyle.Default.WithHigh().WithLow()));
+
+        var loaded = VerifyScenario(nameof(SparklinesLineGroup), Workbook.Create(sheet));
+        var group = Assert.Single(loaded.Sheets.Single().SparklineGroups);
+
+        Assert.Equal(SparklineType.Line, group.Style.Type);
+        Assert.True(group.Style.ShowHigh);
+        Assert.True(group.Style.ShowLow);
+        Assert.Null(group.Style.Color);
+
+        Assert.Equal(2, group.Sparklines.Count);
+        Assert.Equal(CellPosition.FromA1("F1"), group.Sparklines[0].Cell);
+        Assert.Equal(CellPosition.FromA1("B1"), group.Sparklines[0].DataTopLeft);
+        Assert.Equal(CellPosition.FromA1("E1"), group.Sparklines[0].DataBottomRight);
+        Assert.Equal(CellPosition.FromA1("F2"), group.Sparklines[1].Cell);
+    }
+
+    [Fact]
+    public void SparklinesColumnGroup()
+    {
+        var sheet = Sheet
+            .Create("Sheet1", Row.Of(Cell.Number(-2), Cell.Number(4), Cell.Number(-1), Cell.Number(3)))
+            .AddSparklineGroup(
+                new SparklineGroupEntry(SparklineCell.Of("E1", "A1", "D1"))
+                    .WithStyle(
+                        SparklineStyle.Default
+                            .WithType(SparklineType.Column)
+                            .WithColor(new RgbColor(0, 112, 192))
+                            .WithNegative()));
+
+        var loaded = VerifyScenario(nameof(SparklinesColumnGroup), Workbook.Create(sheet));
+        var group = Assert.Single(loaded.Sheets.Single().SparklineGroups);
+
+        Assert.Equal(SparklineType.Column, group.Style.Type);
+        Assert.Equal(new RgbColor(0, 112, 192), group.Style.Color);
+        Assert.True(group.Style.ShowNegative);
+        Assert.Single(group.Sparklines);
+    }
+
     // --- Generated-script verification (slow: actually runs `dotnet run`) ------------------
     //
     // Every scenario above writes its own Examples/<name>/script.cs as a side effect of

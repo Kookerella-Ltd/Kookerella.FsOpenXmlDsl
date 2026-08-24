@@ -2,12 +2,12 @@ namespace Kookerella.CsOpenXmlDsl;
 
 /// <summary>
 /// One worksheet - a name, its rows, a handful of sheet-level facts (merged ranges, frozen
-/// panes, an autofilter range), Excel Tables, charts, images, and pivot tables. Immutable -
-/// every <c>With*</c>/<c>Add*</c> method returns a new <see cref="Sheet"/> rather than
-/// mutating in place. v1 scope is cells/formulas/basic styling/merged ranges/freeze panes/
-/// autofilter/tables/charts/images/pivot tables only; conditional formatting and everything
-/// else the F# core models are out of scope here - reference Kookerella.FsOpenXmlDsl
-/// directly for those.
+/// panes, an autofilter range), Excel Tables, charts, images, pivot tables, and sparkline
+/// groups. Immutable - every <c>With*</c>/<c>Add*</c> method returns a new <see
+/// cref="Sheet"/> rather than mutating in place. v1 scope is cells/formulas/basic styling/
+/// merged ranges/freeze panes/autofilter/tables/charts/images/pivot tables/sparklines only;
+/// conditional formatting and everything else the F# core models are out of scope here -
+/// reference Kookerella.FsOpenXmlDsl directly for those.
 /// </summary>
 public sealed record Sheet
 {
@@ -20,6 +20,7 @@ public sealed record Sheet
     public IReadOnlyList<ChartEntry> Charts { get; init; } = Array.Empty<ChartEntry>();
     public IReadOnlyList<ImageEntry> Images { get; init; } = Array.Empty<ImageEntry>();
     public IReadOnlyList<PivotTableEntry> PivotTables { get; init; } = Array.Empty<PivotTableEntry>();
+    public IReadOnlyList<SparklineGroupEntry> SparklineGroups { get; init; } = Array.Empty<SparklineGroupEntry>();
 
     public Sheet(string name) => Name = name;
 
@@ -55,4 +56,8 @@ public sealed record Sheet
     public Sheet WithPivotTables(params PivotTableEntry[] pivotTables) => this with { PivotTables = pivotTables };
 
     public Sheet AddPivotTable(PivotTableEntry pivotTable) => this with { PivotTables = PivotTables.Append(pivotTable).ToArray() };
+
+    public Sheet WithSparklineGroups(params SparklineGroupEntry[] sparklineGroups) => this with { SparklineGroups = sparklineGroups };
+
+    public Sheet AddSparklineGroup(SparklineGroupEntry sparklineGroup) => this with { SparklineGroups = SparklineGroups.Append(sparklineGroup).ToArray() };
 }

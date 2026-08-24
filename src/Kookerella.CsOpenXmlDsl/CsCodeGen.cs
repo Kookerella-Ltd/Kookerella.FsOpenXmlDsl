@@ -238,6 +238,46 @@ public static class CsCodeGen
         return sb.ToString();
     }
 
+    private static string RenderSparklineCell(SparklineCell cell) =>
+        $"SparklineCell.Of({RenderString(cell.Cell.ToA1())}, {RenderString(cell.DataTopLeft.ToA1())}, {RenderString(cell.DataBottomRight.ToA1())})";
+
+    private static string RenderSparklineStyle(SparklineStyle style)
+    {
+        if (style == SparklineStyle.Default)
+            return "SparklineStyle.Default";
+
+        var sb = new StringBuilder("SparklineStyle.Default");
+
+        if (style.Type != SparklineStyle.Default.Type)
+            sb.Append($".WithType(SparklineType.{style.Type})");
+        if (style.Color is { } color)
+            sb.Append($".WithColor({RenderRgbColor(color)})");
+        if (style.LineWeight is { } lineWeight)
+            sb.Append($".WithLineWeight({RenderDouble(lineWeight)})");
+        if (style.ShowMarkers)
+            sb.Append(".WithMarkers()");
+        if (style.ShowHigh)
+            sb.Append(".WithHigh()");
+        if (style.ShowLow)
+            sb.Append(".WithLow()");
+        if (style.ShowFirst)
+            sb.Append(".WithFirst()");
+        if (style.ShowLast)
+            sb.Append(".WithLast()");
+        if (style.ShowNegative)
+            sb.Append(".WithNegative()");
+
+        return sb.ToString();
+    }
+
+    private static string RenderSparklineGroupEntry(SparklineGroupEntry group)
+    {
+        var sparklines = string.Join(", ", group.Sparklines.Select(RenderSparklineCell));
+        var expr = $"new SparklineGroupEntry({sparklines})";
+
+        return group.Style == SparklineStyle.Default ? expr : $"{expr}.WithStyle({RenderSparklineStyle(group.Style)})";
+    }
+
     /// <summary>Resolves the same <c>Index ?? nextRow</c>/<c>Column ?? nextColumn</c>
     /// convention <see cref="WorkbookIO"/> itself uses at save time, then only emits an
     /// explicit <c>.AtIndex</c>/<c>.AtColumn</c> where the resolved position actually
@@ -290,6 +330,8 @@ public static class CsCodeGen
             sb.Append("\n    .WithImages(").Append(string.Join(", ", sheet.Images.Select(RenderImageEntry))).Append(')');
         if (sheet.PivotTables.Count > 0)
             sb.Append("\n    .WithPivotTables(").Append(string.Join(", ", sheet.PivotTables.Select(RenderPivotTableEntry))).Append(')');
+        if (sheet.SparklineGroups.Count > 0)
+            sb.Append("\n    .WithSparklineGroups(").Append(string.Join(", ", sheet.SparklineGroups.Select(RenderSparklineGroupEntry))).Append(')');
 
         sb.Append(';');
         return sb.ToString();

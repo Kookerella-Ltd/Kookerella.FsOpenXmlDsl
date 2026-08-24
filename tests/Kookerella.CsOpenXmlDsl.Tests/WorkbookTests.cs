@@ -128,6 +128,28 @@ public class WorkbookTests
     }
 
     [Fact]
+    public void Sheet_without_sparkline_groups_defaults_to_empty_and_is_immutable()
+    {
+        var plain = Sheet.Create("Sheet1");
+        Assert.Empty(plain.SparklineGroups);
+
+        var withGroup = plain.AddSparklineGroup(new SparklineGroupEntry(SparklineCell.Of("B1", "A1", "A1")));
+        Assert.Empty(plain.SparklineGroups);
+        Assert.Single(withGroup.SparklineGroups);
+    }
+
+    [Fact]
+    public void SparklineStyle_fluent_methods_do_not_mutate_the_original_instance()
+    {
+        var original = SparklineStyle.Default;
+        var withHigh = original.WithHigh();
+
+        Assert.False(original.ShowHigh);
+        Assert.True(withHigh.ShowHigh);
+        Assert.NotSame(original, withHigh);
+    }
+
+    [Fact]
     public void Generate_produces_readable_source_for_a_simple_workbook()
     {
         var sheet = Sheet.Create(

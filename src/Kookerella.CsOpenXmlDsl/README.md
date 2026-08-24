@@ -132,6 +132,28 @@ header row, the same way tables do). The source range can live on a different sh
 the pivot table itself via `WithSourceSheet(name)`. `PivotAggregation` covers
 `Sum`/`Count`/`CountNumbers`/`Average`/`Min`/`Max`, defaulting to `Sum`.
 
+Sparklines are grouped so several can be styled together at once - a sheet can have several
+independently-styled groups:
+
+```csharp
+var sheet = Sheet.Create("Sheet1",
+        Row.Of(Cell.Number(-2), Cell.Number(4), Cell.Number(-1), Cell.Number(3)))
+    .AddSparklineGroup(
+        new SparklineGroupEntry(SparklineCell.Of("E1", "A1", "D1"))
+            .WithStyle(
+                SparklineStyle.Default
+                    .WithType(SparklineType.Column)
+                    .WithColor(new RgbColor(0, 112, 192))
+                    .WithNegative()));
+```
+
+`SparklineType` covers `Line`/`Column`/`WinLoss` (Excel's "Win/Loss" chart). `Color` is the
+one color modeled (the main sparkline color; Excel's separate negative-point/axis/marker
+colors default to its own automatic choices), and the `With*` toggles (`WithHigh`,
+`WithLow`, `WithFirst`, `WithLast`, `WithNegative`, `WithMarkers`) mirror the "highlight
+these points" options on Excel's Sparkline Design ribbon - `WithMarkers`/`WithLineWeight`
+are only meaningful for `SparklineType.Line`.
+
 `CsCodeGen.Generate` renders a `Workbook` back out as a self-contained C# file that
 regenerates an equivalent file when run - the reverse of `WorkbookIO.Load` one level
 further: loading turns a file into these types, this turns those types into C# *source
@@ -169,9 +191,9 @@ regenerate it yourself.
 This is a deliberately narrow first pass, not the whole F# library ported to C#: cell
 values (text/number/boolean/date/formula), basic styling (font/fill/border/alignment/
 number format), merged ranges, freeze panes, autofilter, tables, charts, images, pivot
-tables (single row/column/value field only), VBA (as opaque bytes), `Save`/`Load`, and code
-generation (`CsCodeGen`, covering everything this wrapper itself models). Sparklines,
-conditional formatting, data validation, hyperlinks, comments, print settings, defined
+tables (single row/column/value field only), sparklines, VBA (as opaque bytes), `Save`/
+`Load`, and code generation (`CsCodeGen`, covering everything this wrapper itself models).
+Conditional formatting, data validation, hyperlinks, comments, print settings, defined
 names, and protection aren't exposed here - reference `Kookerella.FsOpenXmlDsl` directly
 for those (this wrapper doesn't stop you from mixing both in the same project).
 
