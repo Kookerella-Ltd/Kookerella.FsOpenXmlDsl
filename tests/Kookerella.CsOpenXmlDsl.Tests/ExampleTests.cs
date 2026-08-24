@@ -918,6 +918,36 @@ public class ExampleTests
         Assert.Null(pageSetup.EvenHeader);
     }
 
+    [Fact]
+    public void DefinedNames()
+    {
+        var sheet = Sheet.Create(
+            "Sheet1",
+            Row.Of(Cell.Number(0.075)),
+            Row.Of(Cell.Number(100)),
+            Row.Of(Cell.Formula("B1*(1+TaxRate)", 107.5)));
+
+        var workbook = Workbook
+            .Create(sheet)
+            .WithDefinedNames(
+                DefinedNameEntry.Of("TaxRate", "Sheet1!$A$1"),
+                DefinedNameEntry.Of("LocalTotal", "Sheet1!$A$2", "Sheet1"));
+
+        var loaded = VerifyScenario(nameof(DefinedNames), workbook);
+
+        Assert.Equal(2, loaded.DefinedNames.Count);
+
+        var taxRate = loaded.DefinedNames.Single(d => d.Name == "TaxRate");
+        Assert.Equal("Sheet1!$A$1", taxRate.Formula);
+        Assert.IsType<DefinedNameScope.WorkbookScope>(taxRate.Scope);
+        Assert.False(taxRate.Hidden);
+
+        var localTotal = loaded.DefinedNames.Single(d => d.Name == "LocalTotal");
+        Assert.Equal("Sheet1!$A$2", localTotal.Formula);
+        var scope = Assert.IsType<DefinedNameScope.SheetScope>(localTotal.Scope);
+        Assert.Equal("Sheet1", scope.SheetName);
+    }
+
     // --- Generated-script verification (slow: actually runs `dotnet run`) ------------------
     //
     // Every scenario above writes its own Examples/<name>/script.cs as a side effect of
@@ -957,6 +987,7 @@ public class ExampleTests
     private static void AssertWorkbooksMatch(Workbook before, Workbook after)
     {
         Assert.Equal(before.Sheets.Select(s => s.Name), after.Sheets.Select(s => s.Name));
+        Assert.Equal(before.DefinedNames.Count, after.DefinedNames.Count);
 
         foreach (var (b, a) in before.Sheets.Zip(after.Sheets))
         {

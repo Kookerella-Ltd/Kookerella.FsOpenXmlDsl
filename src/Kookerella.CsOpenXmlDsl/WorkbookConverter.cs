@@ -442,6 +442,16 @@ internal static class WorkbookConverter
             ListModule.OfSeq(sheet.PivotTables.Select(ToFsPivotTableEntry)));
     }
 
+    private static Fs.DefinedNameScope ToFsDefinedNameScope(DefinedNameScope scope) => scope switch
+    {
+        DefinedNameScope.WorkbookScope => Fs.DefinedNameScope.WorkbookScope,
+        DefinedNameScope.SheetScope s => Fs.DefinedNameScope.NewSheetScope(s.SheetName),
+        _ => throw new ArgumentOutOfRangeException(nameof(scope), scope, null)
+    };
+
+    private static Fs.DefinedNameEntry ToFsDefinedNameEntry(DefinedNameEntry entry) =>
+        new(entry.Name, entry.Formula, ToFsDefinedNameScope(entry.Scope), entry.Hidden);
+
     public static Fs.Model.Workbook ToFSharp(Workbook workbook)
     {
         // Same reasoning as ToFsWorksheet: build a baseline via the F# builder (for the
@@ -451,7 +461,7 @@ internal static class WorkbookConverter
 
         return new Fs.Model.Workbook(
             baseline.Sheets,
-            baseline.DefinedNames,
+            ListModule.OfSeq(workbook.DefinedNames.Select(ToFsDefinedNameEntry)),
             baseline.Protection,
             ToOption(workbook.VbaProject));
     }
@@ -845,6 +855,16 @@ internal static class WorkbookConverter
         FirstFooter = FromOption(pageSetup.FirstFooter)
     };
 
+    private static DefinedNameScope FromFsDefinedNameScope(Fs.DefinedNameScope scope) => scope switch
+    {
+        { IsWorkbookScope: true } => new DefinedNameScope.WorkbookScope(),
+        Fs.DefinedNameScope.SheetScope s => new DefinedNameScope.SheetScope(s.sheetName),
+        _ => throw new ArgumentOutOfRangeException(nameof(scope), scope, null)
+    };
+
+    private static DefinedNameEntry FromFsDefinedNameEntry(Fs.DefinedNameEntry entry) =>
+        new(entry.Name, entry.Formula, FromFsDefinedNameScope(entry.Scope), entry.Hidden);
+
     public static Workbook FromFSharp(Fs.Model.Workbook workbook)
     {
         var sheets = workbook.Sheets.Select(fsSheet =>
@@ -888,6 +908,11 @@ internal static class WorkbookConverter
             };
         });
 
-        return new Workbook { Sheets = sheets.ToArray(), VbaProject = FromOption(workbook.VbaProject) };
+        return new Workbook
+        {
+            Sheets = sheets.ToArray(),
+            DefinedNames = workbook.DefinedNames.Select(FromFsDefinedNameEntry).ToArray(),
+            VbaProject = FromOption(workbook.VbaProject)
+        };
     }
 }

@@ -260,6 +260,22 @@ dimension (`new PrintScaling.FitToPage(1, 0)` is "fit to 1 page wide, any number
 `WithPrintArea(("A1", "A1"), ("A3", "A3"))` takes one or more disjoint ranges (Excel prints
 several rectangles as one print area); no ranges means Excel prints the whole used range.
 
+Defined names are workbook-level, not sheet-level - a named range/formula/constant such as
+`"TaxRate"` = `"0.075"`:
+
+```csharp
+var workbook = Workbook.Create(sheet)
+    .WithDefinedNames(
+        DefinedNameEntry.Of("TaxRate", "Sheet1!$A$1"),
+        DefinedNameEntry.Of("LocalTotal", "Sheet1!$A$2", "Sheet1"));
+```
+
+`DefinedNameEntry.Of(name, formula)` is workbook-scoped (usable from any sheet);
+`DefinedNameEntry.Of(name, formula, sheetName)` restricts it to one sheet. `Formula` is raw
+reference/formula text, the same convention as `Cell.Formula`: whatever Excel would show
+after the `=` - or, for a plain range reference (the common case), no `=` at all, just the
+reference text itself (e.g. `"Sheet1!$A$1:$B$10"`).
+
 `CsCodeGen.Generate` renders a `Workbook` back out as a self-contained C# file that
 regenerates an equivalent file when run - the reverse of `WorkbookIO.Load` one level
 further: loading turns a file into these types, this turns those types into C# *source
@@ -298,10 +314,10 @@ This is a deliberately narrow first pass, not the whole F# library ported to C#:
 values (text/number/boolean/date/formula), basic styling (font/fill/border/alignment/
 number format), merged ranges, freeze panes, autofilter, tables, charts, images, pivot
 tables (single row/column/value field only), sparklines, conditional formatting, data
-validation, hyperlinks, comments, print settings, VBA (as opaque bytes), `Save`/`Load`, and
-code generation (`CsCodeGen`, covering everything this wrapper itself models). Defined
-names and protection aren't exposed here - reference `Kookerella.FsOpenXmlDsl` directly for
-those (this wrapper doesn't stop you from mixing both in the same project).
+validation, hyperlinks, comments, print settings, defined names, VBA (as opaque bytes),
+`Save`/`Load`, and code generation (`CsCodeGen`, covering everything this wrapper itself
+models). Protection isn't exposed here - reference `Kookerella.FsOpenXmlDsl` directly for
+that (this wrapper doesn't stop you from mixing both in the same project).
 
 Formula cells never carry a cached value from this API beyond what you explicitly pass to
 `Cell.Formula` - see the main project's README for why that matters for anything that isn't

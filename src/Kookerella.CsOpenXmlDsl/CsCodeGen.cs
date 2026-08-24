@@ -511,6 +511,20 @@ public static class CsCodeGen
         return sb.ToString();
     }
 
+    private static string RenderDefinedNameScope(DefinedNameScope scope) => scope switch
+    {
+        DefinedNameScope.WorkbookScope => "new DefinedNameScope.WorkbookScope()",
+        DefinedNameScope.SheetScope s => $"new DefinedNameScope.SheetScope({RenderString(s.SheetName)})",
+        _ => throw new ArgumentOutOfRangeException(nameof(scope), scope, null)
+    };
+
+    private static string RenderDefinedNameEntry(DefinedNameEntry entry) => entry.Scope switch
+    {
+        DefinedNameScope.WorkbookScope when !entry.Hidden => $"DefinedNameEntry.Of({RenderString(entry.Name)}, {RenderString(entry.Formula)})",
+        DefinedNameScope.SheetScope s when !entry.Hidden => $"DefinedNameEntry.Of({RenderString(entry.Name)}, {RenderString(entry.Formula)}, {RenderString(s.SheetName)})",
+        _ => $"new DefinedNameEntry({RenderString(entry.Name)}, {RenderString(entry.Formula)}, {RenderDefinedNameScope(entry.Scope)}, {RenderBool(entry.Hidden)})"
+    };
+
     /// <summary>
     /// Renders <paramref name="workbook"/> as a self-contained C# file that rebuilds an
     /// equivalent file at <paramref name="outputFileName"/> when run via <c>dotnet run
@@ -538,6 +552,8 @@ public static class CsCodeGen
             sb.Append(RenderSheet(workbook.Sheets[i], sheetVariableNames[i])).Append('\n').Append('\n');
 
         var workbookExpr = $"Workbook.Create({string.Join(", ", sheetVariableNames)})";
+        if (workbook.DefinedNames.Count > 0)
+            workbookExpr += $"\n    .WithDefinedNames({string.Join(", ", workbook.DefinedNames.Select(RenderDefinedNameEntry))})";
         if (workbook.VbaProject is { } vbaProject)
             workbookExpr += $"\n    .WithVbaProject(System.Convert.FromBase64String({RenderString(Convert.ToBase64String(vbaProject))}))";
 

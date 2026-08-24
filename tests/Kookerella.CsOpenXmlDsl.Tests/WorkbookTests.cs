@@ -246,6 +246,24 @@ public class WorkbookTests
     }
 
     [Fact]
+    public void Workbook_without_defined_names_defaults_to_empty_and_is_immutable()
+    {
+        var plain = Workbook.Create();
+        Assert.Empty(plain.DefinedNames);
+
+        var withDefinedName = plain.AddDefinedName(DefinedNameEntry.Of("TaxRate", "0.075"));
+        Assert.Empty(plain.DefinedNames);
+        Assert.Single(withDefinedName.DefinedNames);
+    }
+
+    [Fact]
+    public void DefinedNameEntry_hidden_defaults_to_false()
+    {
+        var definedName = DefinedNameEntry.Of("TaxRate", "0.075");
+        Assert.False(definedName.Hidden);
+    }
+
+    [Fact]
     public void Generate_produces_readable_source_for_a_simple_workbook()
     {
         var sheet = Sheet.Create(
