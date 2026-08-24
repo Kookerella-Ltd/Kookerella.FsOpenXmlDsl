@@ -213,6 +213,39 @@ public class WorkbookTests
     }
 
     [Fact]
+    public void Sheet_without_page_setup_defaults_to_null_and_is_immutable()
+    {
+        var plain = Sheet.Create("Sheet1");
+        Assert.Null(plain.PageSetup);
+
+        var withPageSetup = plain.WithPageSetup(PageSetup.Default.WithOrientation(PageOrientation.Landscape));
+        Assert.Null(plain.PageSetup);
+        Assert.Equal(PageOrientation.Landscape, withPageSetup.PageSetup!.Orientation);
+    }
+
+    [Fact]
+    public void PageSetup_fluent_methods_do_not_mutate_the_original_instance()
+    {
+        var original = PageSetup.Default;
+        var landscape = original.WithOrientation(PageOrientation.Landscape);
+
+        Assert.Equal(PageOrientation.Portrait, original.Orientation);
+        Assert.Equal(PageOrientation.Landscape, landscape.Orientation);
+        Assert.NotSame(original, landscape);
+    }
+
+    [Fact]
+    public void PageMargins_default_matches_Excels_own_built_in_margins()
+    {
+        Assert.Equal(0.7, PageMargins.Default.Left);
+        Assert.Equal(0.7, PageMargins.Default.Right);
+        Assert.Equal(0.75, PageMargins.Default.Top);
+        Assert.Equal(0.75, PageMargins.Default.Bottom);
+        Assert.Equal(0.3, PageMargins.Default.Header);
+        Assert.Equal(0.3, PageMargins.Default.Footer);
+    }
+
+    [Fact]
     public void Generate_produces_readable_source_for_a_simple_workbook()
     {
         var sheet = Sheet.Create(

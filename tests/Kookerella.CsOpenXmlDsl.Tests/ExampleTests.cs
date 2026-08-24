@@ -831,6 +831,93 @@ public class ExampleTests
         Assert.Contains(comments, c => c.Cell == CellPosition.FromA1("A1") && c.Author == "" && c.Text == "Double check this label.");
     }
 
+    [Fact]
+    public void PageSetupLandscapeWithMargins()
+    {
+        var sheet = Sheet
+            .Create("Sheet1", Row.Of(Cell.Text("Wide report")))
+            .WithPageSetup(
+                PageSetup.Default
+                    .WithOrientation(PageOrientation.Landscape)
+                    .WithPaperSize(new PaperSize.A4())
+                    .WithScaling(new PrintScaling.ScalePercent(85))
+                    .WithMargins(PageMargins.Default.WithLeft(0.5).WithRight(0.5))
+                    .WithHeader("&C&\"Arial,Bold\"Quarterly Report")
+                    .WithFooter("&LPage &P of &N&R&D"));
+
+        var loaded = VerifyScenario(nameof(PageSetupLandscapeWithMargins), Workbook.Create(sheet));
+        var pageSetup = loaded.Sheets.Single().PageSetup;
+
+        Assert.NotNull(pageSetup);
+        Assert.Equal(PageOrientation.Landscape, pageSetup!.Orientation);
+        Assert.IsType<PaperSize.A4>(pageSetup.PaperSize);
+        var scaling = Assert.IsType<PrintScaling.ScalePercent>(pageSetup.Scaling);
+        Assert.Equal(85, scaling.Percent);
+        Assert.Equal(0.5, pageSetup.Margins.Left);
+        Assert.Equal(0.5, pageSetup.Margins.Right);
+        Assert.Equal("&C&\"Arial,Bold\"Quarterly Report", pageSetup.Header);
+        Assert.Equal("&LPage &P of &N&R&D", pageSetup.Footer);
+    }
+
+    [Fact]
+    public void PageSetupFitToOnePageWide()
+    {
+        var sheet = Sheet
+            .Create("Sheet1", Row.Of(Cell.Text("Fits to one page wide")))
+            .WithPageSetup(PageSetup.Default.WithScaling(new PrintScaling.FitToPage(1, 0)));
+
+        var loaded = VerifyScenario(nameof(PageSetupFitToOnePageWide), Workbook.Create(sheet));
+        var pageSetup = loaded.Sheets.Single().PageSetup;
+
+        Assert.NotNull(pageSetup);
+        var scaling = Assert.IsType<PrintScaling.FitToPage>(pageSetup!.Scaling);
+        Assert.Equal(1, scaling.Width);
+        Assert.Equal(0, scaling.Height);
+    }
+
+    [Fact]
+    public void PageSetupPrintArea()
+    {
+        var sheet = Sheet
+            .Create(
+                "Sheet1",
+                Row.Of(Cell.Text("Included")),
+                Row.Of(Cell.Text("Excluded")),
+                Row.Of(Cell.Text("Also included")))
+            .WithPageSetup(PageSetup.Default.WithPrintArea(("A1", "A1"), ("A3", "A3")));
+
+        var loaded = VerifyScenario(nameof(PageSetupPrintArea), Workbook.Create(sheet));
+        var pageSetup = loaded.Sheets.Single().PageSetup;
+
+        Assert.NotNull(pageSetup);
+        Assert.Equal(2, pageSetup!.PrintArea.Count);
+        Assert.Equal((CellPosition.FromA1("A1"), CellPosition.FromA1("A1")), pageSetup.PrintArea[0]);
+        Assert.Equal((CellPosition.FromA1("A3"), CellPosition.FromA1("A3")), pageSetup.PrintArea[1]);
+    }
+
+    [Fact]
+    public void PageSetupHeaderFooterVariants()
+    {
+        var sheet = Sheet
+            .Create("Sheet1", Row.Of(Cell.Text("Report")))
+            .WithPageSetup(
+                PageSetup.Default
+                    .WithHeader("&CPage &P")
+                    .WithFirstHeader("&CCover Page")
+                    .WithEvenFooter("&L&F"));
+
+        var loaded = VerifyScenario(nameof(PageSetupHeaderFooterVariants), Workbook.Create(sheet));
+        var pageSetup = loaded.Sheets.Single().PageSetup;
+
+        Assert.NotNull(pageSetup);
+        Assert.Equal("&CPage &P", pageSetup!.Header);
+        Assert.Equal("&CCover Page", pageSetup.FirstHeader);
+        Assert.Equal("&L&F", pageSetup.EvenFooter);
+        Assert.Null(pageSetup.Footer);
+        Assert.Null(pageSetup.FirstFooter);
+        Assert.Null(pageSetup.EvenHeader);
+    }
+
     // --- Generated-script verification (slow: actually runs `dotnet run`) ------------------
     //
     // Every scenario above writes its own Examples/<name>/script.cs as a side effect of
@@ -884,6 +971,12 @@ public class ExampleTests
             Assert.Equal(b.Charts.Count, a.Charts.Count);
             Assert.Equal(b.Images.Count, a.Images.Count);
             Assert.Equal(b.PivotTables.Count, a.PivotTables.Count);
+            Assert.Equal(b.SparklineGroups.Count, a.SparklineGroups.Count);
+            Assert.Equal(b.ConditionalFormats.Count, a.ConditionalFormats.Count);
+            Assert.Equal(b.DataValidations.Count, a.DataValidations.Count);
+            Assert.Equal(b.Hyperlinks.Count, a.Hyperlinks.Count);
+            Assert.Equal(b.Comments.Count, a.Comments.Count);
+            Assert.Equal(b.PageSetup is not null, a.PageSetup is not null);
         }
 
         Assert.Equal(before.VbaProject, after.VbaProject);

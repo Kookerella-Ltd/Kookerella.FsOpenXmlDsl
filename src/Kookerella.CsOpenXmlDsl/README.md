@@ -232,6 +232,34 @@ var sheet = Sheet.Create("Sheet1",
 
 `Author` defaults to `""`, matching how Excel itself allows an unnamed comment author.
 
+Print settings - orientation, paper size, scaling, margins, print area, and headers/footers
+- live under one `PageSetup`, `null` by default (Excel's own print defaults apply until you
+set one):
+
+```csharp
+var sheet = Sheet.Create("Sheet1", Row.Of(Cell.Text("Wide report")))
+    .WithPageSetup(
+        PageSetup.Default
+            .WithOrientation(PageOrientation.Landscape)
+            .WithPaperSize(new PaperSize.A4())
+            .WithScaling(new PrintScaling.ScalePercent(85))
+            .WithMargins(PageMargins.Default.WithLeft(0.5).WithRight(0.5))
+            .WithHeader("&C&\"Arial,Bold\"Quarterly Report")
+            .WithFooter("&LPage &P of &N&R&D"));
+```
+
+`Header`/`Footer` (and their `Even`/`First` counterparts, set via `WithEvenHeader`/
+`WithEvenFooter`/`WithFirstHeader`/`WithFirstFooter`) are raw OOXML header/footer text -
+Excel's own `&L`/`&C`/`&R` (left/center/right section) and `&P`/`&N`/`&D`/`&T`/`&F`/`&A`
+(page number/total pages/date/time/filename/sheet name) codes embedded directly in one
+string. `Header`/`Footer` show on every page unless overridden; `EvenHeader`/`EvenFooter`
+apply to even pages when set, and `FirstHeader`/`FirstFooter` apply only to page 1.
+`PrintScaling.ScalePercent`/`.FitToPage` mirror Excel's own mutually exclusive "Adjust to"/
+"Fit to" print-dialog modes - for `FitToPage`, `0` means "as many pages as needed" in that
+dimension (`new PrintScaling.FitToPage(1, 0)` is "fit to 1 page wide, any number tall").
+`WithPrintArea(("A1", "A1"), ("A3", "A3"))` takes one or more disjoint ranges (Excel prints
+several rectangles as one print area); no ranges means Excel prints the whole used range.
+
 `CsCodeGen.Generate` renders a `Workbook` back out as a self-contained C# file that
 regenerates an equivalent file when run - the reverse of `WorkbookIO.Load` one level
 further: loading turns a file into these types, this turns those types into C# *source
@@ -270,10 +298,10 @@ This is a deliberately narrow first pass, not the whole F# library ported to C#:
 values (text/number/boolean/date/formula), basic styling (font/fill/border/alignment/
 number format), merged ranges, freeze panes, autofilter, tables, charts, images, pivot
 tables (single row/column/value field only), sparklines, conditional formatting, data
-validation, hyperlinks, comments, VBA (as opaque bytes), `Save`/`Load`, and code generation
-(`CsCodeGen`, covering everything this wrapper itself models). Print settings, defined
-names, and protection aren't exposed here - reference `Kookerella.FsOpenXmlDsl` directly
-for those (this wrapper doesn't stop you from mixing both in the same project).
+validation, hyperlinks, comments, print settings, VBA (as opaque bytes), `Save`/`Load`, and
+code generation (`CsCodeGen`, covering everything this wrapper itself models). Defined
+names and protection aren't exposed here - reference `Kookerella.FsOpenXmlDsl` directly for
+those (this wrapper doesn't stop you from mixing both in the same project).
 
 Formula cells never carry a cached value from this API beyond what you explicitly pass to
 `Cell.Formula` - see the main project's README for why that matters for anything that isn't

@@ -361,6 +361,48 @@ internal static class WorkbookConverter
 
     private static Fs.CommentEntry ToFsCommentEntry(CommentEntry entry) => new(ToFsCellRef(entry.Cell), entry.Author, entry.Text);
 
+    private static Fs.PageOrientation ToFsPageOrientation(PageOrientation orientation) => orientation switch
+    {
+        PageOrientation.Portrait => Fs.PageOrientation.Portrait,
+        PageOrientation.Landscape => Fs.PageOrientation.Landscape,
+        _ => throw new ArgumentOutOfRangeException(nameof(orientation), orientation, null)
+    };
+
+    private static Fs.PaperSize ToFsPaperSize(PaperSize size) => size switch
+    {
+        PaperSize.Letter => Fs.PaperSize.Letter,
+        PaperSize.Legal => Fs.PaperSize.Legal,
+        PaperSize.Tabloid => Fs.PaperSize.Tabloid,
+        PaperSize.A3 => Fs.PaperSize.A3,
+        PaperSize.A4 => Fs.PaperSize.A4,
+        PaperSize.OtherPaperSize s => Fs.PaperSize.NewOtherPaperSize(s.Code),
+        _ => throw new ArgumentOutOfRangeException(nameof(size), size, null)
+    };
+
+    private static Fs.PrintScaling ToFsPrintScaling(PrintScaling scaling) => scaling switch
+    {
+        PrintScaling.ScalePercent s => Fs.PrintScaling.NewScalePercent(s.Percent),
+        PrintScaling.FitToPage s => Fs.PrintScaling.NewFitToPage(s.Width, s.Height),
+        _ => throw new ArgumentOutOfRangeException(nameof(scaling), scaling, null)
+    };
+
+    private static Fs.PageMargins ToFsPageMargins(PageMargins margins) =>
+        new(margins.Left, margins.Right, margins.Top, margins.Bottom, margins.Header, margins.Footer);
+
+    private static Fs.PageSetup ToFsPageSetup(PageSetup pageSetup) =>
+        new(
+            ToFsPageOrientation(pageSetup.Orientation),
+            pageSetup.PaperSize is { } paperSize ? FSharpOption<Fs.PaperSize>.Some(ToFsPaperSize(paperSize)) : FSharpOption<Fs.PaperSize>.None,
+            pageSetup.Scaling is { } scaling ? FSharpOption<Fs.PrintScaling>.Some(ToFsPrintScaling(scaling)) : FSharpOption<Fs.PrintScaling>.None,
+            ToFsPageMargins(pageSetup.Margins),
+            ListModule.OfSeq(pageSetup.PrintArea.Select(r => Tuple.Create(ToFsCellRef(r.TopLeft), ToFsCellRef(r.BottomRight)))),
+            ToOption(pageSetup.Header),
+            ToOption(pageSetup.Footer),
+            ToOption(pageSetup.EvenHeader),
+            ToOption(pageSetup.EvenFooter),
+            ToOption(pageSetup.FirstHeader),
+            ToOption(pageSetup.FirstFooter));
+
     private static Fs.Model.Worksheet ToFsWorksheet(Sheet sheet)
     {
         var nextRow = 0;
@@ -392,7 +434,7 @@ internal static class WorkbookConverter
             ListModule.OfSeq(sheet.DataValidations.Select(ToFsDataValidationEntry)),
             ListModule.OfSeq(sheet.Hyperlinks.Select(ToFsHyperlinkEntry)),
             ListModule.OfSeq(sheet.Comments.Select(ToFsCommentEntry)),
-            baseline.PageSetup,
+            sheet.PageSetup is { } pageSetup ? FSharpOption<Fs.PageSetup>.Some(ToFsPageSetup(pageSetup)) : FSharpOption<Fs.PageSetup>.None,
             ListModule.OfSeq(sheet.Tables.Select(ToFsTableEntry)),
             ListModule.OfSeq(sheet.SparklineGroups.Select(ToFsSparklineGroupEntry)),
             ListModule.OfSeq(sheet.Charts.Select(ToFsChartEntry)),
@@ -753,6 +795,56 @@ internal static class WorkbookConverter
 
     private static CommentEntry FromFsCommentEntry(Fs.CommentEntry entry) => new(FromFsCellRef(entry.Cell), entry.Text, entry.Author);
 
+    private static PageOrientation FromFsPageOrientation(Fs.PageOrientation orientation) => orientation switch
+    {
+        { IsPortrait: true } => PageOrientation.Portrait,
+        { IsLandscape: true } => PageOrientation.Landscape,
+        _ => throw new ArgumentOutOfRangeException(nameof(orientation), orientation, null)
+    };
+
+    private static PaperSize FromFsPaperSize(Fs.PaperSize size) => size switch
+    {
+        { IsLetter: true } => new PaperSize.Letter(),
+        { IsLegal: true } => new PaperSize.Legal(),
+        { IsTabloid: true } => new PaperSize.Tabloid(),
+        { IsA3: true } => new PaperSize.A3(),
+        { IsA4: true } => new PaperSize.A4(),
+        Fs.PaperSize.OtherPaperSize s => new PaperSize.OtherPaperSize(s.code),
+        _ => throw new ArgumentOutOfRangeException(nameof(size), size, null)
+    };
+
+    private static PrintScaling FromFsPrintScaling(Fs.PrintScaling scaling) => scaling switch
+    {
+        Fs.PrintScaling.ScalePercent s => new PrintScaling.ScalePercent(s.percent),
+        Fs.PrintScaling.FitToPage s => new PrintScaling.FitToPage(s.width, s.height),
+        _ => throw new ArgumentOutOfRangeException(nameof(scaling), scaling, null)
+    };
+
+    private static PageMargins FromFsPageMargins(Fs.PageMargins margins) => new()
+    {
+        Left = margins.Left,
+        Right = margins.Right,
+        Top = margins.Top,
+        Bottom = margins.Bottom,
+        Header = margins.Header,
+        Footer = margins.Footer
+    };
+
+    private static PageSetup FromFsPageSetup(Fs.PageSetup pageSetup) => new()
+    {
+        Orientation = FromFsPageOrientation(pageSetup.Orientation),
+        PaperSize = FromOption(pageSetup.PaperSize) is { } paperSize ? FromFsPaperSize(paperSize) : null,
+        Scaling = FromOption(pageSetup.Scaling) is { } scaling ? FromFsPrintScaling(scaling) : null,
+        Margins = FromFsPageMargins(pageSetup.Margins),
+        PrintArea = pageSetup.PrintArea.Select(r => (FromFsCellRef(r.Item1), FromFsCellRef(r.Item2))).ToArray(),
+        Header = FromOption(pageSetup.Header),
+        Footer = FromOption(pageSetup.Footer),
+        EvenHeader = FromOption(pageSetup.EvenHeader),
+        EvenFooter = FromOption(pageSetup.EvenFooter),
+        FirstHeader = FromOption(pageSetup.FirstHeader),
+        FirstFooter = FromOption(pageSetup.FirstFooter)
+    };
+
     public static Workbook FromFSharp(Fs.Model.Workbook workbook)
     {
         var sheets = workbook.Sheets.Select(fsSheet =>
@@ -791,7 +883,8 @@ internal static class WorkbookConverter
                 ConditionalFormats = fsSheet.ConditionalFormats.Select(FromFsConditionalFormatEntry).ToArray(),
                 DataValidations = fsSheet.DataValidations.Select(FromFsDataValidationEntry).ToArray(),
                 Hyperlinks = fsSheet.Hyperlinks.Select(FromFsHyperlinkEntry).ToArray(),
-                Comments = fsSheet.Comments.Select(FromFsCommentEntry).ToArray()
+                Comments = fsSheet.Comments.Select(FromFsCommentEntry).ToArray(),
+                PageSetup = FromOption(fsSheet.PageSetup) is { } pageSetup ? FromFsPageSetup(pageSetup) : null
             };
         });
 

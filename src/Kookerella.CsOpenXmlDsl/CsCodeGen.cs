@@ -365,6 +365,83 @@ public static class CsCodeGen
             ? $"CommentEntry.Of({RenderString(entry.Cell.ToA1())}, {RenderString(entry.Text)})"
             : $"CommentEntry.Of({RenderString(entry.Cell.ToA1())}, {RenderString(entry.Text)}, {RenderString(entry.Author)})";
 
+    private static string RenderPaperSize(PaperSize size) => size switch
+    {
+        PaperSize.Letter => "new PaperSize.Letter()",
+        PaperSize.Legal => "new PaperSize.Legal()",
+        PaperSize.Tabloid => "new PaperSize.Tabloid()",
+        PaperSize.A3 => "new PaperSize.A3()",
+        PaperSize.A4 => "new PaperSize.A4()",
+        PaperSize.OtherPaperSize s => $"new PaperSize.OtherPaperSize({s.Code})",
+        _ => throw new ArgumentOutOfRangeException(nameof(size), size, null)
+    };
+
+    private static string RenderPrintScaling(PrintScaling scaling) => scaling switch
+    {
+        PrintScaling.ScalePercent s => $"new PrintScaling.ScalePercent({s.Percent})",
+        PrintScaling.FitToPage s => $"new PrintScaling.FitToPage({s.Width}, {s.Height})",
+        _ => throw new ArgumentOutOfRangeException(nameof(scaling), scaling, null)
+    };
+
+    private static string RenderPageMargins(PageMargins margins)
+    {
+        if (margins == PageMargins.Default)
+            return "PageMargins.Default";
+
+        var sb = new StringBuilder("PageMargins.Default");
+
+        if (margins.Left != PageMargins.Default.Left)
+            sb.Append($".WithLeft({RenderDouble(margins.Left)})");
+        if (margins.Right != PageMargins.Default.Right)
+            sb.Append($".WithRight({RenderDouble(margins.Right)})");
+        if (margins.Top != PageMargins.Default.Top)
+            sb.Append($".WithTop({RenderDouble(margins.Top)})");
+        if (margins.Bottom != PageMargins.Default.Bottom)
+            sb.Append($".WithBottom({RenderDouble(margins.Bottom)})");
+        if (margins.Header != PageMargins.Default.Header)
+            sb.Append($".WithHeader({RenderDouble(margins.Header)})");
+        if (margins.Footer != PageMargins.Default.Footer)
+            sb.Append($".WithFooter({RenderDouble(margins.Footer)})");
+
+        return sb.ToString();
+    }
+
+    private static string RenderPageSetup(PageSetup pageSetup)
+    {
+        if (pageSetup == PageSetup.Default)
+            return "PageSetup.Default";
+
+        var sb = new StringBuilder("PageSetup.Default");
+
+        if (pageSetup.Orientation != PageSetup.Default.Orientation)
+            sb.Append($".WithOrientation(PageOrientation.{pageSetup.Orientation})");
+        if (pageSetup.PaperSize is { } paperSize)
+            sb.Append($".WithPaperSize({RenderPaperSize(paperSize)})");
+        if (pageSetup.Scaling is { } scaling)
+            sb.Append($".WithScaling({RenderPrintScaling(scaling)})");
+        if (pageSetup.Margins != PageMargins.Default)
+            sb.Append($".WithMargins({RenderPageMargins(pageSetup.Margins)})");
+        if (pageSetup.PrintArea.Count > 0)
+        {
+            var ranges = pageSetup.PrintArea.Select(r => $"({RenderString(r.TopLeft.ToA1())}, {RenderString(r.BottomRight.ToA1())})");
+            sb.Append($".WithPrintArea({string.Join(", ", ranges)})");
+        }
+        if (pageSetup.Header is { } header)
+            sb.Append($".WithHeader({RenderString(header)})");
+        if (pageSetup.Footer is { } footer)
+            sb.Append($".WithFooter({RenderString(footer)})");
+        if (pageSetup.EvenHeader is { } evenHeader)
+            sb.Append($".WithEvenHeader({RenderString(evenHeader)})");
+        if (pageSetup.EvenFooter is { } evenFooter)
+            sb.Append($".WithEvenFooter({RenderString(evenFooter)})");
+        if (pageSetup.FirstHeader is { } firstHeader)
+            sb.Append($".WithFirstHeader({RenderString(firstHeader)})");
+        if (pageSetup.FirstFooter is { } firstFooter)
+            sb.Append($".WithFirstFooter({RenderString(firstFooter)})");
+
+        return sb.ToString();
+    }
+
     /// <summary>Resolves the same <c>Index ?? nextRow</c>/<c>Column ?? nextColumn</c>
     /// convention <see cref="WorkbookIO"/> itself uses at save time, then only emits an
     /// explicit <c>.AtIndex</c>/<c>.AtColumn</c> where the resolved position actually
@@ -427,6 +504,8 @@ public static class CsCodeGen
             sb.Append("\n    .WithHyperlinks(").Append(string.Join(", ", sheet.Hyperlinks.Select(RenderHyperlinkEntry))).Append(')');
         if (sheet.Comments.Count > 0)
             sb.Append("\n    .WithComments(").Append(string.Join(", ", sheet.Comments.Select(RenderCommentEntry))).Append(')');
+        if (sheet.PageSetup is { } pageSetup)
+            sb.Append("\n    .WithPageSetup(").Append(RenderPageSetup(pageSetup)).Append(')');
 
         sb.Append(';');
         return sb.ToString();

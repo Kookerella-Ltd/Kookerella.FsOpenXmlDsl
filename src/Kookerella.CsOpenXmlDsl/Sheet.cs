@@ -3,12 +3,12 @@ namespace Kookerella.CsOpenXmlDsl;
 /// <summary>
 /// One worksheet - a name, its rows, a handful of sheet-level facts (merged ranges, frozen
 /// panes, an autofilter range), Excel Tables, charts, images, pivot tables, sparkline
-/// groups, conditional formatting rules, data validation rules, hyperlinks, and comments.
-/// Immutable - every <c>With*</c>/<c>Add*</c> method returns a new <see cref="Sheet"/>
-/// rather than mutating in place. v1 scope is cells/formulas/basic styling/merged ranges/
-/// freeze panes/autofilter/tables/charts/images/pivot tables/sparklines/conditional
-/// formatting/data validation/hyperlinks/comments only; print settings and everything else
-/// the F# core models are out of scope here - reference Kookerella.FsOpenXmlDsl directly
+/// groups, conditional formatting rules, data validation rules, hyperlinks, comments, and
+/// print settings. Immutable - every <c>With*</c>/<c>Add*</c> method returns a new <see
+/// cref="Sheet"/> rather than mutating in place. v1 scope is cells/formulas/basic styling/
+/// merged ranges/freeze panes/autofilter/tables/charts/images/pivot tables/sparklines/
+/// conditional formatting/data validation/hyperlinks/comments/print settings only; defined
+/// names and protection aren't exposed here - reference Kookerella.FsOpenXmlDsl directly
 /// for those.
 /// </summary>
 public sealed record Sheet
@@ -27,6 +27,7 @@ public sealed record Sheet
     public IReadOnlyList<DataValidationEntry> DataValidations { get; init; } = Array.Empty<DataValidationEntry>();
     public IReadOnlyList<HyperlinkEntry> Hyperlinks { get; init; } = Array.Empty<HyperlinkEntry>();
     public IReadOnlyList<CommentEntry> Comments { get; init; } = Array.Empty<CommentEntry>();
+    public PageSetup? PageSetup { get; init; }
 
     public Sheet(string name) => Name = name;
 
@@ -82,4 +83,6 @@ public sealed record Sheet
     public Sheet WithComments(params CommentEntry[] comments) => this with { Comments = comments };
 
     public Sheet AddComment(CommentEntry comment) => this with { Comments = Comments.Append(comment).ToArray() };
+
+    public Sheet WithPageSetup(PageSetup pageSetup) => this with { PageSetup = pageSetup };
 }
