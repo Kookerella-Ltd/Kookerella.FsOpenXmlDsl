@@ -5,7 +5,16 @@
 An [MCP](https://modelcontextprotocol.io) (Model Context Protocol) server that exposes
 `Kookerella.FsOpenXmlDsl`'s Excel read/write/code-generation capabilities as tools any
 MCP-compatible AI agent can call directly - build a workbook, read one back, or regenerate
-its F# source - without writing any F# itself.
+its F# or C# source - without writing any F# or C# itself.
+
+**Most Excel libraries only go one direction**: build a workbook from scratch, or mutate an
+existing one, through an imperative object model. This one also goes the other way - read
+any existing `.xlsx`/`.xlsm` and hand back idiomatic, runnable F# or C# source that rebuilds
+an equivalent file. A decompiler for spreadsheets, not just a writer. That's available three
+ways from this one binary: as MCP tools (`generate_fsharp_script`/`generate_csharp_script`)
+for an AI agent, as a plain CLI (`fsopenxmldsl-mcp convert`) for anyone who isn't going
+through an MCP client, and as direct library calls (`Workbook.generateScript`/
+`CsCodeGen.Generate`) for either to call themselves.
 
 This runs **locally**, as a subprocess your MCP client launches over stdio - there's no
 hosted service, no network address, and no account to sign up for. It's distributed as a
@@ -33,6 +42,28 @@ config with a `mcpServers` map:
     }
   }
 }
+```
+
+## Command-line usage
+
+The same binary also works as a plain CLI, for converting a file without an MCP client at
+all - `fsopenxmldsl-mcp` with no arguments starts the MCP server (as above); with a `convert`
+first argument it runs once and exits:
+
+```bash
+fsopenxmldsl-mcp convert report.xlsx --lang csharp
+```
+
+Prints the equivalent C# source to stdout. Options:
+
+- `--lang`/`-l` (required) — `fsharp` or `csharp`.
+- `-o`/`--output <file>` — write the generated source to a file instead of stdout.
+- `--rebuild-as <name.xlsx>` — the filename the *generated script itself* saves its rebuilt
+  workbook to when run (default `output.xlsx`).
+
+```bash
+fsopenxmldsl-mcp convert report.xlsx --lang fsharp -o report.fsx --rebuild-as rebuilt.xlsx
+dotnet fsi report.fsx
 ```
 
 ## Tools

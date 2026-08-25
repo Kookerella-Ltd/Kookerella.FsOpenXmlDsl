@@ -13,10 +13,10 @@
   </PropertyGroup>
 
   <PropertyGroup>
-    <Version>0.3.0</Version>
+    <Version>0.3.1</Version>
     <Authors>Kookerella</Authors>
     <Company>Kookerella Ltd</Company>
-    <Description>An idiomatic, immutable, fluent C# wrapper over Kookerella.FsOpenXmlDsl - build and read Excel workbooks (.xlsx/.xlsm) from C# without touching F# discriminated unions or option types directly. Covers every feature the F# core models: cell values/formulas, styling (incl. per-cell lock/hide protection), merged ranges/freeze panes/autofilter, Excel Tables, charts, images, pivot tables, sparklines, conditional formatting, data validation, hyperlinks, comments, print settings, defined names, sheet/workbook protection, VBA (as opaque bytes), and code generation.</Description>
+    <Description>An idiomatic, immutable, fluent C# wrapper over Kookerella.FsOpenXmlDsl - build and read Excel workbooks (.xlsx/.xlsm) from C# without touching F# discriminated unions or option types directly. Unlike libraries that only build or mutate a workbook through an imperative API, this can also decompile an existing .xlsx/.xlsm into idiomatic, runnable C# source that rebuilds it (CsCodeGen.Generate) - read a real spreadsheet, get back the code that builds it. Covers every feature the F# core models: cell values/formulas, styling (incl. per-cell lock/hide protection), merged ranges/freeze panes/autofilter, Excel Tables, charts, images, pivot tables, sparklines, conditional formatting, data validation, hyperlinks, comments, print settings, defined names, sheet/workbook protection, and VBA (as opaque bytes).</Description>
     <PackageTags>csharp;excel;xlsx;xlsm;openxml;spreadsheet;dsl;fluent;immutable</PackageTags>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>

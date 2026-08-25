@@ -1,11 +1,14 @@
 # Kookerella.FsOpenXmlDsl
 
 > A typesafe DSL for building and reading Excel workbooks (.xlsx/.xlsm), interpreted into
-> calls against the DocumentFormat.OpenXml SDK. Unlike write-only Excel generators, it
-> round-trips (read a file back into the same immutable model) and can regenerate
-> equivalent F# source from a loaded workbook via built-in code generation. Ships as three
-> packages from one repo: the F# core (`Kookerella.FsOpenXmlDsl`), an idiomatic C# wrapper
-> over it (`Kookerella.CsOpenXmlDsl`), and a local MCP server exposing it as agent tools
+> calls against the DocumentFormat.OpenXml SDK. Most Excel libraries only go one direction -
+> build a workbook from scratch, or mutate an existing one, through an imperative API. This
+> one also round-trips (read a file back into the same immutable model) and can decompile a
+> loaded workbook back into equivalent, runnable F# or C# source via built-in code
+> generation - available as library calls, as MCP tools for an agent, and as a
+> `fsopenxmldsl-mcp convert` CLI command for anyone else. Ships as three packages from one
+> repo: the F# core (`Kookerella.FsOpenXmlDsl`), an idiomatic C# wrapper over it
+> (`Kookerella.CsOpenXmlDsl`), and a local MCP server exposing it as agent tools/a CLI
 > (`Kookerella.FsOpenXmlDsl.Mcp`).
 
 License: MIT. Repo: `github.com/Kookerella-Ltd/Kookerella.FsOpenXmlDsl`. If a caller/agent
@@ -162,6 +165,12 @@ Registry as `io.github.MarkNicholls/fsopenxmldsl-mcp`. Exposes four tools:
   file-based apps (`dotnet run <file>.cs`), referencing the published
   `Kookerella.CsOpenXmlDsl` NuGet package rather than a local path — runs on any machine
   with the .NET 10 SDK.
+
+The same binary is also a plain CLI, for the decompile-to-source capability without an MCP
+client at all: `fsopenxmldsl-mcp convert <input.xlsx> --lang <fsharp|csharp> [-o <file>]
+[--rebuild-as <name.xlsx>]` prints (or saves) the same source `generate_fsharp_script`/
+`generate_csharp_script` would return, run once and exit rather than starting the server —
+`fsopenxmldsl-mcp` with no arguments still starts the MCP server as before.
 
 `create_workbook`/`read_workbook` go through the F# core directly; the two `generate_*`
 tools are the only ones that go through the C# wrapper (for `generate_csharp_script`) or

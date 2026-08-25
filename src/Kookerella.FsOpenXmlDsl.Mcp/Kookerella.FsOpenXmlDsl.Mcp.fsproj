@@ -13,10 +13,10 @@
          rather than as a hosted service). -->
     <PackAsTool>true</PackAsTool>
     <ToolCommandName>fsopenxmldsl-mcp</ToolCommandName>
-    <Version>0.3.1</Version>
+    <Version>0.4.0</Version>
     <Authors>Kookerella</Authors>
     <Company>Kookerella Ltd</Company>
-    <Description>MCP (Model Context Protocol) server exposing Kookerella.FsOpenXmlDsl's Excel read/write/code-generation capabilities as tools any MCP-compatible AI agent can call directly - build a workbook, read one back, or regenerate its F# or C# source - without the agent needing to write any F# or C# itself.</Description>
+    <Description>MCP (Model Context Protocol) server exposing Kookerella.FsOpenXmlDsl's Excel read/write/code-generation capabilities as tools any MCP-compatible AI agent can call directly - build a workbook, read one back, or decompile an existing one into idiomatic, runnable F# or C# source, without the agent needing to write any F# or C# itself. Unlike libraries that only build or mutate a workbook through an imperative API, this can translate an existing .xlsx/.xlsm back into source that reproduces it. The same translation is available as a plain CLI (fsopenxmldsl-mcp convert file.xlsx --lang csharp) for anyone not going through an MCP client.</Description>
     <PackageTags>mcp;model-context-protocol;ai;agent;excel;xlsx;openxml;fsharp;dotnet-tool</PackageTags>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>

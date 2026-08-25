@@ -9,6 +9,21 @@ same DSL.
 See [MAPPING.md](MAPPING.md) for exactly which SpreadsheetML features map 1:1, which are
 approximated, and which aren't modeled yet.
 
+**This round-trips in both directions**, which most Excel libraries (EPPlus, ClosedXML,
+NPOI, ...) don't: they give you an imperative API to build a workbook from scratch or mutate
+an existing one, but no way to turn an *existing* file back into readable source. Here,
+`Reader` parses a real `.xlsx`/`.xlsm` back into the same DSL, and `Workbook.generateScript`
+(F#) / `CsCodeGen.Generate` (C#) go one step further and render that model back out as a
+self-contained script that rebuilds an equivalent file - a decompiler for spreadsheets, not
+just a writer. `Kookerella.FsOpenXmlDsl.Mcp` exposes this as `generate_fsharp_script`/
+`generate_csharp_script` MCP tools for an AI agent, and as a `fsopenxmldsl-mcp convert`
+CLI command for anyone else - try it on any spreadsheet you already have, no F#/C# required:
+
+```bash
+dotnet tool install -g Kookerella.FsOpenXmlDsl.Mcp
+fsopenxmldsl-mcp convert your-file.xlsx --lang csharp
+```
+
 ## Layout
 
 - `src/Kookerella.FsOpenXmlDsl` — the library.
@@ -98,7 +113,9 @@ approximated, and which aren't modeled yet.
   reusing the F# test project.
 - `src/Kookerella.FsOpenXmlDsl.Mcp` — a local MCP (Model Context Protocol) server exposing
   this library's read/write/code-generation capabilities as tools any MCP-compatible AI
-  agent can call directly - see its own README for the tool list and how to configure it.
+  agent can call directly, and the same script-generation capability as a plain
+  `fsopenxmldsl-mcp convert` CLI command for anyone not going through an MCP client - see its
+  own README for the tool list and how to configure it.
 
 ## Quick start
 

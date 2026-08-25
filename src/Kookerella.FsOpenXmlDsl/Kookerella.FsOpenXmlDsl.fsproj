@@ -10,10 +10,10 @@
          the project filename (Kookerella.FsOpenXmlDsl), so they're intentionally not
          overridden here. Version is a plain field to bump by hand per release - there's
          no CI/release pipeline driving it yet. -->
-    <Version>0.1.1</Version>
+    <Version>0.1.2</Version>
     <Authors>Kookerella</Authors>
     <Company>Kookerella Ltd</Company>
-    <Description>A typesafe F# DSL for building and reading Excel workbooks (.xlsx/.xlsm), interpreted into calls against the DocumentFormat.OpenXml SDK. Unlike write-only Excel generators, it round-trips: read an existing file back into the same immutable model, and regenerate equivalent F# source from it via built-in code generation. Covers cells, styles, formulas (including shared-formula reconstruction on read), conditional formatting, data validation, tables, charts, images, pivot tables (with real aggregation), sparklines, and VBA macro embedding.</Description>
+    <Description>A typesafe F# DSL for building and reading Excel workbooks (.xlsx/.xlsm), interpreted into calls against the DocumentFormat.OpenXml SDK. Unlike write-only Excel generators, this round-trips and can decompile an existing file into equivalent, runnable F# source via built-in code generation (Workbook.generateScript) - read a real spreadsheet, get back the code that builds it. Covers cells, styles, formulas (including shared-formula reconstruction on read), conditional formatting, data validation, tables, charts, images, pivot tables (with real aggregation), sparklines, and VBA macro embedding.</Description>
     <PackageTags>fsharp;excel;xlsx;xlsm;openxml;spreadsheet;spreadsheetml;dsl;code-generation;round-trip;pivot-table;vba</PackageTags>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>

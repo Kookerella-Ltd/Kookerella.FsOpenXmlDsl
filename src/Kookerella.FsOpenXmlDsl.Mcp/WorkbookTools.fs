@@ -169,8 +169,9 @@ type WorkbookTools =
          feature - no .csproj needed). The C# equivalent of generate_fsharp_script, for a caller who wants \
          pasteable/runnable C# rather than F# - useful for explaining how a file is structured, or as a \
          starting point for the wrapper's fluent API (styling, tables, charts, pivot tables, sparklines, \
-         etc.) beyond what create_workbook exposes. Covers a narrower feature set than \
-         generate_fsharp_script - see Kookerella.CsOpenXmlDsl's own README for its scope."
+         conditional formatting, data validation, hyperlinks, comments, print settings, defined names, \
+         protection, etc. - Kookerella.CsOpenXmlDsl now covers the same worksheet/workbook-level feature \
+         set as generate_fsharp_script's own Kookerella.FsOpenXmlDsl) beyond what create_workbook exposes."
     )>]
     static member GenerateCSharpScript
         (
