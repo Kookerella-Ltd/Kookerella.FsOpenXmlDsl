@@ -2,3 +2,8 @@ bin/
 obj/
 *.user
 .vs/
+
+# FAKE's own compiled-script cache and downloaded packages for build.fsx - regenerable,
+# machine-specific, not meant to be committed. build.fsx.lock (the resolved dependency
+# versions) is committed, same as any other lock file.
+.fake/
