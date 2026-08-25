@@ -18,6 +18,14 @@ plain CLI (`fsopenxmldsl-mcp convert`/`build`) for anyone who isn't going throug
 client, and as direct library calls (`Workbook.generateScript`/`CsCodeGen.Generate`/
 `Xml.ofWorkbook`/`Xml.toWorkbook`) for either to call themselves.
 
+The XML direction has two concrete uses beyond code generation: **build an `.xlsx` from
+XML a transform engine already produces** (an XSLT pipeline, or any templating that emits
+XML, can target Excel with no code at all), and **convert an existing `.xlsx` to XML for
+version control** - `.xlsx` is a binary ZIP, so `git diff` on one is useless, but
+`generate_xml`'s output is deterministically ordered (sorted by cell position, or by name
+for defined names) regardless of the source workbook's own list order, so a real content
+change produces a small, isolated diff rather than a spurious one from reshuffled rows.
+
 This runs **locally**, as a subprocess your MCP client launches over stdio - there's no
 hosted service, no network address, and no account to sign up for. It's distributed as a
 [.NET tool](https://learn.microsoft.com/dotnet/core/tools/global-tools) for exactly that

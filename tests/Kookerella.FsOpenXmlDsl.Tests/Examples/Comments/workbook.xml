@@ -16,9 +16,9 @@
         </cell>
       </cells>
       <comments>
+        <comment cell="A1">Double check this label.</comment>
         <comment cell="B1" author="Alex">Figure is provisional pending audit.</comment>
         <comment cell="B2" author="Alex">Includes one-off relocation costs.</comment>
-        <comment cell="A1">Double check this label.</comment>
       </comments>
     </sheet>
   </sheets>

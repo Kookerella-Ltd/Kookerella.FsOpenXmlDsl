@@ -999,19 +999,32 @@ module Xml =
             |> Option.map (childElems "pivotTable" >> List.map toPivotTableEntry)
             |> Option.defaultValue [] }
 
+    /// Sorts a list by cell position before rendering, so `ofWorkbook`'s output is
+    /// deterministic regardless of the order a `Worksheet`'s lists happen to be in - a real
+    /// property, not an accident of "Excel/`Reader` usually writes things in order": it's
+    /// what makes committing `workbook.xml` to source control and diffing it across commits
+    /// actually meaningful (a small edit produces a small diff) rather than incidentally so.
+    /// `CellRef`'s structural comparison already orders (Row, Col) the way this needs.
+    let private sortedByCell (refOf: 'a -> CellRef) (items: 'a list) : 'a list = items |> List.sortBy refOf
+
     let private ofWorksheet (s: Worksheet) : XElement =
-        let cellsChild = if s.Cells.IsEmpty then None else Some(elem "cells" (s.Cells |> List.map (ofCell >> box)))
+        let cellsChild =
+            if s.Cells.IsEmpty then
+                None
+            else
+                Some(elem "cells" (s.Cells |> sortedByCell (fun c -> c.Ref) |> List.map (ofCell >> box)))
 
         let mergedRangesChild =
             if s.MergedRanges.IsEmpty then
                 None
             else
-                Some(elem "mergedRanges" (s.MergedRanges |> List.map (ofMergedRange >> box)))
+                Some(elem "mergedRanges" (s.MergedRanges |> sortedByCell (fun m -> m.TopLeft) |> List.map (ofMergedRange >> box)))
 
         let columnPropsChild =
             if s.ColumnProps.IsEmpty then
                 None
             else
+                // `Map.toList` already yields ascending key order - no separate sort needed.
                 Some(elem "columnProps" (s.ColumnProps |> Map.toList |> List.map (fun (i, c) -> box (ofColumnProps i c))))
 
         let rowPropsChild =
@@ -1024,13 +1037,65 @@ module Xml =
             if s.Hyperlinks.IsEmpty then
                 None
             else
-                Some(elem "hyperlinks" (s.Hyperlinks |> List.map (ofHyperlinkEntry >> box)))
+                Some(elem "hyperlinks" (s.Hyperlinks |> sortedByCell (fun h -> h.TopLeft) |> List.map (ofHyperlinkEntry >> box)))
 
         let commentsChild =
             if s.Comments.IsEmpty then
                 None
             else
-                Some(elem "comments" (s.Comments |> List.map (ofCommentEntry >> box)))
+                Some(elem "comments" (s.Comments |> sortedByCell (fun c -> c.Cell) |> List.map (ofCommentEntry >> box)))
+
+        let imagesChild =
+            if s.Images.IsEmpty then
+                None
+            else
+                Some(elem "images" (s.Images |> sortedByCell (fun i -> i.TopLeftAnchor) |> List.map (ofImageEntry >> box)))
+
+        let tablesChild =
+            if s.Tables.IsEmpty then
+                None
+            else
+                Some(elem "tables" (s.Tables |> sortedByCell (fun t -> t.TopLeft) |> List.map (ofTableEntry >> box)))
+
+        let sparklineGroupsChild =
+            if s.SparklineGroups.IsEmpty then
+                None
+            else
+                // A group has no single position of its own - ordered by its first
+                // sparkline's cell (falling back to last if a group is ever empty, though
+                // that shouldn't happen in practice) for at least some determinism.
+                let anchorOf (g: SparklineGroupEntry) =
+                    g.Sparklines |> List.map (fun sl -> sl.Cell) |> List.sortBy id |> List.tryHead |> Option.defaultValue (CellRef.create 0 0)
+
+                Some(elem "sparklineGroups" (s.SparklineGroups |> List.sortBy anchorOf |> List.map (ofSparklineGroupEntry >> box)))
+
+        let chartsChild =
+            if s.Charts.IsEmpty then
+                None
+            else
+                Some(elem "charts" (s.Charts |> sortedByCell (fun c -> c.TopLeftAnchor) |> List.map (ofChartEntry >> box)))
+
+        let pivotTablesChild =
+            if s.PivotTables.IsEmpty then
+                None
+            else
+                Some(elem "pivotTables" (s.PivotTables |> sortedByCell (fun p -> p.TopLeftAnchor) |> List.map (ofPivotTableEntry >> box)))
+
+        let conditionalFormatsChild =
+            if s.ConditionalFormats.IsEmpty then
+                None
+            else
+                Some(
+                    elem
+                        "conditionalFormats"
+                        (s.ConditionalFormats |> sortedByCell (fun c -> c.TopLeft) |> List.map (ofConditionalFormatEntry >> box))
+                )
+
+        let dataValidationsChild =
+            if s.DataValidations.IsEmpty then
+                None
+            else
+                Some(elem "dataValidations" (s.DataValidations |> sortedByCell (fun d -> d.TopLeft) |> List.map (ofDataValidationEntry >> box)))
 
         let sections =
             boxElem cellsChild
@@ -1043,33 +1108,13 @@ module Xml =
             @ boxElem commentsChild
             @ boxElem (s.PageSetup |> Option.map ofPageSetup)
             @ boxElem (s.Protection |> Option.map ofSheetProtection)
-            @ boxElem (if s.Images.IsEmpty then None else Some(elem "images" (s.Images |> List.map (ofImageEntry >> box))))
-            @ boxElem (if s.Tables.IsEmpty then None else Some(elem "tables" (s.Tables |> List.map (ofTableEntry >> box))))
-            @ boxElem (
-                if s.SparklineGroups.IsEmpty then
-                    None
-                else
-                    Some(elem "sparklineGroups" (s.SparklineGroups |> List.map (ofSparklineGroupEntry >> box)))
-            )
-            @ boxElem (if s.Charts.IsEmpty then None else Some(elem "charts" (s.Charts |> List.map (ofChartEntry >> box))))
-            @ boxElem (
-                if s.PivotTables.IsEmpty then
-                    None
-                else
-                    Some(elem "pivotTables" (s.PivotTables |> List.map (ofPivotTableEntry >> box)))
-            )
-            @ boxElem (
-                if s.ConditionalFormats.IsEmpty then
-                    None
-                else
-                    Some(elem "conditionalFormats" (s.ConditionalFormats |> List.map (ofConditionalFormatEntry >> box)))
-            )
-            @ boxElem (
-                if s.DataValidations.IsEmpty then
-                    None
-                else
-                    Some(elem "dataValidations" (s.DataValidations |> List.map (ofDataValidationEntry >> box)))
-            )
+            @ boxElem imagesChild
+            @ boxElem tablesChild
+            @ boxElem sparklineGroupsChild
+            @ boxElem chartsChild
+            @ boxElem pivotTablesChild
+            @ boxElem conditionalFormatsChild
+            @ boxElem dataValidationsChild
 
         elem "sheet" (box (attr "name" s.Name) :: sections)
 
@@ -1120,7 +1165,9 @@ module Xml =
             if wb.DefinedNames.IsEmpty then
                 None
             else
-                Some(elem "definedNames" (wb.DefinedNames |> List.map (ofDefinedNameEntry >> box)))
+                // No positional anchor of their own (unlike everything sheet-level) - sorted
+                // by name for the same determinism reason `sortedByCell` exists.
+                Some(elem "definedNames" (wb.DefinedNames |> List.sortBy (fun d -> d.Name) |> List.map (ofDefinedNameEntry >> box)))
 
         let protectionChild = wb.Protection |> Option.map ofWorkbookProtection
         let vbaChild = wb.VbaProject |> Option.map (fun bytes -> elem "vbaProject" [ box (Convert.ToBase64String bytes) ])

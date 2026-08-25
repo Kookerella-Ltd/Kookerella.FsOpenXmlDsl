@@ -15,11 +15,11 @@
     </sheet>
   </sheets>
   <definedNames>
-    <definedName name="TaxRate" formula="Sheet1!$A$1">
-      <workbookScope />
-    </definedName>
     <definedName name="LocalTotal" formula="Sheet1!$A$2">
       <sheetScope sheetName="Sheet1" />
+    </definedName>
+    <definedName name="TaxRate" formula="Sheet1!$A$1">
+      <workbookScope />
     </definedName>
   </definedNames>
 </workbook>

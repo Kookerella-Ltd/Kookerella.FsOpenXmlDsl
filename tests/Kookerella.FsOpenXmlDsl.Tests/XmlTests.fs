@@ -163,14 +163,17 @@ let ``Xml round trip: no VbaProject stays None`` () =
 
 [<Fact>]
 let ``Xml round trip: DefinedNames, workbook and sheet scoped`` () =
+    // Already in the canonical (alphabetical-by-name) order ofWorkbook always produces -
+    // see ``Xml.ofWorkbook produces deterministic, input-order-independent output`` below
+    // for the property this relies on.
     let original =
         { emptyWorkbook [ emptySheet "Sheet1" ] with
             DefinedNames =
-                [ { Name = "TaxRate"; Formula = "0.075"; Scope = WorkbookScope; Hidden = false }
-                  { Name = "LocalTotal"
+                [ { Name = "LocalTotal"
                     Formula = "Sheet1!$A$2"
                     Scope = SheetScope "Sheet1"
-                    Hidden = true } ] }
+                    Hidden = true }
+                  { Name = "TaxRate"; Formula = "0.075"; Scope = WorkbookScope; Hidden = false } ] }
 
     let roundTripped = original |> Xml.ofWorkbook |> Xml.toWorkbook
     Assert.Equal<Workbook>(original, roundTripped)
@@ -563,6 +566,45 @@ let ``Xml round trip: Table with calculated column and custom style`` () =
     let original = emptyWorkbook [ sheet ]
     let roundTripped = original |> Xml.ofWorkbook |> Xml.toWorkbook
     Assert.Equal<Workbook>(original, roundTripped)
+
+/// The property that makes committing `workbook.xml` to source control and diffing it
+/// across commits actually meaningful: two `Workbook` values with the same content but
+/// differently-ordered lists (as they'd naturally be if e.g. cells were appended in a
+/// different sequence, or two runs of `Workbook.load` happened to iterate a foreign file's
+/// raw XML differently) must produce byte-identical `ofWorkbook` output. Without this, a
+/// re-generated XML could show a spurious diff (rows shuffled) with no real content change.
+[<Fact>]
+let ``Xml.ofWorkbook produces deterministic, input-order-independent output`` () =
+    let sheetA =
+        { emptySheet "Sheet1" with
+            Cells =
+                [ { Ref = CellRef.ofA1 "B2"; Value = Number 2.0; Style = None }
+                  { Ref = CellRef.ofA1 "A1"; Value = Number 1.0; Style = None }
+                  { Ref = CellRef.ofA1 "A2"; Value = Number 3.0; Style = None } ]
+            MergedRanges =
+                [ { TopLeft = CellRef.ofA1 "C1"; BottomRight = CellRef.ofA1 "D1" }
+                  { TopLeft = CellRef.ofA1 "A1"; BottomRight = CellRef.ofA1 "B1" } ]
+            Comments =
+                [ { Cell = CellRef.ofA1 "B2"; Author = "Alex"; Text = "Second" }
+                  { Cell = CellRef.ofA1 "A1"; Author = "Alex"; Text = "First" } ] }
+
+    let sheetB =
+        { sheetA with
+            Cells = sheetA.Cells |> List.rev
+            MergedRanges = sheetA.MergedRanges |> List.rev
+            Comments = sheetA.Comments |> List.rev }
+
+    let wbA =
+        { emptyWorkbook [ sheetA ] with
+            DefinedNames =
+                [ { Name = "Zeta"; Formula = "1"; Scope = WorkbookScope; Hidden = false }
+                  { Name = "Alpha"; Formula = "2"; Scope = WorkbookScope; Hidden = false } ] }
+
+    let wbB = { wbA with DefinedNames = wbA.DefinedNames |> List.rev; Sheets = [ sheetB ] }
+
+    // wbA and wbB are *not* structurally equal as F# values (their lists are in different
+    // orders) - the property under test is that they still render to identical XML.
+    Assert.Equal((Xml.ofWorkbook wbA).ToString(), (Xml.ofWorkbook wbB).ToString())
 
 /// Proves the whole pipeline end to end from a hand-authored XML string (documenting the
 /// actual schema `Xml.ofWorkbook` produces) all the way to a real, schema-valid .xlsx -

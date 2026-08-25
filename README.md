@@ -396,9 +396,17 @@ actually runs each one via `dotnet fsi` and checks it reproduces the committed `
 `Xml.toWorkbook`/`Xml.ofWorkbook` (in `Xml.fs`) are a third way in and out of the DSL,
 alongside writing F#/C# directly and code generation: plain XML, against a real schema
 (`Xml.xsd`, embedded in the assembly). This exists for a caller who'd rather generate or
-consume data than write code at all - the motivating case is an XSLT pipeline that already
-produces a report as XML and wants to target Excel without learning either the full OOXML
-schema or this library's own API:
+consume data than write code at all. Two concrete uses:
+
+- **Build an `.xlsx` from XML a transform engine already produces** - an XSLT pipeline (or
+  any templating that emits XML) can target Excel directly, without learning the OOXML
+  schema or this library's own API.
+- **Convert an existing `.xlsx` to XML for version control** - `.xlsx` is a binary ZIP, so
+  `git diff` on one is useless; converting to XML first makes a real, human-readable diff
+  possible. `Xml.ofWorkbook`'s output is deterministically ordered (sorted by cell position,
+  or by name for defined names) regardless of the order the underlying `Workbook`'s lists
+  happen to be in, so a genuine content change produces a small, isolated diff rather than a
+  spurious one from rows/rules getting reshuffled between runs.
 
 ```fsharp
 open System.Xml.Linq
