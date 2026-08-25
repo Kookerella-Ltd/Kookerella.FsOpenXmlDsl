@@ -24,8 +24,14 @@ anything they contain), work through **all** of these, in order. Skipping one is
 how past drift happened — each step below has a real, specific incident behind it.
 
 1. **F# core** (`src/Kookerella.FsOpenXmlDsl`): model + `Writer.fs` + `Reader.fs` +
-   `Interpreter/CodeGen.fs` (F# source-gen) + a test in
-   `tests/Kookerella.FsOpenXmlDsl.Tests`.
+   `Interpreter/CodeGen.fs` (F# source-gen) + `Xml.fs`/`Xml.xsd` (the XML surface - a new
+   field/case needs a schema change too, not just a code change; the "every generated
+   `workbook.xml` validates against `Xml.xsd`" check inside `verifyScenarioNamed` is what
+   catches the two drifting apart) + a test in `tests/Kookerella.FsOpenXmlDsl.Tests`, and
+   the F# core's own `<Description>` in `Kookerella.FsOpenXmlDsl.fsproj` (this package went
+   stale once already - `Xml.fs` shipped in source for several commits before anyone
+   noticed the *published* package was still an old version without it, because the Mcp
+   server builds against local source via `ProjectReference` and never surfaced the gap).
 2. **C# wrapper** (`src/Kookerella.CsOpenXmlDsl`), in this order:
    - Verify the F#/C# compiled interop shape via a `dotnet fsi` reflection scratch script
      **before** writing any conversion code — constructor parameter order, `NewCaseName`
@@ -70,10 +76,13 @@ how past drift happened — each step below has a real, specific incident behind
 5. **Version bump + release** — bump `<Version>` by hand in whichever project(s) changed
    (a semver judgment call, not automated), then run
    `dotnet fake run build.fsx -t Push<Core|Wrapper|Mcp>` (see `build.fsx` — this runs the
-   full test gate first, even for a single Push target). NuGet indexing typically takes
-   5–20 minutes after a successful push before the new version resolves anywhere (search,
-   flatcontainer index, `dotnet restore`) — don't assume a push failed just because it
-   isn't visible yet; check nuget.org's own package page (it updates before the API
+   full test gate first, even for a single Push target). **Use this, not a manual `dotnet
+   pack`/`dotnet nuget push`** - `build.fsx` exists specifically so a release can't skip the
+   test gate, but that only holds if it's actually invoked; one release went out via plain
+   `dotnet pack` anyway, purely out of habit, defeating the point. NuGet indexing typically
+   takes 5–20 minutes after a successful push before the new version resolves anywhere
+   (search, flatcontainer index, `dotnet restore`) — don't assume a push failed just because
+   it isn't visible yet; check nuget.org's own package page (it updates before the API
    indexes do) before retrying.
 6. **MCP Registry sync**, only if the Mcp package's version changed: `mcp-publisher login
    github` (interactive GitHub device-flow — this needs the user, it can't be scripted or
@@ -82,6 +91,36 @@ how past drift happened — each step below has a real, specific incident behind
    again right before publishing rather than reusing an older session. The registry
    publish will itself reject the request with a clear error if the NuGet version it
    references isn't indexed yet — that's the signal to wait, not a real failure.
+
+## Keep these in sync
+
+The checklist above is organized by "when adding a feature, touch these in order." This is
+the same information reorganized as a flat list of every file/field that describes a
+capability rather than implementing one - useful as a quick scan for "did I miss
+something" regardless of what kind of change is in flight, since a doc/metadata-only change
+(no new DSL feature at all) can still make one of these stale on its own.
+
+| File | What must stay accurate | Checked by |
+|---|---|---|
+| `README.md` (root) | Top summary, per-feature sections, Layout list | Nothing automated - read it |
+| `llms.txt` | Top summary, per-package scope sections | Nothing automated - read it |
+| `src/Kookerella.CsOpenXmlDsl/README.md` | Feature list, `## Scope` | Nothing automated |
+| `src/Kookerella.FsOpenXmlDsl.Mcp/README.md` | Tool list, `## Scope`, CLI usage | Nothing automated |
+| `src/Kookerella.FsOpenXmlDsl/Kookerella.FsOpenXmlDsl.fsproj` `<Description>` | Matches the F# core's actual feature set | Nothing automated - it's NuGet metadata, not code |
+| `src/Kookerella.CsOpenXmlDsl/Kookerella.CsOpenXmlDsl.csproj` `<Description>` | Matches the C# wrapper's actual feature set | Nothing automated |
+| `src/Kookerella.FsOpenXmlDsl.Mcp/Kookerella.FsOpenXmlDsl.Mcp.fsproj` `<Description>` | Matches the Mcp server's actual tool/CLI surface | Nothing automated |
+| `src/Kookerella.FsOpenXmlDsl.Mcp/.mcp/server.json` | `description` (≤100 chars, registry-enforced) **and** both `version` fields (top-level and `packages[].version`) match the `.fsproj`'s `<Version>` | The registry publish itself rejects a version it can't find on NuGet - but nothing checks `description` accuracy or that the two version fields agree with the `.fsproj` |
+| `src/Kookerella.FsOpenXmlDsl.Mcp/WorkbookTools.fs` | Every tool's `[<Description>]` text, and the `WorkbookTools` type's own doc comment | Nothing automated - this is what an MCP client/agent actually reads, separate from any README |
+| `src/Kookerella.FsOpenXmlDsl.Mcp/Dockerfile` | `COPY` list mirrors every `ProjectReference` in the `.fsproj` exactly | Nothing automated unless someone actually runs `docker build` |
+| `src/Kookerella.FsOpenXmlDsl/Xml.xsd` | Matches what `Xml.fs`'s `ofWorkbook`/`toWorkbook` actually read and write | `assertXmlSchemaValid` inside `verifyScenarioNamed` - real, but only as strong as the scenarios that exist |
+| `tests/Kookerella.CsOpenXmlDsl.Tests/ExampleTests.cs`'s `AssertWorkbooksMatch` | Checks every `Sheet`/`Workbook` field the slow round-trip theory is supposed to verify | Nothing - it silently stopped covering five-plus features in a row once already |
+| `tests/Kookerella.CsOpenXmlDsl.Tests/DriftGuardTests.cs`'s `EnumMirrors`/`ClosedHierarchyMirrors` | Lists every F# DU mirrored as a C# enum/closed hierarchy | Only guards types already registered with it - a brand-new type is invisible until added |
+| `MAPPING.md` | What the F# core maps 1:1 vs. approximates vs. doesn't model | Nothing automated - only touch this for a new OOXML-level capability, not a wrapper-level one |
+
+Three packages, three `.fsproj`/`.csproj` `<Version>` fields, one `server.json` with two
+more copies of one of those three - a version bump in one place and not the others is the
+single most common way this list goes stale. When in doubt, grep the whole repo for the old
+version string before considering a bump finished.
 
 ## Process discipline
 
