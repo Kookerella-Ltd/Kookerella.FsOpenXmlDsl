@@ -15,9 +15,14 @@ an existing one, but no way to turn an *existing* file back into readable source
 `Reader` parses a real `.xlsx`/`.xlsm` back into the same DSL, and `Workbook.generateScript`
 (F#) / `CsCodeGen.Generate` (C#) go one step further and render that model back out as a
 self-contained script that rebuilds an equivalent file - a decompiler for spreadsheets, not
-just a writer. `Kookerella.FsOpenXmlDsl.Mcp` exposes this as `generate_fsharp_script`/
-`generate_csharp_script` MCP tools for an AI agent, and as a `fsopenxmldsl-mcp convert`
-CLI command for anyone else - try it on any spreadsheet you already have, no F#/C# required:
+just a writer. A third surface, `Xml.ofWorkbook`/`Xml.toWorkbook` (see
+["## XML"](#xml) below), does the same translation to/from plain XML against a real,
+embedded schema - for a caller who'd rather generate or consume data than write code at
+all, e.g. an XSLT pipeline producing a report. `Kookerella.FsOpenXmlDsl.Mcp` exposes all
+three directions as MCP tools (`generate_fsharp_script`/`generate_csharp_script`/
+`generate_xml`/`create_workbook_from_xml`) for an AI agent, and as `fsopenxmldsl-mcp
+convert`/`build` CLI commands for anyone else - try it on any spreadsheet you already have,
+no code required:
 
 ```bash
 dotnet tool install -g Kookerella.FsOpenXmlDsl.Mcp
@@ -60,6 +65,10 @@ fsopenxmldsl-mcp convert your-file.xlsx --lang csharp
     VbaProject`, a macro-enabled workbook's raw `vbaProject.bin` bytes - see its own doc
     comment; there's no dedicated `Macros.fs` since it's a single opaque field, not a new
     type).
+  - `Xml.fs` / `Xml.xsd` — the XML surface: `Xml.toWorkbook`/`Xml.ofWorkbook` translate a
+    `Workbook` to/from an `XElement` tree, and `Xml.schemaSet()` loads the paired schema
+    (embedded in the assembly as a resource) for validating either direction. See
+    ["## XML"](#xml) below.
   - `Builders.fs` — ergonomic helpers: plain functional constructors (`cellA1`, ...) for
     the canonical model, plus the `SheetItem`/`CellEntry` types (each a single simple DU
     case with optional fields) and the `sheet` fold function - a small tree-shaped "AST
@@ -99,7 +108,11 @@ fsopenxmldsl-mcp convert your-file.xlsx --lang csharp
   feature has a real, openable `.xlsx` demonstrating it - a browsable gallery, not just
   assertions. Each scenario also gets an `Examples/<test name>/script.fsx` - see
   "Regenerating a file as F# source" below - which a separate, slower `Category=Slow` test
-  group actually executes via `dotnet fsi` and verifies against the committed `.xlsx`.
+  group actually executes via `dotnet fsi` and verifies against the committed `.xlsx`, and
+  an `Examples/<test name>/workbook.xml` - the same workbook through `Xml.ofWorkbook`,
+  validated against `Xml.xsd` at generation time (see "## XML" below) - so one folder always
+  has three views of the same example: the real file, the F# source that rebuilds it, and
+  the XML that also rebuilds it.
   `Assets/` holds the one test fixture too large to inline as a base64 literal like every
   other binary fixture in `Tests.fs` - a real `vbaProject.bin` extracted from a workbook
   actually saved by Excel, used by the macro example.
@@ -112,10 +125,10 @@ fsopenxmldsl-mcp convert your-file.xlsx --lang csharp
   own C# xUnit suite, exercising the wrapper the way a real C# caller would rather than
   reusing the F# test project.
 - `src/Kookerella.FsOpenXmlDsl.Mcp` — a local MCP (Model Context Protocol) server exposing
-  this library's read/write/code-generation capabilities as tools any MCP-compatible AI
-  agent can call directly, and the same script-generation capability as a plain
-  `fsopenxmldsl-mcp convert` CLI command for anyone not going through an MCP client - see its
-  own README for the tool list and how to configure it.
+  this library's read/write/code-generation/XML capabilities as tools any MCP-compatible AI
+  agent can call directly, and the same conversion capability as plain `fsopenxmldsl-mcp
+  convert`/`build` CLI commands for anyone not going through an MCP client - see its own
+  README for the tool list and how to configure it.
 
 ## Quick start
 
@@ -377,6 +390,55 @@ row/cell an explicit `index`/`col` where the source actually has a gap - see
 `Interpreter/CodeGen.fs`. Every scenario under `tests/Kookerella.FsOpenXmlDsl.Tests/Examples/` has a
 committed `script.fsx` generated exactly this way; the `Category=Slow` test group is what
 actually runs each one via `dotnet fsi` and checks it reproduces the committed `.xlsx`.
+
+## XML
+
+`Xml.toWorkbook`/`Xml.ofWorkbook` (in `Xml.fs`) are a third way in and out of the DSL,
+alongside writing F#/C# directly and code generation: plain XML, against a real schema
+(`Xml.xsd`, embedded in the assembly). This exists for a caller who'd rather generate or
+consume data than write code at all - the motivating case is an XSLT pipeline that already
+produces a report as XML and wants to target Excel without learning either the full OOXML
+schema or this library's own API:
+
+```fsharp
+open System.Xml.Linq
+
+// XML -> Workbook -> .xlsx
+let wb = XElement.Load "report.xml" |> Xml.toWorkbook
+Workbook.save "report.xlsx" wb
+
+// .xlsx -> Workbook -> XML
+let xml = Workbook.load "report.xlsx" |> Xml.ofWorkbook
+xml.Save "report.xml"
+```
+
+A discriminated union case becomes an XML element named after the case (camelCased) when
+it carries data of its own, or an attribute *value* (also camelCased) when it's one of
+several parameterless alternatives - e.g. a cell's value:
+
+```xml
+<cell ref="B2">
+  <number>42.5</number>
+  <style>
+    <numberFormat kind="currency" />
+  </style>
+</cell>
+```
+
+`Xml.schemaSet()` loads the compiled schema for validating either direction yourself
+(`XDocument.Validate`) - every scenario under `tests/Kookerella.FsOpenXmlDsl.Tests/Examples/`
+has a committed `workbook.xml` validated against it this way as part of the same test that
+generates it, so the schema and `Xml.fs` itself can never silently drift apart. `Xml.fs`
+covers the same worksheet/workbook-level feature set as the rest of this library and the C#
+wrapper - cell values, styles, merged ranges, freeze panes, autofilter, column/row sizing,
+VBA (base64), defined names, hyperlinks, comments, sheet/workbook protection, print
+settings, images (base64), Excel Tables, sparklines, charts, pivot tables (the description
+only - loading one doesn't re-run its aggregation, unlike everything else here), conditional
+formatting, and data validation.
+
+`Kookerella.FsOpenXmlDsl.Mcp` exposes both directions without writing any F# at all:
+`generate_xml`/`create_workbook_from_xml` MCP tools for an AI agent, and `fsopenxmldsl-mcp
+convert --lang xml`/`build` CLI commands for anyone else - see that project's own README.
 
 ## Building and testing
 

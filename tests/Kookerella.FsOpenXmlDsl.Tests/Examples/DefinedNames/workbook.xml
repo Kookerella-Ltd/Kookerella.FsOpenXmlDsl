@@ -1,0 +1,25 @@
+<workbook>
+  <sheets>
+    <sheet name="Sheet1">
+      <cells>
+        <cell ref="A1">
+          <number>0.075</number>
+        </cell>
+        <cell ref="A2">
+          <number>100</number>
+        </cell>
+        <cell ref="A3">
+          <formula cachedValue="107.5">B1*(1+TaxRate)</formula>
+        </cell>
+      </cells>
+    </sheet>
+  </sheets>
+  <definedNames>
+    <definedName name="TaxRate" formula="Sheet1!$A$1">
+      <workbookScope />
+    </definedName>
+    <definedName name="LocalTotal" formula="Sheet1!$A$2">
+      <sheetScope sheetName="Sheet1" />
+    </definedName>
+  </definedNames>
+</workbook>

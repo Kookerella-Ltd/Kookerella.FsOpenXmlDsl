@@ -1,0 +1,12 @@
+<workbook>
+  <sheets>
+    <sheet name="Sheet1">
+      <cells>
+        <cell ref="A1">
+          <text>Protected sheet</text>
+        </cell>
+      </cells>
+      <protection password="hunter2" sheet="true" formatCells="true" sort="true" autoFilter="true" />
+    </sheet>
+  </sheets>
+</workbook>

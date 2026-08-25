@@ -1,0 +1,16 @@
+<workbook>
+  <sheets>
+    <sheet name="Sheet1">
+      <cells>
+        <cell ref="A1">
+          <text>Short code (&lt;= 10 chars)</text>
+        </cell>
+      </cells>
+      <dataValidations>
+        <dataValidation topLeft="A2" bottomRight="A2">
+          <textLengthValidation operator="lessThanOrEqual" formula1="10" />
+        </dataValidation>
+      </dataValidations>
+    </sheet>
+  </sheets>
+</workbook>

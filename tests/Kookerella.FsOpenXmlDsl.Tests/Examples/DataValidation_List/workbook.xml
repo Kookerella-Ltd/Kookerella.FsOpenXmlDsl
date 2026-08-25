@@ -1,0 +1,20 @@
+<workbook>
+  <sheets>
+    <sheet name="Sheet1">
+      <cells>
+        <cell ref="A1">
+          <text>Size</text>
+        </cell>
+      </cells>
+      <dataValidations>
+        <dataValidation topLeft="A2" bottomRight="A2">
+          <listValidation>
+            <item>Small</item>
+            <item>Medium</item>
+            <item>Large</item>
+          </listValidation>
+        </dataValidation>
+      </dataValidations>
+    </sheet>
+  </sheets>
+</workbook>

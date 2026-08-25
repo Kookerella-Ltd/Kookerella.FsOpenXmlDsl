@@ -4,6 +4,7 @@ open System
 open System.ComponentModel
 open System.Globalization
 open System.Text.Json
+open System.Xml.Linq
 open ModelContextProtocol.Server
 open Kookerella.FsOpenXmlDsl
 
@@ -29,12 +30,14 @@ type SheetOutput() =
     member val Name: string = "" with get, set
     member val Cells: CellOutput[] = [||] with get, set
 
-/// The MCP tool surface over `Kookerella.FsOpenXmlDsl`. Deliberately narrow for this first
-/// pass - plain cell values and formulas only, addressed by a simple row/column grid per
-/// sheet, no styling/tables/charts/pivot tables/etc. - the same "honest, bounded MVP,
-/// documented gap" scoping this whole library uses elsewhere, not an oversight. A caller
-/// wanting the richer feature set should reference the library directly rather than go
-/// through these tools.
+/// The MCP tool surface over `Kookerella.FsOpenXmlDsl`. `create_workbook`/`read_workbook`
+/// are deliberately narrow - plain cell values and formulas only, addressed by a simple
+/// row/column grid per sheet, no styling/tables/charts/pivot tables/etc. - the same
+/// "honest, bounded MVP, documented gap" scoping this whole library uses elsewhere, not an
+/// oversight. The other four tools (`generate_fsharp_script`/`generate_csharp_script`/
+/// `generate_xml`/`create_workbook_from_xml`) aren't limited that way - they cover the full
+/// worksheet/workbook-level feature set, just via generated source/XML rather than a plain
+/// grid.
 [<McpServerToolType>]
 type WorkbookTools =
 
@@ -190,3 +193,34 @@ type WorkbookTools =
             [| sprintf "#:package Kookerella.CsOpenXmlDsl@%d.%d.%d" packageVersion.Major packageVersion.Minor packageVersion.Build |]
 
         Kookerella.CsOpenXmlDsl.CsCodeGen.Generate(referenceLines, outputFileName, wb)
+
+    [<McpServerTool(Name = "generate_xml")>]
+    [<Description(
+        "Reads an existing Excel workbook and returns it as XML, validated against Kookerella.FsOpenXmlDsl's \
+         own embedded schema (Xml.xsd). A plain-data alternative to generate_fsharp_script/generate_csharp_script \
+         for a caller who wants to inspect, transform (e.g. via XSLT), or archive a workbook's structure without \
+         any F#/C# source involved - unlike those two, this returns data, not a runnable script, so there is no \
+         output-filename parameter to control what a rebuild saves as. Covers the same worksheet/workbook-level \
+         feature set generate_fsharp_script does."
+    )>]
+    static member GenerateXml([<Description("Path to an existing .xlsx/.xlsm file to convert to XML.")>] path: string) : string =
+        let wb = Workbook.load path
+        (Xml.ofWorkbook wb).ToString()
+
+    [<McpServerTool(Name = "create_workbook_from_xml")>]
+    [<Description(
+        "Builds a new Excel workbook from XML matching Kookerella.FsOpenXmlDsl's own embedded schema (Xml.xsd) \
+         and saves it to disk - the inverse of generate_xml. The natural target for a caller that already \
+         produces data as XML (e.g. an XSLT pipeline generating a report) and wants to reach Excel without \
+         learning the OOXML schema or this library's own F#/C# API. Covers the same worksheet/workbook-level \
+         feature set generate_xml does; unlike create_workbook, this isn't limited to plain cell values - \
+         styling, tables, charts, and every other modeled feature can be expressed in the XML."
+    )>]
+    static member CreateWorkbookFromXml
+        (
+            [<Description("The workbook XML content - a <workbook> root element matching Xml.xsd.")>] xml: string,
+            [<Description("Output file path, e.g. \"C:\\reports\\invoice.xlsx\". The directory must already exist.")>] path: string
+        ) : string =
+        let wb = XElement.Parse(xml) |> Xml.toWorkbook
+        Workbook.save path wb
+        sprintf "Wrote %s (%d sheet%s)." path wb.Sheets.Length (if wb.Sheets.Length = 1 then "" else "s")

@@ -6,8 +6,10 @@
 > one also round-trips (read a file back into the same immutable model) and can decompile a
 > loaded workbook back into equivalent, runnable F# or C# source via built-in code
 > generation - available as library calls, as MCP tools for an agent, and as a
-> `fsopenxmldsl-mcp convert` CLI command for anyone else. Ships as three packages from one
-> repo: the F# core (`Kookerella.FsOpenXmlDsl`), an idiomatic C# wrapper over it
+> `fsopenxmldsl-mcp convert` CLI command for anyone else. A third surface (`Xml.fs`) does
+> the same translation to/from plain XML against a real, embedded schema, for a caller who'd
+> rather generate/consume data than code at all. Ships as three packages from one repo: the
+> F# core (`Kookerella.FsOpenXmlDsl`), an idiomatic C# wrapper over it
 > (`Kookerella.CsOpenXmlDsl`), and a local MCP server exposing it as agent tools/a CLI
 > (`Kookerella.FsOpenXmlDsl.Mcp`).
 
@@ -65,6 +67,29 @@ F# `let` functions can't have optional parameters) with optional `?col`/`?style`
 `autoFilter`, `conditionalFormat`, `dataValidation`, `hyperlink`, `comment`) into a
 `Worksheet`. `withDefinedNames`/`withProtection`/`withVbaProject` are pipe-friendly
 `Workbook -> Workbook` helpers for the workbook-level (not per-sheet) features.
+
+### XML surface (`Xml.fs`/`Xml.xsd`)
+
+A third way to build/read a `Workbook`, alongside writing F#/C# directly and code
+generation - plain XML against a real embedded schema, for a caller who'd rather
+generate/consume data than write code (e.g. an XSLT pipeline producing a report):
+
+- `Xml.toWorkbook (root: XElement) : Workbook` — `root` is a `<workbook>` element.
+- `Xml.ofWorkbook (wb: Workbook) : XElement` — the inverse; each is the other's exact
+  round trip for everything this covers.
+- `Xml.schemaSet () : XmlSchemaSet` — loads `Xml.xsd` (embedded in the assembly, not read
+  from a repo-relative path) for validating either direction via `XDocument.Validate`.
+
+Covers the same worksheet/workbook-level feature set as the rest of the F# core and the
+C# wrapper (cells/styles/merges/freeze/autofilter/column-row sizing, VBA and images as
+base64, defined names, hyperlinks, comments, sheet/workbook protection, print settings,
+Excel Tables, sparklines, charts, pivot tables - description only, doesn't re-run the
+aggregation - conditional formatting, data validation). Convention: a DU case becomes an
+element named after the case (camelCased) when it carries data, or an attribute value
+(also camelCased) when it's one of several parameterless alternatives, e.g.
+`<cell ref="B2"><number>42.5</number></cell>`. Every scenario under
+`tests/Kookerella.FsOpenXmlDsl.Tests/Examples/` has a committed `workbook.xml` example,
+validated against `Xml.xsd` at generation time.
 
 ## C# wrapper: `Kookerella.CsOpenXmlDsl`
 
@@ -151,12 +176,12 @@ to jump to a specific position.
 
 A local (stdio) MCP server, distributed as a `dotnet tool` (`fsopenxmldsl-mcp` command,
 `dotnet tool install -g Kookerella.FsOpenXmlDsl.Mcp`). Already listed in the official MCP
-Registry as `io.github.MarkNicholls/fsopenxmldsl-mcp`. Exposes four tools:
+Registry as `io.github.MarkNicholls/fsopenxmldsl-mcp`. Exposes six tools:
 
 - `create_workbook(path, sheets)` — builds an `.xlsx` from a plain row/column grid of cell
   text (a leading `=` makes a formula, `true`/`false` a boolean, a bare number numeric,
-  else text). No styling/tables/charts/etc. — a deliberately minimal tool, unrelated to
-  either package's own scope (both now cover the full feature set).
+  else text). No styling/tables/charts/etc. — a deliberately minimal tool, distinct from
+  the other five, which all cover the full feature set.
 - `read_workbook(path)` — reads a file back as JSON using the same text convention.
 - `generate_fsharp_script(path, outputFileName)` — reads a workbook via the F# core and
   returns F# source via the full DSL, runnable with `dotnet fsi`.
@@ -165,16 +190,25 @@ Registry as `io.github.MarkNicholls/fsopenxmldsl-mcp`. Exposes four tools:
   file-based apps (`dotnet run <file>.cs`), referencing the published
   `Kookerella.CsOpenXmlDsl` NuGet package rather than a local path — runs on any machine
   with the .NET 10 SDK.
+- `generate_xml(path)` — a plain-data alternative to the two `generate_*_script` tools:
+  reads a workbook via `Xml.ofWorkbook` and returns it as XML validated against the F#
+  core's embedded `Xml.xsd`. No `outputFileName` - there's no script to embed a save path
+  into, just data.
+- `create_workbook_from_xml(xml, path)` — the inverse: builds a workbook from XML matching
+  `Xml.xsd` via `Xml.toWorkbook` and saves it to `path`. Unlike `create_workbook`, not
+  limited to plain cell values - anything `Xml.fs` models can be expressed.
 
-The same binary is also a plain CLI, for the decompile-to-source capability without an MCP
-client at all: `fsopenxmldsl-mcp convert <input.xlsx> --lang <fsharp|csharp> [-o <file>]
-[--rebuild-as <name.xlsx>]` prints (or saves) the same source `generate_fsharp_script`/
-`generate_csharp_script` would return, run once and exit rather than starting the server —
-`fsopenxmldsl-mcp` with no arguments still starts the MCP server as before.
+The same binary is also a plain CLI, without an MCP client at all: `fsopenxmldsl-mcp
+convert <input.xlsx> --lang <fsharp|csharp|xml> [-o <file>] [--rebuild-as <name.xlsx>]`
+prints (or saves) the same source/XML the matching `generate_*` tool would return
+(`--rebuild-as` only applies to fsharp/csharp), and `fsopenxmldsl-mcp build <input.xml>
+<output.xlsx>` is `create_workbook_from_xml` as a CLI command. Both run once and exit
+rather than starting the server — `fsopenxmldsl-mcp` with no arguments still starts the
+MCP server as before.
 
-`create_workbook`/`read_workbook` go through the F# core directly; the two `generate_*`
-tools are the only ones that go through the C# wrapper (for `generate_csharp_script`) or
-expose it as an option at all.
+`create_workbook`/`read_workbook` go through the F# core directly; `generate_csharp_script`
+is the only tool that goes through the C# wrapper; `generate_fsharp_script`/`generate_xml`/
+`create_workbook_from_xml` go through the F# core's own `Xml.fs`/`Api.fs`.
 
 ## Load-bearing gotchas — read before generating code against any of these three packages
 
@@ -195,6 +229,11 @@ expose it as an option at all.
 - **VBA/macros are opaque bytes only**, in both the F# core (`Workbook.VbaProject: byte[]
   option`) and the C# wrapper (`Workbook.WithVbaProject(byte[])`) — no API to author, edit,
   or list macro source in either, and not exposed in the MCP server at all yet.
+- **`Xml.toWorkbook` doesn't perform pivot table aggregation.** Unlike every other feature
+  the XML surface covers, a `<pivotTable>` element only carries the *description* through -
+  the actual grouping/aggregation only happens via `Writer`/the `Sheet` builder path (i.e.
+  building the equivalent `Workbook` value directly and calling `Workbook.save`), same as
+  `Xml.ofWorkbook`/`Reader` never re-run it either.
 - **Pivot tables (F# core only) perform real aggregation** (Sum/Count/CountNumbers/
   Average/Min/Max) but are deliberately capped at one row field, at most one column field,
   and one value field.
@@ -205,8 +244,8 @@ expose it as an option at all.
 
 - [README.md](README.md) — full quick-start with runnable examples for every F# core
   feature (formulas, tables, charts, images, pivot tables, sparklines, VBA, conditional
-  formatting, data validation, protection, print settings, defined names, code generation)
-  plus the C# wrapper and MCP server.
+  formatting, data validation, protection, print settings, defined names, code generation,
+  the XML surface) plus the C# wrapper and MCP server.
 - [MAPPING.md](MAPPING.md) — the authoritative list of what the F# core maps 1:1 onto
   SpreadsheetML, what's approximated, and what isn't modeled at all. Consult this before
   claiming the F# core supports a specific OOXML feature.
@@ -215,8 +254,9 @@ expose it as an option at all.
 - [src/Kookerella.FsOpenXmlDsl.Mcp/README.md](src/Kookerella.FsOpenXmlDsl.Mcp/README.md) —
   the MCP server's tool reference and client configuration examples.
 - `tests/Kookerella.FsOpenXmlDsl.Tests/Examples/` — one real, openable example workbook
-  (plus the F# script that regenerates it) per F# core feature; a working reference
-  implementation for any feature described above.
+  per F# core feature, plus the F# script that regenerates it and the equivalent
+  `workbook.xml` (validated against `Xml.xsd`) - a working reference implementation, in
+  three forms, for any feature described above.
 - `tests/Kookerella.CsOpenXmlDsl.Tests/Examples/` — the same idea for the C# wrapper: one
   example workbook plus a `script.cs` (a real .NET 10 file-based app, `dotnet run script.cs`
   from that folder) per wrapper feature, covering everything in its v1 scope above.

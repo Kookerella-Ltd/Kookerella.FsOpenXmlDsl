@@ -1,0 +1,56 @@
+<workbook>
+  <sheets>
+    <sheet name="Sheet1">
+      <cells>
+        <cell ref="A1">
+          <text>Region</text>
+        </cell>
+        <cell ref="B1">
+          <text>Quarter</text>
+        </cell>
+        <cell ref="C1">
+          <text>Sales</text>
+        </cell>
+        <cell ref="A2">
+          <text>East</text>
+        </cell>
+        <cell ref="B2">
+          <text>Q1</text>
+        </cell>
+        <cell ref="C2">
+          <number>10</number>
+        </cell>
+        <cell ref="A3">
+          <text>East</text>
+        </cell>
+        <cell ref="B3">
+          <text>Q2</text>
+        </cell>
+        <cell ref="C3">
+          <number>5</number>
+        </cell>
+        <cell ref="A4">
+          <text>West</text>
+        </cell>
+        <cell ref="B4">
+          <text>Q1</text>
+        </cell>
+        <cell ref="C4">
+          <number>20</number>
+        </cell>
+        <cell ref="A5">
+          <text>West</text>
+        </cell>
+        <cell ref="B5">
+          <text>Q2</text>
+        </cell>
+        <cell ref="C5">
+          <number>15</number>
+        </cell>
+      </cells>
+      <pivotTables>
+        <pivotTable sourceTopLeft="A1" sourceBottomRight="C5" rowField="Region" columnField="Quarter" valueField="Sales" aggregation="sum" valueCaption="Total Sales" anchorTopLeft="E1" />
+      </pivotTables>
+    </sheet>
+  </sheets>
+</workbook>

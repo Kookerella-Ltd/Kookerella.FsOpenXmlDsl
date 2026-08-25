@@ -1,0 +1,24 @@
+<workbook>
+  <sheets>
+    <sheet name="Sheet1">
+      <cells>
+        <cell ref="A1">
+          <text>Included</text>
+        </cell>
+        <cell ref="A2">
+          <text>Excluded</text>
+        </cell>
+        <cell ref="A3">
+          <text>Also included</text>
+        </cell>
+      </cells>
+      <pageSetup orientation="portrait">
+        <margins left="0.7" right="0.7" top="0.75" bottom="0.75" header="0.3" footer="0.3" />
+        <printArea>
+          <range topLeft="A1" bottomRight="A1" />
+          <range topLeft="A3" bottomRight="A3" />
+        </printArea>
+      </pageSetup>
+    </sheet>
+  </sheets>
+</workbook>

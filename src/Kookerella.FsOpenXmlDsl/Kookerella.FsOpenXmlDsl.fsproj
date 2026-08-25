@@ -46,6 +46,7 @@
     <Compile Include="Images.fs" />
     <Compile Include="PivotTables.fs" />
     <Compile Include="Model.fs" />
+    <Compile Include="Xml.fs" />
     <Compile Include="Builders.fs" />
     <Compile Include="Interpreter\StyleRegistry.fs" />
     <Compile Include="Interpreter\ChartWriter.fs" />
@@ -60,6 +61,14 @@
     <Compile Include="Interpreter\Reader.fs" />
     <Compile Include="Interpreter\CodeGen.fs" />
     <Compile Include="Api.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Embedded (not just a loose repo file) so `Xml.schemaSet()` works for a consumer of
+         the published package too, who has no repo checkout to read a physical path from. -->
+    <EmbeddedResource Include="Xml.xsd">
+      <LogicalName>Kookerella.FsOpenXmlDsl.Xml.xsd</LogicalName>
+    </EmbeddedResource>
   </ItemGroup>
 
   <ItemGroup>

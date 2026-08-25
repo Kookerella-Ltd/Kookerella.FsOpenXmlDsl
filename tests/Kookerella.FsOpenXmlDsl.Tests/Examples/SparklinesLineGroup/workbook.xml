@@ -1,0 +1,47 @@
+<workbook>
+  <sheets>
+    <sheet name="Sheet1">
+      <cells>
+        <cell ref="A1">
+          <text>Widgets</text>
+        </cell>
+        <cell ref="B1">
+          <number>3</number>
+        </cell>
+        <cell ref="C1">
+          <number>8</number>
+        </cell>
+        <cell ref="D1">
+          <number>5</number>
+        </cell>
+        <cell ref="E1">
+          <number>9</number>
+        </cell>
+        <cell ref="A2">
+          <text>Gadgets</text>
+        </cell>
+        <cell ref="B2">
+          <number>6</number>
+        </cell>
+        <cell ref="C2">
+          <number>4</number>
+        </cell>
+        <cell ref="D2">
+          <number>7</number>
+        </cell>
+        <cell ref="E2">
+          <number>2</number>
+        </cell>
+      </cells>
+      <sparklineGroups>
+        <sparklineGroup>
+          <style type="line" showHigh="true" showLow="true" />
+          <sparklines>
+            <sparkline cell="F1" dataTopLeft="B1" dataBottomRight="E1" />
+            <sparkline cell="F2" dataTopLeft="B2" dataBottomRight="E2" />
+          </sparklines>
+        </sparklineGroup>
+      </sparklineGroups>
+    </sheet>
+  </sheets>
+</workbook>

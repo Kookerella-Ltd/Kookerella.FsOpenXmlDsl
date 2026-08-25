@@ -1,0 +1,16 @@
+<workbook>
+  <sheets>
+    <sheet name="Sheet1">
+      <cells>
+        <cell ref="A1">
+          <text>Open-XML-SDK on GitHub</text>
+        </cell>
+      </cells>
+      <hyperlinks>
+        <hyperlink topLeft="A1" bottomRight="A1" tooltip="Open in browser" display="dotnet/Open-XML-SDK">
+          <externalHyperlink>https://github.com/dotnet/Open-XML-SDK</externalHyperlink>
+        </hyperlink>
+      </hyperlinks>
+    </sheet>
+  </sheets>
+</workbook>

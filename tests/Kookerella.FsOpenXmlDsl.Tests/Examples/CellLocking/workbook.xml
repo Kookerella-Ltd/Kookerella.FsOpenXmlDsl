@@ -1,0 +1,18 @@
+<workbook>
+  <sheets>
+    <sheet name="Sheet1">
+      <cells>
+        <cell ref="A1">
+          <text>Enter quantity:</text>
+        </cell>
+        <cell ref="B1">
+          <number>0</number>
+          <style>
+            <protection locked="false" />
+          </style>
+        </cell>
+      </cells>
+      <protection sheet="true" />
+    </sheet>
+  </sheets>
+</workbook>

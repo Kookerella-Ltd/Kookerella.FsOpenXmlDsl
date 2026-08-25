@@ -1,0 +1,31 @@
+<workbook>
+  <sheets>
+    <sheet name="Sheet1">
+      <cells>
+        <cell ref="A1">
+          <number>10</number>
+        </cell>
+        <cell ref="B1">
+          <number>20</number>
+        </cell>
+        <cell ref="A2">
+          <number>30</number>
+        </cell>
+        <cell ref="B2">
+          <number>5</number>
+        </cell>
+      </cells>
+      <conditionalFormats>
+        <conditionalFormat topLeft="A1" bottomRight="A2">
+          <formulaRule formula="A1&gt;B1">
+            <style>
+              <fill>
+                <rgb r="198" g="239" b="206" />
+              </fill>
+            </style>
+          </formulaRule>
+        </conditionalFormat>
+      </conditionalFormats>
+    </sheet>
+  </sheets>
+</workbook>

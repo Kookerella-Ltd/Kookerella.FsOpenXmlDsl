@@ -1,0 +1,16 @@
+<workbook>
+  <sheets>
+    <sheet name="Sheet1">
+      <cells>
+        <cell ref="A1">
+          <text>Must be a number</text>
+        </cell>
+      </cells>
+      <dataValidations>
+        <dataValidation topLeft="A2" bottomRight="A2" allowBlank="false" inputTitle="Note" inputMessage="Enter a numeric value.">
+          <customValidation formula="ISNUMBER(A2)" />
+        </dataValidation>
+      </dataValidations>
+    </sheet>
+  </sheets>
+</workbook>

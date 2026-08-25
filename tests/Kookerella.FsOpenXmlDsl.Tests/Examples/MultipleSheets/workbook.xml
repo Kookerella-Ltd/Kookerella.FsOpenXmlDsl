@@ -1,0 +1,18 @@
+<workbook>
+  <sheets>
+    <sheet name="First">
+      <cells>
+        <cell ref="A1">
+          <text>one</text>
+        </cell>
+      </cells>
+    </sheet>
+    <sheet name="Second">
+      <cells>
+        <cell ref="A1">
+          <number>2</number>
+        </cell>
+      </cells>
+    </sheet>
+  </sheets>
+</workbook>

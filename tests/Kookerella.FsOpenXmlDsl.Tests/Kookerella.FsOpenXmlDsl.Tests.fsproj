@@ -6,16 +6,21 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="XmlTests.fs" />
     <Compile Include="Tests.fs" />
   </ItemGroup>
 
   <ItemGroup>
     <!-- Not compiled - these are the per-scenario example workbooks (and their
-         regenerating scripts) each test in Tests.fs generates. Listed explicitly so
-         Solution Explorer shows them; F#'s SDK doesn't auto-include files the way C#'s
-         does. -->
+         regenerating scripts and equivalent XML - see verifyScenarioNamed in Tests.fs)
+         each test in Tests.fs generates. Listed explicitly so Solution Explorer shows
+         them; F#'s SDK doesn't auto-include files the way C#'s does. *.xlsm covers
+         VbaMacro's own output (the one scenario needing the macro-enabled extension) -
+         this was missing before Xml.fs existed too, not something *.xml introduced. -->
     <None Include="Examples\**\*.xlsx" />
+    <None Include="Examples\**\*.xlsm" />
     <None Include="Examples\**\*.fsx" />
+    <None Include="Examples\**\*.xml" />
   </ItemGroup>
 
   <ItemGroup>

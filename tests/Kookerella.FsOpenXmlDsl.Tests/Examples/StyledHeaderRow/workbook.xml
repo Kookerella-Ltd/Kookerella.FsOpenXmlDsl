@@ -1,0 +1,80 @@
+<workbook>
+  <sheets>
+    <sheet name="Sheet1">
+      <cells>
+        <cell ref="A1">
+          <text>Name</text>
+          <style>
+            <font bold="true">
+              <color>
+                <rgb r="255" g="255" b="255" />
+              </color>
+            </font>
+            <fill>
+              <rgb r="68" g="84" b="106" />
+            </fill>
+            <border>
+              <bottom style="thin">
+                <color>
+                  <rgb r="0" g="0" b="0" />
+                </color>
+              </bottom>
+            </border>
+          </style>
+        </cell>
+        <cell ref="B1">
+          <text>Amount</text>
+          <style>
+            <font bold="true">
+              <color>
+                <rgb r="255" g="255" b="255" />
+              </color>
+            </font>
+            <fill>
+              <rgb r="68" g="84" b="106" />
+            </fill>
+            <border>
+              <bottom style="thin">
+                <color>
+                  <rgb r="0" g="0" b="0" />
+                </color>
+              </bottom>
+            </border>
+          </style>
+        </cell>
+        <cell ref="C1">
+          <text>Purchased</text>
+          <style>
+            <font bold="true">
+              <color>
+                <rgb r="255" g="255" b="255" />
+              </color>
+            </font>
+            <fill>
+              <rgb r="68" g="84" b="106" />
+            </fill>
+            <border>
+              <bottom style="thin">
+                <color>
+                  <rgb r="0" g="0" b="0" />
+                </color>
+              </bottom>
+            </border>
+          </style>
+        </cell>
+        <cell ref="A2">
+          <text>Widgets</text>
+        </cell>
+        <cell ref="B2">
+          <number>42.5</number>
+        </cell>
+        <cell ref="C2">
+          <date>2026-01-15T00:00:00.0000000</date>
+          <style>
+            <numberFormat kind="shortDate" />
+          </style>
+        </cell>
+      </cells>
+    </sheet>
+  </sheets>
+</workbook>

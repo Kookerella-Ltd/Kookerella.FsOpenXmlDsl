@@ -1,0 +1,37 @@
+<workbook>
+  <sheets>
+    <sheet name="Sheet1">
+      <cells>
+        <cell ref="A1">
+          <text>Month</text>
+        </cell>
+        <cell ref="B1">
+          <text>Units</text>
+        </cell>
+        <cell ref="A2">
+          <text>Jan</text>
+        </cell>
+        <cell ref="B2">
+          <number>10</number>
+        </cell>
+        <cell ref="A3">
+          <text>Feb</text>
+        </cell>
+        <cell ref="B3">
+          <number>14</number>
+        </cell>
+      </cells>
+      <images>
+        <image format="gif" topLeft="D10" bottomRight="F15">R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBTAA7</image>
+      </images>
+      <charts>
+        <chart type="column" anchorTopLeft="D1" anchorBottomRight="H8">
+          <categories topLeft="A2" bottomRight="A3" />
+          <series>
+            <s name="B1" valuesTopLeft="B2" valuesBottomRight="B3" />
+          </series>
+        </chart>
+      </charts>
+    </sheet>
+  </sheets>
+</workbook>

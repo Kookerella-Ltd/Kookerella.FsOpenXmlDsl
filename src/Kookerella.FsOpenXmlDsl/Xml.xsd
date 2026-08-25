@@ -1,0 +1,820 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The formal schema for the XML surface `Xml.fs` translates to/from a `Workbook`. Kept
+  namespace-free deliberately, so hand-written or XSLT-generated documents don't need any
+  namespace ceremony. Embedded into the assembly as a resource - load it via
+  `Xml.schemaSet()` rather than reading this file from disk, since a consumer of the
+  published package has no repo checkout to find it in.
+
+  Mirrors `Xml.fs`'s own doc comment: a discriminated union case becomes an element named
+  after the case when it carries data (e.g. <formula>), or an attribute value when it's one
+  of several parameterless alternatives (e.g. style="thin"). This schema is being built up
+  in step with `Xml.fs` - see that module's doc comment for exactly which features are
+  modeled so far; anything not yet covered simply has no schema definition here either.
+-->
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified">
+
+  <!-- ============================== Root ============================== -->
+
+  <xs:element name="workbook">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="sheets">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:element name="sheet" type="SheetType" minOccurs="0" maxOccurs="unbounded" />
+            </xs:sequence>
+          </xs:complexType>
+        </xs:element>
+        <xs:element name="definedNames" minOccurs="0">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:element name="definedName" type="DefinedNameType" minOccurs="0" maxOccurs="unbounded" />
+            </xs:sequence>
+          </xs:complexType>
+        </xs:element>
+        <xs:element name="protection" type="WorkbookProtectionType" minOccurs="0" />
+        <xs:element name="vbaProject" type="xs:base64Binary" minOccurs="0" />
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+
+  <!-- ============================== Sheet ============================== -->
+
+  <xs:complexType name="SheetType">
+    <xs:sequence>
+      <xs:element name="cells" minOccurs="0">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:element name="cell" type="CellType" minOccurs="0" maxOccurs="unbounded" />
+          </xs:sequence>
+        </xs:complexType>
+      </xs:element>
+      <xs:element name="mergedRanges" minOccurs="0">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:element name="mergedRange" type="RangeRefType" minOccurs="0" maxOccurs="unbounded" />
+          </xs:sequence>
+        </xs:complexType>
+      </xs:element>
+      <xs:element name="freezePane" minOccurs="0">
+        <xs:complexType>
+          <xs:attribute name="rows" type="xs:nonNegativeInteger" use="required" />
+          <xs:attribute name="columns" type="xs:nonNegativeInteger" use="required" />
+        </xs:complexType>
+      </xs:element>
+      <xs:element name="autoFilter" type="RangeRefType" minOccurs="0" />
+      <xs:element name="columnProps" minOccurs="0">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:element name="columnProp" minOccurs="0" maxOccurs="unbounded">
+              <xs:complexType>
+                <xs:attribute name="index" type="xs:nonNegativeInteger" use="required" />
+                <xs:attribute name="width" type="xs:double" use="optional" />
+              </xs:complexType>
+            </xs:element>
+          </xs:sequence>
+        </xs:complexType>
+      </xs:element>
+      <xs:element name="rowProps" minOccurs="0">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:element name="rowProp" minOccurs="0" maxOccurs="unbounded">
+              <xs:complexType>
+                <xs:attribute name="index" type="xs:nonNegativeInteger" use="required" />
+                <xs:attribute name="height" type="xs:double" use="optional" />
+              </xs:complexType>
+            </xs:element>
+          </xs:sequence>
+        </xs:complexType>
+      </xs:element>
+      <xs:element name="hyperlinks" minOccurs="0">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:element name="hyperlink" type="HyperlinkType" minOccurs="0" maxOccurs="unbounded" />
+          </xs:sequence>
+        </xs:complexType>
+      </xs:element>
+      <xs:element name="comments" minOccurs="0">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:element name="comment" type="CommentType" minOccurs="0" maxOccurs="unbounded" />
+          </xs:sequence>
+        </xs:complexType>
+      </xs:element>
+      <xs:element name="pageSetup" type="PageSetupType" minOccurs="0" />
+      <xs:element name="protection" type="SheetProtectionType" minOccurs="0" />
+      <xs:element name="images" minOccurs="0">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:element name="image" type="ImageType" minOccurs="0" maxOccurs="unbounded" />
+          </xs:sequence>
+        </xs:complexType>
+      </xs:element>
+      <xs:element name="tables" minOccurs="0">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:element name="table" type="TableType" minOccurs="0" maxOccurs="unbounded" />
+          </xs:sequence>
+        </xs:complexType>
+      </xs:element>
+      <xs:element name="sparklineGroups" minOccurs="0">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:element name="sparklineGroup" type="SparklineGroupType" minOccurs="0" maxOccurs="unbounded" />
+          </xs:sequence>
+        </xs:complexType>
+      </xs:element>
+      <xs:element name="charts" minOccurs="0">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:element name="chart" type="ChartEntryType" minOccurs="0" maxOccurs="unbounded" />
+          </xs:sequence>
+        </xs:complexType>
+      </xs:element>
+      <xs:element name="pivotTables" minOccurs="0">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:element name="pivotTable" type="PivotTableType" minOccurs="0" maxOccurs="unbounded" />
+          </xs:sequence>
+        </xs:complexType>
+      </xs:element>
+      <xs:element name="conditionalFormats" minOccurs="0">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:element name="conditionalFormat" type="ConditionalFormatType" minOccurs="0" maxOccurs="unbounded" />
+          </xs:sequence>
+        </xs:complexType>
+      </xs:element>
+      <xs:element name="dataValidations" minOccurs="0">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:element name="dataValidation" type="DataValidationType" minOccurs="0" maxOccurs="unbounded" />
+          </xs:sequence>
+        </xs:complexType>
+      </xs:element>
+    </xs:sequence>
+    <xs:attribute name="name" type="xs:string" use="required" />
+  </xs:complexType>
+
+  <!-- A1-style range, used for merges/autofilter/hyperlinks/print areas alike. -->
+  <xs:complexType name="RangeRefType">
+    <xs:attribute name="topLeft" type="A1RefType" use="required" />
+    <xs:attribute name="bottomRight" type="A1RefType" use="required" />
+  </xs:complexType>
+
+  <!-- e.g. "A1", "B3", "$C$12" (dollar signs are accepted, matching CellRef.ofA1). -->
+  <xs:simpleType name="A1RefType">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="\$?[A-Za-z]+\$?[0-9]+" />
+    </xs:restriction>
+  </xs:simpleType>
+
+  <!-- ============================== Cell / CellValue ============================== -->
+
+  <xs:complexType name="CellType">
+    <xs:sequence>
+      <xs:choice minOccurs="0">
+        <xs:element name="text" type="xs:string" />
+        <xs:element name="number" type="xs:double" />
+        <xs:element name="boolean" type="xs:boolean" />
+        <xs:element name="date" type="xs:dateTime" />
+        <xs:element name="formula">
+          <xs:complexType>
+            <xs:simpleContent>
+              <xs:extension base="xs:string">
+                <xs:attribute name="cachedValue" type="xs:double" use="optional" />
+              </xs:extension>
+            </xs:simpleContent>
+          </xs:complexType>
+        </xs:element>
+      </xs:choice>
+      <xs:element name="style" type="CellStyleType" minOccurs="0" />
+    </xs:sequence>
+    <xs:attribute name="ref" type="A1RefType" use="required" />
+  </xs:complexType>
+
+  <!-- ============================== Styles ============================== -->
+
+  <xs:complexType name="CellStyleType">
+    <xs:sequence>
+      <xs:element name="font" type="FontType" minOccurs="0" />
+      <xs:element name="fill" minOccurs="0">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:group ref="ColorGroup" />
+          </xs:sequence>
+        </xs:complexType>
+      </xs:element>
+      <xs:element name="border" type="BorderType" minOccurs="0" />
+      <xs:element name="numberFormat" type="NumberFormatType" minOccurs="0" />
+      <xs:element name="alignment" type="AlignmentType" minOccurs="0" />
+      <xs:element name="protection" type="CellProtectionType" minOccurs="0" />
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="FontType">
+    <xs:sequence>
+      <xs:element name="color" minOccurs="0">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:group ref="ColorGroup" />
+          </xs:sequence>
+        </xs:complexType>
+      </xs:element>
+    </xs:sequence>
+    <xs:attribute name="name" type="xs:string" use="optional" />
+    <xs:attribute name="size" type="xs:double" use="optional" />
+    <xs:attribute name="bold" type="xs:boolean" use="optional" default="false" />
+    <xs:attribute name="italic" type="xs:boolean" use="optional" default="false" />
+    <xs:attribute name="underline" type="xs:boolean" use="optional" default="false" />
+    <xs:attribute name="strikethrough" type="xs:boolean" use="optional" default="false" />
+  </xs:complexType>
+
+  <!-- One of <rgb>/<indexed>/<theme> - Color's three cases. Modeled as a group (not a
+       named complexType) since it's embedded directly under two different parent elements
+       (<color> under <font> and under <fill>) rather than being a type of its own. -->
+  <xs:group name="ColorGroup">
+    <xs:choice>
+      <xs:element name="rgb">
+        <xs:complexType>
+          <xs:attribute name="r" type="xs:unsignedByte" use="required" />
+          <xs:attribute name="g" type="xs:unsignedByte" use="required" />
+          <xs:attribute name="b" type="xs:unsignedByte" use="required" />
+        </xs:complexType>
+      </xs:element>
+      <xs:element name="indexed">
+        <xs:complexType>
+          <xs:attribute name="value" type="xs:nonNegativeInteger" use="required" />
+        </xs:complexType>
+      </xs:element>
+      <xs:element name="theme">
+        <xs:complexType>
+          <xs:attribute name="index" type="xs:nonNegativeInteger" use="required" />
+          <xs:attribute name="tint" type="xs:double" use="optional" />
+        </xs:complexType>
+      </xs:element>
+    </xs:choice>
+  </xs:group>
+
+  <xs:simpleType name="BorderLineStyleKind">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="thin|medium|thick|dashed|dotted|double|hair|.+" />
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:complexType name="BorderSideType">
+    <xs:sequence>
+      <xs:element name="color" minOccurs="0">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:group ref="ColorGroup" />
+          </xs:sequence>
+        </xs:complexType>
+      </xs:element>
+    </xs:sequence>
+    <!-- Any string is accepted, not just the seven named styles - BorderLineStyle.Other
+         preserves an arbitrary raw OOXML style name for round-trip fidelity. -->
+    <xs:attribute name="style" type="xs:string" use="required" />
+  </xs:complexType>
+
+  <xs:complexType name="BorderType">
+    <xs:sequence>
+      <xs:element name="left" type="BorderSideType" minOccurs="0" />
+      <xs:element name="right" type="BorderSideType" minOccurs="0" />
+      <xs:element name="top" type="BorderSideType" minOccurs="0" />
+      <xs:element name="bottom" type="BorderSideType" minOccurs="0" />
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="AlignmentType">
+    <xs:attribute name="horizontal" use="optional">
+      <xs:simpleType>
+        <xs:restriction base="xs:string">
+          <xs:enumeration value="general" />
+          <xs:enumeration value="left" />
+          <xs:enumeration value="center" />
+          <xs:enumeration value="right" />
+          <xs:enumeration value="fill" />
+          <xs:enumeration value="justify" />
+        </xs:restriction>
+      </xs:simpleType>
+    </xs:attribute>
+    <xs:attribute name="vertical" use="optional">
+      <xs:simpleType>
+        <xs:restriction base="xs:string">
+          <xs:enumeration value="top" />
+          <xs:enumeration value="middle" />
+          <xs:enumeration value="bottom" />
+        </xs:restriction>
+      </xs:simpleType>
+    </xs:attribute>
+    <xs:attribute name="wrapText" type="xs:boolean" use="optional" default="false" />
+  </xs:complexType>
+
+  <!-- Exactly one of "kind" or "custom" should be present - kind for the seven named
+       formats, custom for a raw OOXML format code (NumberFormat.Custom). XSD 1.0 can't
+       express "exactly one of these two attributes" directly, so this is a documented
+       convention rather than an enforced one - the same trade-off PaperSize/PrintScaling
+       below make. -->
+  <xs:complexType name="NumberFormatType">
+    <xs:attribute name="kind" use="optional">
+      <xs:simpleType>
+        <xs:restriction base="xs:string">
+          <xs:enumeration value="general" />
+          <xs:enumeration value="integer" />
+          <xs:enumeration value="twoDecimal" />
+          <xs:enumeration value="percentage" />
+          <xs:enumeration value="currency" />
+          <xs:enumeration value="shortDate" />
+          <xs:enumeration value="dateAndTime" />
+        </xs:restriction>
+      </xs:simpleType>
+    </xs:attribute>
+    <xs:attribute name="custom" type="xs:string" use="optional" />
+  </xs:complexType>
+
+  <xs:complexType name="CellProtectionType">
+    <xs:attribute name="locked" type="xs:boolean" use="optional" default="true" />
+    <xs:attribute name="hidden" type="xs:boolean" use="optional" default="false" />
+  </xs:complexType>
+
+  <!-- ============================== Defined names ============================== -->
+
+  <xs:complexType name="DefinedNameType">
+    <xs:sequence>
+      <xs:choice>
+        <xs:element name="workbookScope">
+          <xs:complexType />
+        </xs:element>
+        <xs:element name="sheetScope">
+          <xs:complexType>
+            <xs:attribute name="sheetName" type="xs:string" use="required" />
+          </xs:complexType>
+        </xs:element>
+      </xs:choice>
+    </xs:sequence>
+    <xs:attribute name="name" type="xs:string" use="required" />
+    <xs:attribute name="formula" type="xs:string" use="required" />
+    <xs:attribute name="hidden" type="xs:boolean" use="optional" default="false" />
+  </xs:complexType>
+
+  <!-- ============================== Hyperlinks ============================== -->
+
+  <xs:complexType name="HyperlinkType">
+    <xs:sequence>
+      <xs:choice>
+        <xs:element name="externalHyperlink" type="xs:string" />
+        <xs:element name="internalHyperlink" type="xs:string" />
+      </xs:choice>
+    </xs:sequence>
+    <xs:attribute name="topLeft" type="A1RefType" use="required" />
+    <xs:attribute name="bottomRight" type="A1RefType" use="required" />
+    <xs:attribute name="tooltip" type="xs:string" use="optional" />
+    <xs:attribute name="display" type="xs:string" use="optional" />
+  </xs:complexType>
+
+  <!-- ============================== Comments ============================== -->
+
+  <xs:complexType name="CommentType">
+    <xs:simpleContent>
+      <xs:extension base="xs:string">
+        <xs:attribute name="cell" type="A1RefType" use="required" />
+        <xs:attribute name="author" type="xs:string" use="optional" />
+      </xs:extension>
+    </xs:simpleContent>
+  </xs:complexType>
+
+  <!-- ============================== Print settings ============================== -->
+
+  <xs:complexType name="PageSetupType">
+    <xs:sequence>
+      <xs:element name="paperSize" type="PaperSizeType" minOccurs="0" />
+      <xs:element name="scaling" type="PrintScalingType" minOccurs="0" />
+      <xs:element name="margins" type="PageMarginsType" />
+      <xs:element name="printArea" minOccurs="0">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:element name="range" type="RangeRefType" minOccurs="0" maxOccurs="unbounded" />
+          </xs:sequence>
+        </xs:complexType>
+      </xs:element>
+      <xs:element name="header" type="xs:string" minOccurs="0" />
+      <xs:element name="footer" type="xs:string" minOccurs="0" />
+      <xs:element name="evenHeader" type="xs:string" minOccurs="0" />
+      <xs:element name="evenFooter" type="xs:string" minOccurs="0" />
+      <xs:element name="firstHeader" type="xs:string" minOccurs="0" />
+      <xs:element name="firstFooter" type="xs:string" minOccurs="0" />
+    </xs:sequence>
+    <xs:attribute name="orientation" use="required">
+      <xs:simpleType>
+        <xs:restriction base="xs:string">
+          <xs:enumeration value="portrait" />
+          <xs:enumeration value="landscape" />
+        </xs:restriction>
+      </xs:simpleType>
+    </xs:attribute>
+  </xs:complexType>
+
+  <!-- Exactly one of "kind" or "other" should be present - see NumberFormatType's own note
+       on why this isn't enforced at the XSD 1.0 level. -->
+  <xs:complexType name="PaperSizeType">
+    <xs:attribute name="kind" use="optional">
+      <xs:simpleType>
+        <xs:restriction base="xs:string">
+          <xs:enumeration value="letter" />
+          <xs:enumeration value="legal" />
+          <xs:enumeration value="tabloid" />
+          <xs:enumeration value="a3" />
+          <xs:enumeration value="a4" />
+        </xs:restriction>
+      </xs:simpleType>
+    </xs:attribute>
+    <xs:attribute name="other" type="xs:int" use="optional" />
+  </xs:complexType>
+
+  <!-- Exactly one of "percent" or the "fitWidth"/"fitHeight" pair should be present. -->
+  <xs:complexType name="PrintScalingType">
+    <xs:attribute name="percent" type="xs:int" use="optional" />
+    <xs:attribute name="fitWidth" type="xs:nonNegativeInteger" use="optional" />
+    <xs:attribute name="fitHeight" type="xs:nonNegativeInteger" use="optional" />
+  </xs:complexType>
+
+  <xs:complexType name="PageMarginsType">
+    <xs:attribute name="left" type="xs:double" use="required" />
+    <xs:attribute name="right" type="xs:double" use="required" />
+    <xs:attribute name="top" type="xs:double" use="required" />
+    <xs:attribute name="bottom" type="xs:double" use="required" />
+    <xs:attribute name="header" type="xs:double" use="required" />
+    <xs:attribute name="footer" type="xs:double" use="required" />
+  </xs:complexType>
+
+  <!-- ============================== Protection ============================== -->
+
+  <!-- See SheetProtection.fs's own doc comment on why every flag but "sheet" is optional
+       and left unwritten rather than defaulted - the same caution applies here: absence
+       means "let Excel's own default apply", not false. -->
+  <xs:complexType name="SheetProtectionType">
+    <xs:attribute name="password" type="xs:string" use="optional" />
+    <xs:attribute name="sheet" type="xs:boolean" use="required" />
+    <xs:attribute name="objects" type="xs:boolean" use="optional" />
+    <xs:attribute name="scenarios" type="xs:boolean" use="optional" />
+    <xs:attribute name="formatCells" type="xs:boolean" use="optional" />
+    <xs:attribute name="formatColumns" type="xs:boolean" use="optional" />
+    <xs:attribute name="formatRows" type="xs:boolean" use="optional" />
+    <xs:attribute name="insertColumns" type="xs:boolean" use="optional" />
+    <xs:attribute name="insertRows" type="xs:boolean" use="optional" />
+    <xs:attribute name="insertHyperlinks" type="xs:boolean" use="optional" />
+    <xs:attribute name="deleteColumns" type="xs:boolean" use="optional" />
+    <xs:attribute name="deleteRows" type="xs:boolean" use="optional" />
+    <xs:attribute name="selectLockedCells" type="xs:boolean" use="optional" />
+    <xs:attribute name="sort" type="xs:boolean" use="optional" />
+    <xs:attribute name="autoFilter" type="xs:boolean" use="optional" />
+    <xs:attribute name="pivotTables" type="xs:boolean" use="optional" />
+    <xs:attribute name="selectUnlockedCells" type="xs:boolean" use="optional" />
+  </xs:complexType>
+
+  <xs:complexType name="WorkbookProtectionType">
+    <xs:attribute name="password" type="xs:string" use="optional" />
+    <xs:attribute name="lockStructure" type="xs:boolean" use="optional" />
+    <xs:attribute name="lockWindows" type="xs:boolean" use="optional" />
+  </xs:complexType>
+
+  <!-- ============================== Images ============================== -->
+
+  <xs:complexType name="ImageType">
+    <xs:simpleContent>
+      <xs:extension base="xs:base64Binary">
+        <xs:attribute name="format" use="required">
+          <xs:simpleType>
+            <xs:restriction base="xs:string">
+              <xs:enumeration value="png" />
+              <xs:enumeration value="jpeg" />
+              <xs:enumeration value="gif" />
+              <xs:enumeration value="bmp" />
+            </xs:restriction>
+          </xs:simpleType>
+        </xs:attribute>
+        <xs:attribute name="topLeft" type="A1RefType" use="required" />
+        <xs:attribute name="bottomRight" type="A1RefType" use="required" />
+      </xs:extension>
+    </xs:simpleContent>
+  </xs:complexType>
+
+  <!-- ============================== Tables ============================== -->
+
+  <xs:complexType name="TableType">
+    <xs:sequence>
+      <xs:element name="columns">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:element name="column" minOccurs="0" maxOccurs="unbounded">
+              <xs:complexType>
+                <xs:attribute name="name" type="xs:string" use="required" />
+                <xs:attribute name="calculatedFormula" type="xs:string" use="optional" />
+              </xs:complexType>
+            </xs:element>
+          </xs:sequence>
+        </xs:complexType>
+      </xs:element>
+      <xs:element name="style">
+        <xs:complexType>
+          <xs:attribute name="name" type="xs:string" use="optional" />
+          <xs:attribute name="showFirstColumn" type="xs:boolean" use="optional" default="false" />
+          <xs:attribute name="showLastColumn" type="xs:boolean" use="optional" default="false" />
+          <xs:attribute name="showRowStripes" type="xs:boolean" use="optional" default="false" />
+          <xs:attribute name="showColumnStripes" type="xs:boolean" use="optional" default="false" />
+        </xs:complexType>
+      </xs:element>
+    </xs:sequence>
+    <xs:attribute name="topLeft" type="A1RefType" use="required" />
+    <xs:attribute name="bottomRight" type="A1RefType" use="required" />
+    <xs:attribute name="name" type="xs:string" use="required" />
+  </xs:complexType>
+
+  <!-- ============================== Sparklines ============================== -->
+
+  <xs:complexType name="SparklineGroupType">
+    <xs:sequence>
+      <xs:element name="style" type="SparklineStyleType" />
+      <xs:element name="sparklines">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:element name="sparkline" minOccurs="0" maxOccurs="unbounded">
+              <xs:complexType>
+                <xs:attribute name="cell" type="A1RefType" use="required" />
+                <xs:attribute name="dataTopLeft" type="A1RefType" use="required" />
+                <xs:attribute name="dataBottomRight" type="A1RefType" use="required" />
+              </xs:complexType>
+            </xs:element>
+          </xs:sequence>
+        </xs:complexType>
+      </xs:element>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="SparklineStyleType">
+    <xs:sequence>
+      <xs:element name="color" minOccurs="0">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:group ref="ColorGroup" />
+          </xs:sequence>
+        </xs:complexType>
+      </xs:element>
+    </xs:sequence>
+    <xs:attribute name="type" use="required">
+      <xs:simpleType>
+        <xs:restriction base="xs:string">
+          <xs:enumeration value="line" />
+          <xs:enumeration value="column" />
+          <xs:enumeration value="winLoss" />
+        </xs:restriction>
+      </xs:simpleType>
+    </xs:attribute>
+    <!-- Only meaningful for type="line" - see SparklineStyle.LineWeight's own doc comment. -->
+    <xs:attribute name="lineWeight" type="xs:double" use="optional" />
+    <xs:attribute name="showMarkers" type="xs:boolean" use="optional" default="false" />
+    <xs:attribute name="showHigh" type="xs:boolean" use="optional" default="false" />
+    <xs:attribute name="showLow" type="xs:boolean" use="optional" default="false" />
+    <xs:attribute name="showFirst" type="xs:boolean" use="optional" default="false" />
+    <xs:attribute name="showLast" type="xs:boolean" use="optional" default="false" />
+    <xs:attribute name="showNegative" type="xs:boolean" use="optional" default="false" />
+  </xs:complexType>
+
+  <!-- ============================== Charts ============================== -->
+
+  <xs:complexType name="ChartEntryType">
+    <xs:sequence>
+      <xs:element name="categories" type="RangeRefType" />
+      <xs:element name="series">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:element name="s" minOccurs="0" maxOccurs="unbounded">
+              <xs:complexType>
+                <!-- "name" is itself a cell reference (the series name is normally the
+                     data's own header cell), not a literal string - see ChartSeries.Name's
+                     own doc comment. -->
+                <xs:attribute name="name" type="A1RefType" use="required" />
+                <xs:attribute name="valuesTopLeft" type="A1RefType" use="required" />
+                <xs:attribute name="valuesBottomRight" type="A1RefType" use="required" />
+              </xs:complexType>
+            </xs:element>
+          </xs:sequence>
+        </xs:complexType>
+      </xs:element>
+    </xs:sequence>
+    <xs:attribute name="type" use="required">
+      <xs:simpleType>
+        <xs:restriction base="xs:string">
+          <xs:enumeration value="column" />
+          <xs:enumeration value="bar" />
+          <xs:enumeration value="line" />
+          <xs:enumeration value="pie" />
+        </xs:restriction>
+      </xs:simpleType>
+    </xs:attribute>
+    <xs:attribute name="title" type="xs:string" use="optional" />
+    <xs:attribute name="showLegend" type="xs:boolean" use="optional" default="false" />
+    <xs:attribute name="anchorTopLeft" type="A1RefType" use="required" />
+    <xs:attribute name="anchorBottomRight" type="A1RefType" use="required" />
+  </xs:complexType>
+
+  <!-- ============================== Pivot tables ============================== -->
+
+  <!-- Note: unlike everything else in this schema, loading a <pivotTable> doesn't re-run
+       its aggregation - see Xml.fs's own module doc comment. -->
+  <xs:complexType name="PivotTableType">
+    <xs:attribute name="sourceSheet" type="xs:string" use="optional" />
+    <xs:attribute name="sourceTopLeft" type="A1RefType" use="required" />
+    <xs:attribute name="sourceBottomRight" type="A1RefType" use="required" />
+    <xs:attribute name="rowField" type="xs:string" use="required" />
+    <xs:attribute name="columnField" type="xs:string" use="optional" />
+    <xs:attribute name="valueField" type="xs:string" use="required" />
+    <xs:attribute name="aggregation" use="required">
+      <xs:simpleType>
+        <xs:restriction base="xs:string">
+          <xs:enumeration value="sum" />
+          <xs:enumeration value="count" />
+          <xs:enumeration value="countNumbers" />
+          <xs:enumeration value="average" />
+          <xs:enumeration value="min" />
+          <xs:enumeration value="max" />
+        </xs:restriction>
+      </xs:simpleType>
+    </xs:attribute>
+    <xs:attribute name="valueCaption" type="xs:string" use="optional" />
+    <xs:attribute name="anchorTopLeft" type="A1RefType" use="required" />
+  </xs:complexType>
+
+  <!-- ============================== Shared: ComparisonOperator ============================== -->
+
+  <!-- Used by both conditional formatting's cellValueRule and (once modeled) data
+       validation's numeric/text-length rules - see ComparisonOperator's own doc comment. -->
+  <xs:simpleType name="ComparisonOperatorType">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="equal" />
+      <xs:enumeration value="notEqual" />
+      <xs:enumeration value="greaterThan" />
+      <xs:enumeration value="lessThan" />
+      <xs:enumeration value="greaterThanOrEqual" />
+      <xs:enumeration value="lessThanOrEqual" />
+      <xs:enumeration value="between" />
+      <xs:enumeration value="notBetween" />
+    </xs:restriction>
+  </xs:simpleType>
+
+  <!-- ============================== Conditional formatting ============================== -->
+
+  <xs:complexType name="ConditionalFormatType">
+    <xs:sequence>
+      <xs:choice>
+        <xs:element name="cellValueRule">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:element name="style" type="CellStyleType" />
+            </xs:sequence>
+            <xs:attribute name="operator" type="ComparisonOperatorType" use="required" />
+            <xs:attribute name="formula1" type="xs:string" use="required" />
+            <xs:attribute name="formula2" type="xs:string" use="optional" />
+          </xs:complexType>
+        </xs:element>
+        <xs:element name="formulaRule">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:element name="style" type="CellStyleType" />
+            </xs:sequence>
+            <xs:attribute name="formula" type="xs:string" use="required" />
+          </xs:complexType>
+        </xs:element>
+        <xs:element name="colorScale2">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:element name="minColor">
+                <xs:complexType>
+                  <xs:sequence>
+                    <xs:group ref="ColorGroup" />
+                  </xs:sequence>
+                </xs:complexType>
+              </xs:element>
+              <xs:element name="maxColor">
+                <xs:complexType>
+                  <xs:sequence>
+                    <xs:group ref="ColorGroup" />
+                  </xs:sequence>
+                </xs:complexType>
+              </xs:element>
+            </xs:sequence>
+          </xs:complexType>
+        </xs:element>
+        <xs:element name="colorScale3">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:element name="minColor">
+                <xs:complexType>
+                  <xs:sequence>
+                    <xs:group ref="ColorGroup" />
+                  </xs:sequence>
+                </xs:complexType>
+              </xs:element>
+              <xs:element name="midColor">
+                <xs:complexType>
+                  <xs:sequence>
+                    <xs:group ref="ColorGroup" />
+                  </xs:sequence>
+                </xs:complexType>
+              </xs:element>
+              <xs:element name="maxColor">
+                <xs:complexType>
+                  <xs:sequence>
+                    <xs:group ref="ColorGroup" />
+                  </xs:sequence>
+                </xs:complexType>
+              </xs:element>
+            </xs:sequence>
+          </xs:complexType>
+        </xs:element>
+        <xs:element name="dataBarRule">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:element name="color">
+                <xs:complexType>
+                  <xs:sequence>
+                    <xs:group ref="ColorGroup" />
+                  </xs:sequence>
+                </xs:complexType>
+              </xs:element>
+            </xs:sequence>
+          </xs:complexType>
+        </xs:element>
+        <xs:element name="duplicateValuesRule">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:element name="style" type="CellStyleType" />
+            </xs:sequence>
+          </xs:complexType>
+        </xs:element>
+        <xs:element name="uniqueValuesRule">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:element name="style" type="CellStyleType" />
+            </xs:sequence>
+          </xs:complexType>
+        </xs:element>
+      </xs:choice>
+    </xs:sequence>
+    <xs:attribute name="topLeft" type="A1RefType" use="required" />
+    <xs:attribute name="bottomRight" type="A1RefType" use="required" />
+  </xs:complexType>
+
+  <!-- ============================== Data validation ============================== -->
+
+  <xs:complexType name="DataValidationType">
+    <xs:sequence>
+      <xs:choice>
+        <xs:element name="listValidation">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:element name="item" type="xs:string" minOccurs="0" maxOccurs="unbounded" />
+            </xs:sequence>
+          </xs:complexType>
+        </xs:element>
+        <xs:element name="listFromRangeValidation" type="RangeRefType" />
+        <xs:element name="wholeNumberValidation" type="ComparisonValidationType" />
+        <xs:element name="decimalValidation" type="ComparisonValidationType" />
+        <xs:element name="textLengthValidation" type="ComparisonValidationType" />
+        <xs:element name="customValidation">
+          <xs:complexType>
+            <xs:attribute name="formula" type="xs:string" use="required" />
+          </xs:complexType>
+        </xs:element>
+      </xs:choice>
+    </xs:sequence>
+    <xs:attribute name="topLeft" type="A1RefType" use="required" />
+    <xs:attribute name="bottomRight" type="A1RefType" use="required" />
+    <xs:attribute name="allowBlank" type="xs:boolean" use="optional" default="true" />
+    <xs:attribute name="errorStyle" use="optional" default="stop">
+      <xs:simpleType>
+        <xs:restriction base="xs:string">
+          <xs:enumeration value="stop" />
+          <xs:enumeration value="warning" />
+          <xs:enumeration value="information" />
+        </xs:restriction>
+      </xs:simpleType>
+    </xs:attribute>
+    <xs:attribute name="errorTitle" type="xs:string" use="optional" />
+    <xs:attribute name="errorMessage" type="xs:string" use="optional" />
+    <xs:attribute name="inputTitle" type="xs:string" use="optional" />
+    <xs:attribute name="inputMessage" type="xs:string" use="optional" />
+  </xs:complexType>
+
+  <!-- Shared shape for the three comparison-based validation kinds (WholeNumberValidation/
+       DecimalValidation/TextLengthValidation) - same operator/formula1/formula2 vocabulary
+       ConditionalFormatType's cellValueRule uses. -->
+  <xs:complexType name="ComparisonValidationType">
+    <xs:attribute name="operator" type="ComparisonOperatorType" use="required" />
+    <xs:attribute name="formula1" type="xs:string" use="required" />
+    <xs:attribute name="formula2" type="xs:string" use="optional" />
+  </xs:complexType>
+
+</xs:schema>

@@ -1,0 +1,32 @@
+<workbook>
+  <sheets>
+    <sheet name="Sheet1">
+      <cells>
+        <cell ref="A1">
+          <number>-2</number>
+        </cell>
+        <cell ref="B1">
+          <number>4</number>
+        </cell>
+        <cell ref="C1">
+          <number>-1</number>
+        </cell>
+        <cell ref="D1">
+          <number>3</number>
+        </cell>
+      </cells>
+      <sparklineGroups>
+        <sparklineGroup>
+          <style type="column" showNegative="true">
+            <color>
+              <rgb r="0" g="112" b="192" />
+            </color>
+          </style>
+          <sparklines>
+            <sparkline cell="E1" dataTopLeft="A1" dataBottomRight="D1" />
+          </sparklines>
+        </sparklineGroup>
+      </sparklineGroups>
+    </sheet>
+  </sheets>
+</workbook>

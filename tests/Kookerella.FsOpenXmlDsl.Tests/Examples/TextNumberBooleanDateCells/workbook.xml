@@ -1,0 +1,23 @@
+<workbook>
+  <sheets>
+    <sheet name="Sheet1">
+      <cells>
+        <cell ref="A1">
+          <text>Name</text>
+        </cell>
+        <cell ref="B1">
+          <number>42.5</number>
+        </cell>
+        <cell ref="C1">
+          <boolean>true</boolean>
+        </cell>
+        <cell ref="D1">
+          <date>2026-03-01T00:00:00.0000000</date>
+          <style>
+            <numberFormat kind="shortDate" />
+          </style>
+        </cell>
+      </cells>
+    </sheet>
+  </sheets>
+</workbook>

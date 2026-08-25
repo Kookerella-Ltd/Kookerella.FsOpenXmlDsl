@@ -1,0 +1,29 @@
+<workbook>
+  <sheets>
+    <sheet name="Sheet1">
+      <cells>
+        <cell ref="A1">
+          <number>10</number>
+        </cell>
+        <cell ref="A2">
+          <number>50</number>
+        </cell>
+        <cell ref="A3">
+          <number>90</number>
+        </cell>
+      </cells>
+      <conditionalFormats>
+        <conditionalFormat topLeft="A1" bottomRight="A3">
+          <colorScale2>
+            <minColor>
+              <rgb r="255" g="255" b="255" />
+            </minColor>
+            <maxColor>
+              <rgb r="255" g="0" b="0" />
+            </maxColor>
+          </colorScale2>
+        </conditionalFormat>
+      </conditionalFormats>
+    </sheet>
+  </sheets>
+</workbook>

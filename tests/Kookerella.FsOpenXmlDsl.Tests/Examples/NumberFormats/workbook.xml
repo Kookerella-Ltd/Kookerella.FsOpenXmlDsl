@@ -1,0 +1,62 @@
+<workbook>
+  <sheets>
+    <sheet name="Sheet1">
+      <cells>
+        <cell ref="A1">
+          <text>Integer</text>
+        </cell>
+        <cell ref="B1">
+          <number>1234</number>
+          <style>
+            <numberFormat kind="integer" />
+          </style>
+        </cell>
+        <cell ref="A2">
+          <text>TwoDecimal</text>
+        </cell>
+        <cell ref="B2">
+          <number>1234.5</number>
+          <style>
+            <numberFormat kind="twoDecimal" />
+          </style>
+        </cell>
+        <cell ref="A3">
+          <text>Percentage</text>
+        </cell>
+        <cell ref="B3">
+          <number>0.42</number>
+          <style>
+            <numberFormat kind="percentage" />
+          </style>
+        </cell>
+        <cell ref="A4">
+          <text>Currency</text>
+        </cell>
+        <cell ref="B4">
+          <number>19.99</number>
+          <style>
+            <numberFormat kind="currency" />
+          </style>
+        </cell>
+        <cell ref="A5">
+          <text>ShortDate</text>
+        </cell>
+        <cell ref="B5">
+          <date>2026-03-01T00:00:00.0000000</date>
+          <style>
+            <numberFormat kind="shortDate" />
+          </style>
+        </cell>
+        <cell ref="A6">
+          <text>DateAndTime</text>
+        </cell>
+        <cell ref="B6">
+          <date>2026-03-01T13:30:00.0000000</date>
+          <style>
+            <numberFormat kind="dateAndTime" />
+          </style>
+        </cell>
+      </cells>
+    </sheet>
+  </sheets>
+</workbook>

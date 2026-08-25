@@ -1,0 +1,15 @@
+<workbook>
+  <sheets>
+    <sheet name="Sheet1">
+      <cells>
+        <cell ref="A1">
+          <text>Fits to one page wide</text>
+        </cell>
+      </cells>
+      <pageSetup orientation="portrait">
+        <scaling fitWidth="1" fitHeight="0" />
+        <margins left="0.7" right="0.7" top="0.75" bottom="0.75" header="0.3" footer="0.3" />
+      </pageSetup>
+    </sheet>
+  </sheets>
+</workbook>

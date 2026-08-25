@@ -1,0 +1,16 @@
+<workbook>
+  <sheets>
+    <sheet name="Sheet1">
+      <cells>
+        <cell ref="A1">
+          <text>Fraction (0-1)</text>
+        </cell>
+      </cells>
+      <dataValidations>
+        <dataValidation topLeft="A2" bottomRight="A2">
+          <decimalValidation operator="between" formula1="0" formula2="1" />
+        </dataValidation>
+      </dataValidations>
+    </sheet>
+  </sheets>
+</workbook>

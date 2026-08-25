@@ -1,0 +1,38 @@
+<workbook>
+  <sheets>
+    <sheet name="Sheet1">
+      <cells>
+        <cell ref="A1">
+          <text>Widgets</text>
+        </cell>
+        <cell ref="B1">
+          <number>4</number>
+        </cell>
+        <cell ref="C1">
+          <number>2.5</number>
+        </cell>
+        <cell ref="D1">
+          <formula cachedValue="10">B1*C1</formula>
+        </cell>
+        <cell ref="A2">
+          <text>Gadgets</text>
+        </cell>
+        <cell ref="B2">
+          <number>2</number>
+        </cell>
+        <cell ref="C2">
+          <number>19.99</number>
+        </cell>
+        <cell ref="D2">
+          <formula cachedValue="39.98">B2*C2</formula>
+        </cell>
+        <cell ref="A3">
+          <text>Total</text>
+        </cell>
+        <cell ref="B3">
+          <formula cachedValue="49.98">SUM(D1:D2)</formula>
+        </cell>
+      </cells>
+    </sheet>
+  </sheets>
+</workbook>

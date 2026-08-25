@@ -1,0 +1,18 @@
+<workbook>
+  <sheets>
+    <sheet name="Sheet1">
+      <cells>
+        <cell ref="A1">
+          <text>Wide report</text>
+        </cell>
+      </cells>
+      <pageSetup orientation="landscape">
+        <paperSize kind="a4" />
+        <scaling percent="85" />
+        <margins left="0.5" right="0.5" top="0.75" bottom="0.75" header="0.3" footer="0.3" />
+        <header>&amp;C&amp;"Arial,Bold"Quarterly Report</header>
+        <footer>&amp;LPage &amp;P of &amp;N&amp;R&amp;D</footer>
+      </pageSetup>
+    </sheet>
+  </sheets>
+</workbook>

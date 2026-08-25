@@ -1,0 +1,16 @@
+<workbook>
+  <sheets>
+    <sheet name="Sheet1">
+      <cells>
+        <cell ref="A1">
+          <text>Quantity</text>
+        </cell>
+      </cells>
+      <dataValidations>
+        <dataValidation topLeft="A2" bottomRight="A2" errorTitle="Invalid quantity" errorMessage="Quantity must be a positive whole number.">
+          <wholeNumberValidation operator="greaterThan" formula1="0" />
+        </dataValidation>
+      </dataValidations>
+    </sheet>
+  </sheets>
+</workbook>

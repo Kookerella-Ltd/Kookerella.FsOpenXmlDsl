@@ -3,6 +3,7 @@ module Kookerella.FsOpenXmlDsl.Tests
 open System
 open System.Diagnostics
 open System.IO
+open System.Xml.Linq
 open Xunit
 open DocumentFormat.OpenXml
 open DocumentFormat.OpenXml.Packaging
@@ -105,9 +106,15 @@ let private codeGenReferenceLines =
 /// Saves `wb` to `Examples/<name>/<fileName>`, asserts the file is schema-valid, and
 /// asserts every sheet round-trips exactly back through the DSL. Also writes an
 /// `Examples/<name>/script.fsx` that regenerates the same file - see the `Category=Slow`
-/// tests below for where that script actually gets executed and verified. `fileName`
-/// defaults to `output.xlsx`; the one exception is a workbook carrying a VBA project,
-/// which needs the `.xlsm` extension real Excel expects for macro-enabled content.
+/// tests below for where that script actually gets executed and verified - and an
+/// `Examples/<name>/workbook.xml` showing the same workbook through `Xml.ofWorkbook`,
+/// so a single folder always has three views of one example: the real file, the F#
+/// source that rebuilds it, and the XML that also rebuilds it. `Xml` is being built up
+/// feature-by-feature (see its own doc comment) - a scenario using a feature it doesn't
+/// model yet will still get a `workbook.xml`, just missing that part, same as `toWorkbook`
+/// itself degrades. `fileName` defaults to `output.xlsx`; the one exception is a workbook
+/// carrying a VBA project, which needs the `.xlsm` extension real Excel expects for
+/// macro-enabled content.
 let private verifyScenarioNamed (name: string) (fileName: string) (wb: Workbook) =
     let dir = Path.Combine(examplesDir, name)
     Directory.CreateDirectory(dir) |> ignore
@@ -135,6 +142,13 @@ let private verifyScenarioNamed (name: string) (fileName: string) (wb: Workbook)
 
     let script = Workbook.generateScript codeGenReferenceLines fileName wb
     File.WriteAllText(Path.Combine(dir, "script.fsx"), script)
+
+    let xmlDoc = XDocument(Xml.ofWorkbook wb)
+    File.WriteAllText(Path.Combine(dir, "workbook.xml"), xmlDoc.ToString())
+    // Validated right here, synchronously, rather than by a separate test reading the file
+    // back later - that would race xUnit's default cross-class parallelism (see
+    // XmlTests.assertXmlSchemaValid's own doc comment).
+    XmlTests.assertXmlSchemaValid xmlDoc
 
 let private verifyScenario (name: string) (wb: Workbook) = verifyScenarioNamed name "output.xlsx" wb
 

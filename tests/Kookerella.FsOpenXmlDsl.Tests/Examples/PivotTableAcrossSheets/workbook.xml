@@ -1,0 +1,42 @@
+<workbook>
+  <sheets>
+    <sheet name="Data">
+      <cells>
+        <cell ref="A1">
+          <text>Category</text>
+        </cell>
+        <cell ref="B1">
+          <text>Amount</text>
+        </cell>
+        <cell ref="A2">
+          <text>A</text>
+        </cell>
+        <cell ref="B2">
+          <number>3</number>
+        </cell>
+        <cell ref="A3">
+          <text>B</text>
+        </cell>
+        <cell ref="B3">
+          <number>7</number>
+        </cell>
+        <cell ref="A4">
+          <text>A</text>
+        </cell>
+        <cell ref="B4">
+          <number>4</number>
+        </cell>
+      </cells>
+    </sheet>
+    <sheet name="Report">
+      <cells>
+        <cell ref="A1">
+          <text>Pivot table below:</text>
+        </cell>
+      </cells>
+      <pivotTables>
+        <pivotTable sourceSheet="Data" sourceTopLeft="A1" sourceBottomRight="B4" rowField="Category" valueField="Amount" aggregation="count" anchorTopLeft="A3" />
+      </pivotTables>
+    </sheet>
+  </sheets>
+</workbook>

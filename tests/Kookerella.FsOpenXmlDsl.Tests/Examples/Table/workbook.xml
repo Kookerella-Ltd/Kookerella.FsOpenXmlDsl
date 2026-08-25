@@ -1,0 +1,35 @@
+<workbook>
+  <sheets>
+    <sheet name="Sheet1">
+      <cells>
+        <cell ref="A1">
+          <text>Item</text>
+        </cell>
+        <cell ref="B1">
+          <text>Quantity</text>
+        </cell>
+        <cell ref="A2">
+          <text>Widgets</text>
+        </cell>
+        <cell ref="B2">
+          <number>12</number>
+        </cell>
+        <cell ref="A3">
+          <text>Gadgets</text>
+        </cell>
+        <cell ref="B3">
+          <number>5</number>
+        </cell>
+      </cells>
+      <tables>
+        <table topLeft="A1" bottomRight="B3" name="Inventory">
+          <columns>
+            <column name="Item" />
+            <column name="Quantity" />
+          </columns>
+          <style name="TableStyleMedium2" showRowStripes="true" />
+        </table>
+      </tables>
+    </sheet>
+  </sheets>
+</workbook>

@@ -1,0 +1,45 @@
+<workbook>
+  <sheets>
+    <sheet name="Sheet1">
+      <cells>
+        <cell ref="A1">
+          <text>Quantity</text>
+        </cell>
+        <cell ref="B1">
+          <text>Unit Price</text>
+        </cell>
+        <cell ref="C1">
+          <text>Total</text>
+        </cell>
+        <cell ref="A2">
+          <number>12</number>
+        </cell>
+        <cell ref="B2">
+          <number>2.5</number>
+        </cell>
+        <cell ref="C2">
+          <formula cachedValue="30">[@Quantity]*[@[Unit Price]]</formula>
+        </cell>
+        <cell ref="A3">
+          <number>5</number>
+        </cell>
+        <cell ref="B3">
+          <number>9</number>
+        </cell>
+        <cell ref="C3">
+          <formula cachedValue="45">[@Quantity]*[@[Unit Price]]</formula>
+        </cell>
+      </cells>
+      <tables>
+        <table topLeft="A1" bottomRight="C3" name="Orders">
+          <columns>
+            <column name="Quantity" />
+            <column name="Unit Price" />
+            <column name="Total" calculatedFormula="[@Quantity]*[@[Unit Price]]" />
+          </columns>
+          <style name="TableStyleLight9" showColumnStripes="true" />
+        </table>
+      </tables>
+    </sheet>
+  </sheets>
+</workbook>

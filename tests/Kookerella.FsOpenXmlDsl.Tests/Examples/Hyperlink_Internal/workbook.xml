@@ -1,0 +1,23 @@
+<workbook>
+  <sheets>
+    <sheet name="Sheet1">
+      <cells>
+        <cell ref="A1">
+          <text>Go to Sheet2</text>
+        </cell>
+      </cells>
+      <hyperlinks>
+        <hyperlink topLeft="A1" bottomRight="A1">
+          <internalHyperlink>Sheet2!A1</internalHyperlink>
+        </hyperlink>
+      </hyperlinks>
+    </sheet>
+    <sheet name="Sheet2">
+      <cells>
+        <cell ref="A1">
+          <text>You made it!</text>
+        </cell>
+      </cells>
+    </sheet>
+  </sheets>
+</workbook>

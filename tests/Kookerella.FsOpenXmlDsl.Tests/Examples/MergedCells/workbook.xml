@@ -1,0 +1,43 @@
+<workbook>
+  <sheets>
+    <sheet name="Sheet1">
+      <cells>
+        <cell ref="A1">
+          <text>Quarterly Report</text>
+          <style>
+            <font bold="true">
+              <color>
+                <rgb r="255" g="255" b="255" />
+              </color>
+            </font>
+            <fill>
+              <rgb r="68" g="84" b="106" />
+            </fill>
+            <border>
+              <bottom style="thin">
+                <color>
+                  <rgb r="0" g="0" b="0" />
+                </color>
+              </bottom>
+            </border>
+          </style>
+        </cell>
+        <cell ref="A2">
+          <text>Q1</text>
+        </cell>
+        <cell ref="B2">
+          <text>Q2</text>
+        </cell>
+        <cell ref="C2">
+          <text>Q3</text>
+        </cell>
+        <cell ref="D2">
+          <text>Q4</text>
+        </cell>
+      </cells>
+      <mergedRanges>
+        <mergedRange topLeft="A1" bottomRight="D1" />
+      </mergedRanges>
+    </sheet>
+  </sheets>
+</workbook>

@@ -1,0 +1,34 @@
+<workbook>
+  <sheets>
+    <sheet name="Sheet1">
+      <cells>
+        <cell ref="A1">
+          <text>Team</text>
+        </cell>
+        <cell ref="B1">
+          <text>Score</text>
+        </cell>
+        <cell ref="A2">
+          <text>Alpha</text>
+        </cell>
+        <cell ref="B2">
+          <number>42</number>
+        </cell>
+        <cell ref="A3">
+          <text>Beta</text>
+        </cell>
+        <cell ref="B3">
+          <number>37</number>
+        </cell>
+      </cells>
+      <charts>
+        <chart type="bar" anchorTopLeft="D1" anchorBottomRight="K12">
+          <categories topLeft="A2" bottomRight="A3" />
+          <series>
+            <s name="B1" valuesTopLeft="B2" valuesBottomRight="B3" />
+          </series>
+        </chart>
+      </charts>
+    </sheet>
+  </sheets>
+</workbook>

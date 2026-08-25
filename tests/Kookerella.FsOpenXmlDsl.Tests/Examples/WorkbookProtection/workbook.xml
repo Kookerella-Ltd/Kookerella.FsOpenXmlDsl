@@ -1,0 +1,12 @@
+<workbook>
+  <sheets>
+    <sheet name="Sheet1">
+      <cells>
+        <cell ref="A1">
+          <text>Sheets can't be added, removed, or renamed</text>
+        </cell>
+      </cells>
+    </sheet>
+  </sheets>
+  <protection password="hunter2" lockStructure="true" />
+</workbook>

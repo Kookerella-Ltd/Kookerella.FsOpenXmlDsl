@@ -1,0 +1,17 @@
+<workbook>
+  <sheets>
+    <sheet name="Sheet1">
+      <cells>
+        <cell ref="A1">
+          <text>Report</text>
+        </cell>
+      </cells>
+      <pageSetup orientation="portrait">
+        <margins left="0.7" right="0.7" top="0.75" bottom="0.75" header="0.3" footer="0.3" />
+        <header>&amp;CPage &amp;P</header>
+        <evenFooter>&amp;L&amp;F</evenFooter>
+        <firstHeader>&amp;CCover Page</firstHeader>
+      </pageSetup>
+    </sheet>
+  </sheets>
+</workbook>

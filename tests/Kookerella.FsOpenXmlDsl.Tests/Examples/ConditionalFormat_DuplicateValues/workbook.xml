@@ -1,0 +1,28 @@
+<workbook>
+  <sheets>
+    <sheet name="Sheet1">
+      <cells>
+        <cell ref="A1">
+          <text>Apple</text>
+        </cell>
+        <cell ref="A2">
+          <text>Banana</text>
+        </cell>
+        <cell ref="A3">
+          <text>Apple</text>
+        </cell>
+      </cells>
+      <conditionalFormats>
+        <conditionalFormat topLeft="A1" bottomRight="A3">
+          <duplicateValuesRule>
+            <style>
+              <fill>
+                <rgb r="255" g="199" b="206" />
+              </fill>
+            </style>
+          </duplicateValuesRule>
+        </conditionalFormat>
+      </conditionalFormats>
+    </sheet>
+  </sheets>
+</workbook>

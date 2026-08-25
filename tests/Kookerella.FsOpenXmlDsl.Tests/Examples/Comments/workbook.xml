@@ -1,0 +1,25 @@
+<workbook>
+  <sheets>
+    <sheet name="Sheet1">
+      <cells>
+        <cell ref="A1">
+          <text>Revenue</text>
+        </cell>
+        <cell ref="B1">
+          <number>1250</number>
+        </cell>
+        <cell ref="A2">
+          <text>Costs</text>
+        </cell>
+        <cell ref="B2">
+          <number>900</number>
+        </cell>
+      </cells>
+      <comments>
+        <comment cell="B1" author="Alex">Figure is provisional pending audit.</comment>
+        <comment cell="B2" author="Alex">Includes one-off relocation costs.</comment>
+        <comment cell="A1">Double check this label.</comment>
+      </comments>
+    </sheet>
+  </sheets>
+</workbook>

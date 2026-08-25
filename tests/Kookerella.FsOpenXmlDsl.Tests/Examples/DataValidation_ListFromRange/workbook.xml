@@ -1,0 +1,25 @@
+<workbook>
+  <sheets>
+    <sheet name="Sheet1">
+      <cells>
+        <cell ref="A1">
+          <text>Small</text>
+        </cell>
+        <cell ref="B1">
+          <text>Medium</text>
+        </cell>
+        <cell ref="C1">
+          <text>Large</text>
+        </cell>
+        <cell ref="A2">
+          <text>Size</text>
+        </cell>
+      </cells>
+      <dataValidations>
+        <dataValidation topLeft="A2" bottomRight="A2">
+          <listFromRangeValidation topLeft="A1" bottomRight="C1" />
+        </dataValidation>
+      </dataValidations>
+    </sheet>
+  </sheets>
+</workbook>

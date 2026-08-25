@@ -1,0 +1,20 @@
+<workbook>
+  <sheets>
+    <sheet name="Sheet1">
+      <cells>
+        <cell ref="A1">
+          <text>Wide column</text>
+        </cell>
+        <cell ref="B1">
+          <text>Tall row</text>
+        </cell>
+      </cells>
+      <columnProps>
+        <columnProp index="0" width="30" />
+      </columnProps>
+      <rowProps>
+        <rowProp index="0" height="30" />
+      </rowProps>
+    </sheet>
+  </sheets>
+</workbook>
