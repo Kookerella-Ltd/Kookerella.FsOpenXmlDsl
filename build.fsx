@@ -198,7 +198,7 @@ Target.create "PushMcp" (fun _ -> push mcpPackageId mcpProj)
 // the Mcp tool bundles its own dependencies as a self-contained `dotnet tool` payload rather
 // than declaring them in its nuspec at all (verified: its published nuspec has no
 // `<dependencies>` section), so there's no "stale floor" for it to have.
-Target.create "VerifyDependencyFreshness" (fun _ ->
+let verifyDependencyFreshness () =
     let latestCore = latestPublishedVersion fsCorePackageId
     let latestWrapper = latestPublishedVersion csWrapperPackageId
     let wrapperNuspec = fetchNuspec csWrapperPackageId latestWrapper
@@ -223,9 +223,23 @@ Target.create "VerifyDependencyFreshness" (fun _ ->
             fsCorePackageId
             latestCore
             csWrapperPackageId
-    | _ -> Trace.tracefn "%s %s correctly depends on the latest published %s %s." csWrapperPackageId latestWrapper fsCorePackageId latestCore)
+    | _ -> Trace.tracefn "%s %s correctly depends on the latest published %s %s." csWrapperPackageId latestWrapper fsCorePackageId latestCore
 
-Target.create "PublishAll" ignore
+// Independently invocable (`fake run build.fsx -t VerifyDependencyFreshness --single-target`)
+// as a standalone health check, any time - it needs none of PublishAll's prerequisites
+// since it only ever looks at nuget.org's own already-published state, never local source.
+Target.create "VerifyDependencyFreshness" (fun _ -> verifyDependencyFreshness ())
+
+// PublishAll's whole purpose is to be the *only* sanctioned way to push a release (push
+// itself is written to be a no-op for whichever package(s) didn't change this time,
+// specifically so there's never a reason to reach for PushCore/PushWrapper/PushMcp alone) -
+// running the same freshness check here, as PublishAll's own action rather than merely a
+// same-named target chained *after* it (`"PublishAll" ==> "VerifyDependencyFreshness"` would
+// make VerifyDependencyFreshness depend on PublishAll, not the other way round - running
+// `-t PublishAll` would never reach it), is what actually confirms the policy held on every
+// real `-t PublishAll` invocation, using nuget.org's own live state rather than trusting
+// that it did.
+Target.create "PublishAll" (fun _ -> verifyDependencyFreshness ())
 
 "Clean" ==> "Restore" ==> "Build" ==> "TestFast" ==> "TestSlow" |> ignore
 
@@ -235,12 +249,5 @@ Target.create "PublishAll" ignore
 "TestSlow" ==> "PackCore" ==> "PushCore" ==> "PublishAll" |> ignore
 "TestSlow" ==> "PackWrapper" ==> "PushWrapper" ==> "PublishAll" |> ignore
 "TestSlow" ==> "PackMcp" ==> "PushMcp" ==> "PublishAll" |> ignore
-
-// PublishAll's whole purpose is to be the *only* sanctioned way to push a release (push
-// itself is written to be a no-op for whichever package(s) didn't change this time,
-// specifically so there's never a reason to reach for PushCore/PushWrapper/PushMcp alone) -
-// this final check confirms that policy actually held, using nuget.org's own live state
-// rather than trusting that it did.
-"PublishAll" ==> "VerifyDependencyFreshness" |> ignore
 
 Target.runOrDefaultWithArguments "Build"
