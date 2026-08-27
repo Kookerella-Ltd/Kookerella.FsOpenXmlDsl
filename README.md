@@ -466,6 +466,22 @@ directly, with no extra wrapper element:
 </conditionalFormat>
 ```
 
+A `Chart`'s `Series` list needs its own wrapper element (`<series>`) distinct from each
+item's own element name (`<s>`), to avoid a real ambiguity XML has and JSON doesn't - a
+list has no shape of its own in XML the way a JSON array does, so the container and its
+items need different names or a reader can't tell where the list starts:
+
+```xml
+<chart type="column" title="Sales by Quarter" showLegend="true"
+       anchorTopLeft="E1" anchorBottomRight="L15">
+  <categories topLeft="A2" bottomRight="A4" />
+  <series>
+    <s name="B1" valuesTopLeft="B2" valuesBottomRight="B4" />
+    <s name="C1" valuesTopLeft="C2" valuesBottomRight="C4" />
+  </series>
+</chart>
+```
+
 `Xml.schemaSet()` loads the compiled schema for validating either direction yourself
 (`XDocument.Validate`) - every scenario under `tests/Kookerella.FsOpenXmlDsl.Tests/Examples/`
 has a committed `workbook.xml` validated against it this way as part of the same test that
@@ -549,6 +565,25 @@ its `color` under an explicit key:
       "style": { "fill": { "color": { "rgb": { "r": 255, "g": 199, "b": 206 } } } }
     }
   }
+}
+```
+
+The same `Chart` example as above, in JSON - `series` is a plain array, with no need for
+the wrapper-vs-item-name trick `<series>`/`<s>` exist for in XML, since a JSON array is
+self-delimiting:
+
+```json
+{
+  "type": "column",
+  "title": "Sales by Quarter",
+  "showLegend": true,
+  "anchorTopLeft": "E1",
+  "anchorBottomRight": "L15",
+  "categories": { "topLeft": "A2", "bottomRight": "A4" },
+  "series": [
+    { "name": "B1", "valuesTopLeft": "B2", "valuesBottomRight": "B4" },
+    { "name": "C1", "valuesTopLeft": "C2", "valuesBottomRight": "C4" }
+  ]
 }
 ```
 
