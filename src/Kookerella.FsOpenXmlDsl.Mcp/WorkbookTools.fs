@@ -4,6 +4,7 @@ open System
 open System.ComponentModel
 open System.Globalization
 open System.Text.Json
+open System.Text.Json.Nodes
 open System.Xml.Linq
 open ModelContextProtocol.Server
 open Kookerella.FsOpenXmlDsl
@@ -34,10 +35,10 @@ type SheetOutput() =
 /// are deliberately narrow - plain cell values and formulas only, addressed by a simple
 /// row/column grid per sheet, no styling/tables/charts/pivot tables/etc. - the same
 /// "honest, bounded MVP, documented gap" scoping this whole library uses elsewhere, not an
-/// oversight. The other four tools (`generate_fsharp_script`/`generate_csharp_script`/
-/// `generate_xml`/`create_workbook_from_xml`) aren't limited that way - they cover the full
-/// worksheet/workbook-level feature set, just via generated source/XML rather than a plain
-/// grid.
+/// oversight. The other six tools (`generate_fsharp_script`/`generate_csharp_script`/
+/// `generate_xml`/`create_workbook_from_xml`/`generate_json`/`create_workbook_from_json`)
+/// aren't limited that way - they cover the full worksheet/workbook-level feature set, just
+/// via generated source/XML/JSON rather than a plain grid.
 [<McpServerToolType>]
 type WorkbookTools =
 
@@ -222,5 +223,36 @@ type WorkbookTools =
             [<Description("Output file path, e.g. \"C:\\reports\\invoice.xlsx\". The directory must already exist.")>] path: string
         ) : string =
         let wb = XElement.Parse(xml) |> Xml.toWorkbook
+        Workbook.save path wb
+        sprintf "Wrote %s (%d sheet%s)." path wb.Sheets.Length (if wb.Sheets.Length = 1 then "" else "s")
+
+    [<McpServerTool(Name = "generate_json")>]
+    [<Description(
+        "Reads an existing Excel workbook and returns it as JSON. The JSON-side equivalent of generate_xml, \
+         for a caller whose tooling speaks JSON rather than XML - same use cases (inspect, transform, or \
+         archive a workbook's structure without any F#/C# source involved) and the same worksheet/workbook- \
+         level feature set. There is no embedded runtime schema for this direction the way generate_xml has \
+         Xml.xsd - see the main library repo's Json.schema.json (test-suite only) for the documented shape."
+    )>]
+    static member GenerateJson([<Description("Path to an existing .xlsx/.xlsm file to convert to JSON.")>] path: string) : string =
+        let wb = Workbook.load path
+        (Json.ofWorkbook wb).ToJsonString(JsonSerializerOptions(WriteIndented = true))
+
+    [<McpServerTool(Name = "create_workbook_from_json")>]
+    [<Description(
+        "Builds a new Excel workbook from JSON matching the shape generate_json produces (see the main \
+         library repo's Json.schema.json) and saves it to disk - the inverse of generate_json. The JSON-side \
+         equivalent of create_workbook_from_xml, for a caller that already produces data as JSON and wants to \
+         reach Excel without learning the OOXML schema or this library's own F#/C# API. Covers the same \
+         worksheet/workbook-level feature set generate_json does; unlike create_workbook, this isn't limited \
+         to plain cell values - styling, tables, charts, and every other modeled feature can be expressed in \
+         the JSON."
+    )>]
+    static member CreateWorkbookFromJson
+        (
+            [<Description("The workbook JSON content - an object matching Json.schema.json's root shape.")>] json: string,
+            [<Description("Output file path, e.g. \"C:\\reports\\invoice.xlsx\". The directory must already exist.")>] path: string
+        ) : string =
+        let wb = JsonNode.Parse(json).AsObject() |> Json.toWorkbook
         Workbook.save path wb
         sprintf "Wrote %s (%d sheet%s)." path wb.Sheets.Length (if wb.Sheets.Length = 1 then "" else "s")
