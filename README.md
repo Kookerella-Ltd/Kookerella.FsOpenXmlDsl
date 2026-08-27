@@ -450,6 +450,22 @@ rather than nested:
 </dataValidation>
 ```
 
+`ConditionalFormatRule`'s seven cases follow the same convention too, nesting a full
+`CellStyle` where the rule needs one - note `<fill>` holds `<rgb>`/`<indexed>`/`<theme>`
+directly, with no extra wrapper element:
+
+```xml
+<conditionalFormat topLeft="A1" bottomRight="A3">
+  <cellValueRule operator="greaterThan" formula1="100">
+    <style>
+      <fill>
+        <rgb r="255" g="199" b="206" />
+      </fill>
+    </style>
+  </cellValueRule>
+</conditionalFormat>
+```
+
 `Xml.schemaSet()` loads the compiled schema for validating either direction yourself
 (`XDocument.Validate`) - every scenario under `tests/Kookerella.FsOpenXmlDsl.Tests/Examples/`
 has a committed `workbook.xml` validated against it this way as part of the same test that
@@ -514,6 +530,24 @@ and `alert` as their own objects, the more natural shape for this format:
   "alert": {
     "errorTitle": "Invalid quantity",
     "errorMessage": "Quantity must be a positive whole number."
+  }
+}
+```
+
+The same `ConditionalFormat` example as above, in JSON - `rule` nests one of the seven
+cases the same way `kind` does above, and (unlike XML's bare `<fill>`) `fill` always wraps
+its `color` under an explicit key:
+
+```json
+{
+  "topLeft": "A1",
+  "bottomRight": "A3",
+  "rule": {
+    "cellValueRule": {
+      "operator": "greaterThan",
+      "formula1": "100",
+      "style": { "fill": { "color": { "rgb": { "r": 255, "g": 199, "b": 206 } } } }
+    }
   }
 }
 ```
