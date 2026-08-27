@@ -15,12 +15,13 @@ an existing one, but no way to turn an *existing* file back into readable source
 `Reader` parses a real `.xlsx`/`.xlsm` back into the same DSL, and `Workbook.generateScript`
 (F#) / `CsCodeGen.Generate` (C#) go one step further and render that model back out as a
 self-contained script that rebuilds an equivalent file - a decompiler for spreadsheets, not
-just a writer. A third surface, `Xml.ofWorkbook`/`Xml.toWorkbook` (see
-["## XML"](#xml) below), does the same translation to/from plain XML against a real,
-embedded schema - for a caller who'd rather generate or consume data than write code at
-all, e.g. an XSLT pipeline producing a report. `Kookerella.FsOpenXmlDsl.Mcp` exposes all
-three directions as MCP tools (`generate_fsharp_script`/`generate_csharp_script`/
-`generate_xml`/`create_workbook_from_xml`) for an AI agent, and as `fsopenxmldsl-mcp
+just a writer. Two more surfaces, `Xml.ofWorkbook`/`Xml.toWorkbook` (see ["## XML"](#xml)
+below) and `Json.ofWorkbook`/`Json.toWorkbook` (see ["## JSON"](#json) below), do the same
+translation to/from plain XML or JSON against a real schema - for a caller who'd rather
+generate or consume data than write code at all, e.g. an XSLT pipeline producing a report.
+`Kookerella.FsOpenXmlDsl.Mcp` exposes all four directions as MCP tools
+(`generate_fsharp_script`/`generate_csharp_script`/`generate_xml`/`create_workbook_from_xml`/
+`generate_json`/`create_workbook_from_json`) for an AI agent, and as `fsopenxmldsl-mcp
 convert`/`build` CLI commands for anyone else - try it on any spreadsheet you already have,
 no code required:
 
@@ -69,6 +70,11 @@ fsopenxmldsl-mcp convert your-file.xlsx --lang csharp
     `Workbook` to/from an `XElement` tree, and `Xml.schemaSet()` loads the paired schema
     (embedded in the assembly as a resource) for validating either direction. See
     ["## XML"](#xml) below.
+  - `Json.fs` — the JSON surface: `Json.toWorkbook`/`Json.ofWorkbook` translate a `Workbook`
+    to/from a `System.Text.Json.Nodes.JsonObject` tree, covering the same
+    worksheet/workbook-level feature set `Xml.fs` does. Schema validation
+    (`Json.schema.json`) is test-suite only, not a public API - see ["## JSON"](#json)
+    below.
   - `Builders.fs` — ergonomic helpers: plain functional constructors (`cellA1`, ...) for
     the canonical model, plus the `SheetItem`/`CellEntry` types (each a single simple DU
     case with optional fields) and the `sheet` fold function - a small tree-shaped "AST
@@ -125,10 +131,10 @@ fsopenxmldsl-mcp convert your-file.xlsx --lang csharp
   own C# xUnit suite, exercising the wrapper the way a real C# caller would rather than
   reusing the F# test project.
 - `src/Kookerella.FsOpenXmlDsl.Mcp` — a local MCP (Model Context Protocol) server exposing
-  this library's read/write/code-generation/XML capabilities as tools any MCP-compatible AI
-  agent can call directly, and the same conversion capability as plain `fsopenxmldsl-mcp
-  convert`/`build` CLI commands for anyone not going through an MCP client - see its own
-  README for the tool list and how to configure it.
+  this library's read/write/code-generation/XML/JSON capabilities as tools any
+  MCP-compatible AI agent can call directly, and the same conversion capability as plain
+  `fsopenxmldsl-mcp convert`/`build` CLI commands for anyone not going through an MCP
+  client - see its own README for the tool list and how to configure it.
 
 ## Quick start
 
@@ -447,6 +453,57 @@ formatting, and data validation.
 `Kookerella.FsOpenXmlDsl.Mcp` exposes both directions without writing any F# at all:
 `generate_xml`/`create_workbook_from_xml` MCP tools for an AI agent, and `fsopenxmldsl-mcp
 convert --lang xml`/`build` CLI commands for anyone else - see that project's own README.
+
+## JSON
+
+`Json.toWorkbook`/`Json.ofWorkbook` (in `Json.fs`) are a fourth way in and out of the DSL,
+alongside writing F#/C# directly, code generation, and XML: plain JSON, for a caller whose
+tooling speaks JSON rather than XML. The same two concrete uses XML has apply here:
+
+- **Build an `.xlsx` from JSON a transform/generation pipeline already produces** - without
+  learning the OOXML schema or this library's own API.
+- **Convert an existing `.xlsx` to JSON for version control** - the same determinism
+  `Xml.ofWorkbook` has (sorted by cell position, or by name for defined names) applies to
+  `Json.ofWorkbook`'s output too, for the same reason: a genuine content change produces a
+  small, isolated diff rather than a spurious one from lists getting reshuffled between runs.
+
+```fsharp
+open System.Text.Json.Nodes
+
+// JSON -> Workbook -> .xlsx
+let wb = JsonNode.Parse(File.ReadAllText "report.json").AsObject() |> Json.toWorkbook
+Workbook.save "report.xlsx" wb
+
+// .xlsx -> Workbook -> JSON
+let json = Workbook.load "report.xlsx" |> Json.ofWorkbook
+File.WriteAllText("report.json", json.ToJsonString())
+```
+
+A discriminated union case becomes a single-key JSON object named after the case
+(camelCased) when it carries data of its own, or a bare JSON string (also camelCased) when
+it's one of several parameterless alternatives - e.g. a cell's value:
+
+```json
+{
+  "ref": "B2",
+  "number": 42.5,
+  "style": { "numberFormat": "currency" }
+}
+```
+
+Unlike XML, .NET has no built-in JSON Schema validator the way `System.Xml.Schema` exists
+for XML, so `Json.schema.json` (in the repo, matching this shape) is validated only from
+this repo's own test suite (via a test-only `JsonSchema.Net` dependency) rather than exposed
+as a public `Json.schemaSet()`-style API - see `JsonTests.fs`. `Json.fs` covers the same
+worksheet/workbook-level feature set `Xml.fs` does - cell values, styles, merged ranges,
+freeze panes, autofilter, column/row sizing, VBA (base64), defined names, hyperlinks,
+comments, sheet/workbook protection, print settings, images (base64), Excel Tables,
+sparklines, charts, pivot tables (the description only - loading one doesn't re-run its
+aggregation, unlike everything else here), conditional formatting, and data validation.
+
+`Kookerella.FsOpenXmlDsl.Mcp` exposes both directions without writing any F# at all:
+`generate_json`/`create_workbook_from_json` MCP tools for an AI agent, and `fsopenxmldsl-mcp
+convert --lang json`/`build` CLI commands for anyone else - see that project's own README.
 
 ## Building and testing
 

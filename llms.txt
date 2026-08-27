@@ -6,9 +6,10 @@
 > one also round-trips (read a file back into the same immutable model) and can decompile a
 > loaded workbook back into equivalent, runnable F# or C# source via built-in code
 > generation - available as library calls, as MCP tools for an agent, and as a
-> `fsopenxmldsl-mcp convert` CLI command for anyone else. A third surface (`Xml.fs`) does
-> the same translation to/from plain XML against a real, embedded schema, for a caller who'd
-> rather generate/consume data than code at all. Ships as three packages from one repo: the
+> `fsopenxmldsl-mcp convert` CLI command for anyone else. Two more surfaces (`Xml.fs`,
+> `Json.fs`) do the same translation to/from plain XML or JSON, for a caller who'd rather
+> generate/consume data than code at all (XML against a real, embedded schema; JSON against
+> a schema too, but test-suite only, not a public API). Ships as three packages from one repo: the
 > F# core (`Kookerella.FsOpenXmlDsl`), an idiomatic C# wrapper over it
 > (`Kookerella.CsOpenXmlDsl`), and a local MCP server exposing it as agent tools/a CLI
 > (`Kookerella.FsOpenXmlDsl.Mcp`).
@@ -96,6 +97,28 @@ element named after the case (camelCased) when it carries data, or an attribute 
 `tests/Kookerella.FsOpenXmlDsl.Tests/Examples/` has a committed `workbook.xml` example,
 validated against `Xml.xsd` at generation time.
 
+### JSON surface (`Json.fs`)
+
+A fourth way to build/read a `Workbook`, alongside writing F#/C# directly, code generation,
+and XML - plain JSON, for a caller whose tooling speaks JSON rather than XML. Same two
+motivating uses as XML (build an `.xlsx` from JSON a pipeline already produces; convert an
+existing `.xlsx` to JSON for text-based diffing, with the same cell-position/name
+determinism `Xml.ofWorkbook` has).
+
+- `Json.toWorkbook (root: JsonObject) : Workbook` — `root` is the top-level `{"sheets":
+  [...], ...}` object.
+- `Json.ofWorkbook (wb: Workbook) : JsonObject` — the inverse; each is the other's exact
+  round trip for everything this covers.
+
+Covers the same worksheet/workbook-level feature set `Xml.fs` does (identical list to the
+one above). Convention: a DU case becomes a single-key JSON object named after the case
+(camelCased) when it carries data, or a bare JSON string (also camelCased) when it's one of
+several parameterless alternatives, e.g. `{"ref": "B2", "number": 42.5}`. Unlike `Xml.xsd`,
+`Json.schema.json` is **not** embedded in the assembly and has no public
+`Json.schemaSet()`-equivalent API - .NET has no built-in JSON Schema validator the way
+`System.Xml.Schema` exists for XML, so validation (via a test-only `JsonSchema.Net`
+dependency) is test-suite only; see `tests/Kookerella.FsOpenXmlDsl.Tests/JsonTests.fs`.
+
 ## C# wrapper: `Kookerella.CsOpenXmlDsl`
 
 Namespace: `Kookerella.CsOpenXmlDsl`. Target frameworks: `net8.0`, `net10.0`. Depends on
@@ -181,12 +204,12 @@ to jump to a specific position.
 
 A local (stdio) MCP server, distributed as a `dotnet tool` (`fsopenxmldsl-mcp` command,
 `dotnet tool install -g Kookerella.FsOpenXmlDsl.Mcp`). Already listed in the official MCP
-Registry as `io.github.MarkNicholls/fsopenxmldsl-mcp`. Exposes six tools:
+Registry as `io.github.MarkNicholls/fsopenxmldsl-mcp`. Exposes eight tools:
 
 - `create_workbook(path, sheets)` — builds an `.xlsx` from a plain row/column grid of cell
   text (a leading `=` makes a formula, `true`/`false` a boolean, a bare number numeric,
   else text). No styling/tables/charts/etc. — a deliberately minimal tool, distinct from
-  the other five, which all cover the full feature set.
+  the other seven, which all cover the full feature set.
 - `read_workbook(path)` — reads a file back as JSON using the same text convention.
 - `generate_fsharp_script(path, outputFileName)` — reads a workbook via the F# core and
   returns F# source via the full DSL, runnable with `dotnet fsi`.
@@ -202,18 +225,27 @@ Registry as `io.github.MarkNicholls/fsopenxmldsl-mcp`. Exposes six tools:
 - `create_workbook_from_xml(xml, path)` — the inverse: builds a workbook from XML matching
   `Xml.xsd` via `Xml.toWorkbook` and saves it to `path`. Unlike `create_workbook`, not
   limited to plain cell values - anything `Xml.fs` models can be expressed.
+- `generate_json(path)` — the JSON equivalent of `generate_xml`: reads a workbook via
+  `Json.ofWorkbook` and returns it as JSON. No embedded runtime schema for this direction
+  (`Json.schema.json` is test-suite only) - the tool description points at that file in the
+  repo instead.
+- `create_workbook_from_json(json, path)` — the inverse of `generate_json`, via
+  `Json.toWorkbook`. Same relationship to `create_workbook` as `create_workbook_from_xml`
+  has - not limited to plain cell values.
 
 The same binary is also a plain CLI, without an MCP client at all: `fsopenxmldsl-mcp
-convert <input.xlsx> --lang <fsharp|csharp|xml> [-o <file>] [--rebuild-as <name.xlsx>]`
-prints (or saves) the same source/XML the matching `generate_*` tool would return
-(`--rebuild-as` only applies to fsharp/csharp), and `fsopenxmldsl-mcp build <input.xml>
-<output.xlsx>` is `create_workbook_from_xml` as a CLI command. Both run once and exit
-rather than starting the server — `fsopenxmldsl-mcp` with no arguments still starts the
+convert <input.xlsx> --lang <fsharp|csharp|xml|json> [-o <file>] [--rebuild-as <name.xlsx>]`
+prints (or saves) the same source/XML/JSON the matching `generate_*` tool would return
+(`--rebuild-as` only applies to fsharp/csharp), and `fsopenxmldsl-mcp build <input.xml|
+input.json> <output.xlsx>` is `create_workbook_from_xml`/`create_workbook_from_json` as a
+CLI command (which one runs is inferred from `<input>`'s own extension). Both run once and
+exit rather than starting the server — `fsopenxmldsl-mcp` with no arguments still starts the
 MCP server as before.
 
 `create_workbook`/`read_workbook` go through the F# core directly; `generate_csharp_script`
 is the only tool that goes through the C# wrapper; `generate_fsharp_script`/`generate_xml`/
-`create_workbook_from_xml` go through the F# core's own `Xml.fs`/`Api.fs`.
+`create_workbook_from_xml`/`generate_json`/`create_workbook_from_json` go through the F#
+core's own `Xml.fs`/`Json.fs`/`Api.fs`.
 
 ## Load-bearing gotchas — read before generating code against any of these three packages
 
@@ -250,7 +282,7 @@ is the only tool that goes through the C# wrapper; `generate_fsharp_script`/`gen
 - [README.md](README.md) — full quick-start with runnable examples for every F# core
   feature (formulas, tables, charts, images, pivot tables, sparklines, VBA, conditional
   formatting, data validation, protection, print settings, defined names, code generation,
-  the XML surface) plus the C# wrapper and MCP server.
+  the XML and JSON surfaces) plus the C# wrapper and MCP server.
 - [MAPPING.md](MAPPING.md) — the authoritative list of what the F# core maps 1:1 onto
   SpreadsheetML, what's approximated, and what isn't modeled at all. Consult this before
   claiming the F# core supports a specific OOXML feature.

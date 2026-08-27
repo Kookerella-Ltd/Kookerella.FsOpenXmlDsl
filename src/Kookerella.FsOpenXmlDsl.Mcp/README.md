@@ -5,26 +5,28 @@
 An [MCP](https://modelcontextprotocol.io) (Model Context Protocol) server that exposes
 `Kookerella.FsOpenXmlDsl`'s Excel read/write/code-generation capabilities as tools any
 MCP-compatible AI agent can call directly - build a workbook, read one back, or regenerate
-its F#, C#, or XML representation - without writing any code itself.
+its F#, C#, XML, or JSON representation - without writing any code itself.
 
 **Most Excel libraries only go one direction**: build a workbook from scratch, or mutate an
 existing one, through an imperative object model. This one also goes the other way - read
 any existing `.xlsx`/`.xlsm` and hand back idiomatic, runnable F# or C# source (or plain
-XML against a real embedded schema) that rebuilds an equivalent file, and build a new one
-from that XML directly. A decompiler for spreadsheets, not just a writer. That's available
-three ways from this one binary: as MCP tools (`generate_fsharp_script`/
-`generate_csharp_script`/`generate_xml`/`create_workbook_from_xml`) for an AI agent, as a
-plain CLI (`fsopenxmldsl-mcp convert`/`build`) for anyone who isn't going through an MCP
-client, and as direct library calls (`Workbook.generateScript`/`CsCodeGen.Generate`/
-`Xml.ofWorkbook`/`Xml.toWorkbook`) for either to call themselves.
+XML or JSON, each against a real schema) that rebuilds an equivalent file, and build a new
+one from that XML/JSON directly. A decompiler for spreadsheets, not just a writer. That's
+available three ways from this one binary: as MCP tools (`generate_fsharp_script`/
+`generate_csharp_script`/`generate_xml`/`create_workbook_from_xml`/`generate_json`/
+`create_workbook_from_json`) for an AI agent, as a plain CLI (`fsopenxmldsl-mcp
+convert`/`build`) for anyone who isn't going through an MCP client, and as direct library
+calls (`Workbook.generateScript`/`CsCodeGen.Generate`/`Xml.ofWorkbook`/`Xml.toWorkbook`/
+`Json.ofWorkbook`/`Json.toWorkbook`) for either to call themselves.
 
-The XML direction has two concrete uses beyond code generation: **build an `.xlsx` from
-XML a transform engine already produces** (an XSLT pipeline, or any templating that emits
-XML, can target Excel with no code at all), and **convert an existing `.xlsx` to XML for
-version control** - `.xlsx` is a binary ZIP, so `git diff` on one is useless, but
-`generate_xml`'s output is deterministically ordered (sorted by cell position, or by name
-for defined names) regardless of the source workbook's own list order, so a real content
-change produces a small, isolated diff rather than a spurious one from reshuffled rows.
+The XML/JSON directions each have two concrete uses beyond code generation: **build an
+`.xlsx` from XML/JSON a transform engine already produces** (an XSLT pipeline, or any
+templating/generation script, can target Excel with no code at all), and **convert an
+existing `.xlsx` to XML/JSON for version control** - `.xlsx` is a binary ZIP, so `git diff`
+on one is useless, but `generate_xml`/`generate_json`'s output is deterministically ordered
+(sorted by cell position, or by name for defined names) regardless of the source workbook's
+own list order, so a real content change produces a small, isolated diff rather than a
+spurious one from reshuffled rows.
 
 This runs **locally**, as a subprocess your MCP client launches over stdio - there's no
 hosted service, no network address, and no account to sign up for. It's distributed as a
@@ -66,24 +68,29 @@ fsopenxmldsl-mcp convert report.xlsx --lang csharp
 
 Prints the equivalent C# source to stdout. Options:
 
-- `--lang`/`-l` (required) — `fsharp`, `csharp`, or `xml`.
+- `--lang`/`-l` (required) — `fsharp`, `csharp`, `xml`, or `json`.
 - `-o`/`--output <file>` — write the result to a file instead of stdout.
 - `--rebuild-as <name.xlsx>` — `fsharp`/`csharp` only, the filename the *generated script
   itself* saves its rebuilt workbook to when run (default `output.xlsx`). Ignored for
-  `--lang xml`, which has no script to embed a save path into.
+  `--lang xml`/`json`, which have no script to embed a save path into.
 
 ```bash
 fsopenxmldsl-mcp convert report.xlsx --lang fsharp -o report.fsx --rebuild-as rebuilt.xlsx
 dotnet fsi report.fsx
 ```
 
-`build` is the inverse of `convert --lang xml` - it takes XML matching `Xml.xsd` and
-produces an `.xlsx` directly, for a caller (e.g. an XSLT pipeline) that already produces
-data as XML and wants to reach Excel without writing any code:
+`build` is the inverse of `convert --lang xml`/`convert --lang json` - it takes XML matching
+`Xml.xsd` or JSON matching `Json.schema.json` and produces an `.xlsx` directly, for a caller
+(e.g. an XSLT pipeline, or a plain JSON-emitting script) that already produces data that way
+and wants to reach Excel without writing any code. Which format `build` reads is inferred
+from the input file's own extension (`.xml` or `.json`):
 
 ```bash
 fsopenxmldsl-mcp convert report.xlsx --lang xml -o report.xml   # .xlsx -> XML
 fsopenxmldsl-mcp build report.xml rebuilt.xlsx                  # XML -> .xlsx
+
+fsopenxmldsl-mcp convert report.xlsx --lang json -o report.json # .xlsx -> JSON
+fsopenxmldsl-mcp build report.json rebuilt.xlsx                 # JSON -> .xlsx
 ```
 
 ## Tools
@@ -115,6 +122,14 @@ fsopenxmldsl-mcp build report.xml rebuilt.xlsx                  # XML -> .xlsx
   this isn't limited to plain cell values - styling, tables, charts, and every other
   modeled feature can be expressed in the XML, since it goes through the same schema
   `generate_xml` produces.
+- **`generate_json(path)`** — the JSON equivalent of `generate_xml`: reads an existing
+  workbook and returns it as JSON. Unlike `generate_xml`, there's no embedded runtime
+  schema for this direction - `Json.schema.json` (in the main project's repo) is test-suite
+  only, not a public API.
+- **`create_workbook_from_json(json, path)`** — the inverse of `generate_json`: builds a new
+  workbook from JSON matching the shape `generate_json` produces and saves it to `path`.
+  Same relationship to `create_workbook` as `create_workbook_from_xml` has - not limited to
+  plain cell values.
 
 ## Scope
 
@@ -123,11 +138,12 @@ the whole thing: plain cell values and formulas only, addressed by a row/column 
 sheet. Cell styling, tables, charts, images, pivot tables, sparklines, conditional
 formatting, and everything else `Kookerella.FsOpenXmlDsl` supports aren't exposed through
 those two tools — an agent that needs those should reference the library directly, or use
-one of the other four tools on a file that already has them to see it represented as
-source or data. All four cover the full worksheet/workbook-level feature set:
+one of the other six tools on a file that already has them to see it represented as
+source or data. All six cover the full worksheet/workbook-level feature set:
 `generate_fsharp_script` the full F# core, `generate_csharp_script`/`generate_xml`/
-`create_workbook_from_xml` everything `Kookerella.CsOpenXmlDsl`/`Xml.fs` model, which are
-now the same feature set as the F# core. See the main project's
+`create_workbook_from_xml`/`generate_json`/`create_workbook_from_json` everything
+`Kookerella.CsOpenXmlDsl`/`Xml.fs`/`Json.fs` model, which are now the same feature set as
+the F# core. See the main project's
 [MAPPING.md](https://github.com/Kookerella-Ltd/Kookerella.FsOpenXmlDsl/blob/master/MAPPING.md)
 for the full picture of what the underlying library does and doesn't model.
 
