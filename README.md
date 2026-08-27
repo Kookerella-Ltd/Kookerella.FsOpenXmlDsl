@@ -484,6 +484,20 @@ items need different names or a reader can't tell where the list starts:
 </chart>
 ```
 
+An Excel `Table` shows the more usual case for that same wrapper/item split - `columns`
+already has a natural singular (`column`), so no `<s>`-style workaround is needed:
+
+```xml
+<table topLeft="A1" bottomRight="B4" name="Calc">
+  <columns>
+    <column name="Qty" />
+    <column name="Doubled" calculatedFormula="Calc[Qty]*2" />
+  </columns>
+  <style name="TableStyleLight9" showFirstColumn="true" showLastColumn="true"
+         showColumnStripes="true" />
+</table>
+```
+
 `Xml.schemaSet()` loads the compiled schema for validating either direction yourself
 (`XDocument.Validate`) - every scenario under `tests/Kookerella.FsOpenXmlDsl.Tests/Examples/`
 has a committed `workbook.xml` validated against it this way as part of the same test that
@@ -586,6 +600,27 @@ self-delimiting:
     { "name": "B1", "valuesTopLeft": "B2", "valuesBottomRight": "B4" },
     { "name": "C1", "valuesTopLeft": "C2", "valuesBottomRight": "C4" }
   ]
+}
+```
+
+The same `Table` example as above, in JSON - `columns` is just another plain array, same
+as `series`:
+
+```json
+{
+  "topLeft": "A1",
+  "bottomRight": "B4",
+  "name": "Calc",
+  "columns": [
+    { "name": "Qty" },
+    { "name": "Doubled", "calculatedFormula": "Calc[Qty]*2" }
+  ],
+  "style": {
+    "name": "TableStyleLight9",
+    "showFirstColumn": true,
+    "showLastColumn": true,
+    "showColumnStripes": true
+  }
 }
 ```
 
