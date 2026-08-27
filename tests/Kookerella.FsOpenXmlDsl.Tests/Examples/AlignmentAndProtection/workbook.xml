@@ -1,0 +1,15 @@
+<workbook>
+  <sheets>
+    <sheet name="Sheet1">
+      <cells>
+        <cell ref="A1">
+          <text>Centered and unlocked</text>
+          <style>
+            <alignment horizontal="center" vertical="middle" wrapText="true" />
+            <protection locked="false" hidden="true" />
+          </style>
+        </cell>
+      </cells>
+    </sheet>
+  </sheets>
+</workbook>

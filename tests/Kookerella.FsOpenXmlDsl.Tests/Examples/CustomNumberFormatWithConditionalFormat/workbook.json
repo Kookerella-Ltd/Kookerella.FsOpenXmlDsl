@@ -1,0 +1,45 @@
+{
+  "sheets": [
+    {
+      "name": "Sheet1",
+      "cells": [
+        {
+          "ref": "A1",
+          "number": 0.5,
+          "style": {
+            "numberFormat": {
+              "custom": "0.000%"
+            }
+          }
+        },
+        {
+          "ref": "A2",
+          "number": 5
+        }
+      ],
+      "conditionalFormats": [
+        {
+          "topLeft": "A2",
+          "bottomRight": "A2",
+          "rule": {
+            "cellValueRule": {
+              "operator": "greaterThan",
+              "formula1": "0",
+              "style": {
+                "fill": {
+                  "color": {
+                    "rgb": {
+                      "r": 255,
+                      "g": 199,
+                      "b": 206
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

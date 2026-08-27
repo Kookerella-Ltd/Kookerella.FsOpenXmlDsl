@@ -1,0 +1,27 @@
+{
+  "sheets": [
+    {
+      "name": "Sheet1",
+      "cells": [
+        {
+          "ref": "A1",
+          "text": "Logo below:"
+        }
+      ],
+      "comments": [
+        {
+          "cell": "A1",
+          "text": "See the logo below for the current brand mark."
+        }
+      ],
+      "images": [
+        {
+          "format": "gif",
+          "topLeft": "A3",
+          "bottomRight": "C10",
+          "data": "R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBTAA7"
+        }
+      ]
+    }
+  ]
+}

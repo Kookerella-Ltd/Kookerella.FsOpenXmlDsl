@@ -1,0 +1,54 @@
+{
+  "sheets": [
+    {
+      "name": "Sheet1",
+      "cells": [
+        {
+          "ref": "A1",
+          "number": 5
+        }
+      ],
+      "conditionalFormats": [
+        {
+          "topLeft": "A1",
+          "bottomRight": "A1",
+          "rule": {
+            "cellValueRule": {
+              "operator": "greaterThan",
+              "formula1": "0",
+              "style": {
+                "font": {
+                  "bold": true
+                },
+                "fill": {
+                  "color": {
+                    "rgb": {
+                      "r": 255,
+                      "g": 0,
+                      "b": 0
+                    }
+                  }
+                },
+                "border": {
+                  "bottom": {
+                    "style": "thin",
+                    "color": {
+                      "rgb": {
+                        "r": 0,
+                        "g": 0,
+                        "b": 0
+                      }
+                    }
+                  }
+                },
+                "alignment": {
+                  "horizontal": "center"
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

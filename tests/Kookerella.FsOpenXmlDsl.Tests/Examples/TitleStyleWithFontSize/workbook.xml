@@ -1,0 +1,18 @@
+<workbook>
+  <sheets>
+    <sheet name="Sheet1">
+      <cells>
+        <cell ref="A1">
+          <text>INVOICE</text>
+          <style>
+            <font size="16" bold="true" italic="true" underline="true">
+              <color>
+                <rgb r="68" g="84" b="106" />
+              </color>
+            </font>
+          </style>
+        </cell>
+      </cells>
+    </sheet>
+  </sheets>
+</workbook>

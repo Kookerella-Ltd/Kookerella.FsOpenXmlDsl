@@ -202,6 +202,63 @@ let ``example: styled header row`` () =
 
     verifyScenario "StyledHeaderRow" (workbook [ data ])
 
+/// Regression test for a real bug: `FontToOpenXml` once emitted `<font>` children in an
+/// order that happened to validate for every *other* scenario in this file (none of which
+/// combine `Size` with any of `Bold`/`Italic`/`Underline`/`Strikethrough`), but produced a
+/// schema-invalid `styles.xml` - caught only once this scenario existed to run
+/// `assertSchemaValid`'s real `OpenXmlValidator` against it. `XmlTests.fs`'s own "full
+/// CellStyle" test already combined every font field together, but that only exercises
+/// `Xml.fs`'s data-shape XML, not `Workbook.save`'s actual OOXML output - a reminder that
+/// those two are genuinely separate code paths with separate coverage needs.
+[<Fact>]
+let ``example: title style combining font size with bold, italic, underline, and color`` () =
+    let titleStyle =
+        { CellStyle.Default with
+            Font =
+                Some
+                    { FontStyle.Default with
+                        Size = Some 16.0
+                        Bold = true
+                        Italic = true
+                        Underline = true
+                        Color = Some(Rgb(68uy, 84uy, 106uy)) } }
+
+    let data = sheet "Sheet1" [ row [ cell (Text "INVOICE", style = titleStyle) ] ]
+
+    verifyScenario "TitleStyleWithFontSize" (workbook [ data ])
+
+/// Companion to the font-ordering regression above, from the same audit: every other
+/// function in `StyleRegistry.fs`/`Writer.fs` that appends more than one *independently
+/// optional* child to a single OOXML element carries the same theoretical risk `Font` did,
+/// even though each one happened to already be correct - each of the next few scenarios
+/// exercises a combination no existing scenario combines, so `assertSchemaValid` actually
+/// checks it, rather than that combination being "probably fine" on faith.
+[<Fact>]
+let ``example: border with all four sides set at once`` () =
+    let allSidesStyle =
+        { CellStyle.Default with
+            Border =
+                Some
+                    { Left = Some { Style = Thin; Color = Some Color.black }
+                      Right = Some { Style = Thin; Color = Some Color.black }
+                      Top = Some { Style = Thin; Color = Some Color.black }
+                      Bottom = Some { Style = Thin; Color = Some Color.black } } }
+
+    let data = sheet "Sheet1" [ row [ cell (Text "Boxed", style = allSidesStyle) ] ]
+
+    verifyScenario "BorderAllSides" (workbook [ data ])
+
+[<Fact>]
+let ``example: alignment and cell protection set together`` () =
+    let alignAndProtectStyle =
+        { CellStyle.Default with
+            Alignment = Some { Horizontal = Some AlignCenter; Vertical = Some AlignMiddle; WrapText = true }
+            Protection = Some { Locked = false; Hidden = true } }
+
+    let data = sheet "Sheet1" [ row [ cell (Text "Centered and unlocked", style = alignAndProtectStyle) ] ]
+
+    verifyScenario "AlignmentAndProtection" (workbook [ data ])
+
 [<Fact>]
 let ``example: number formats`` () =
     let styled nf value = cell (value, style = { CellStyle.Default with NumberFormat = Some nf })
@@ -480,6 +537,43 @@ let ``example: conditional format unique values`` () =
               conditionalFormat (CellRef.ofA1 "A1", CellRef.ofA1 "A3", UniqueValuesRule greenFillStyle) ]
 
     verifyScenario "ConditionalFormat_UniqueValues" (workbook [ data ])
+
+/// From the same element-ordering audit as ``example: border with all four sides set at
+/// once`` above - `DxfToOpenXml` appends six independently-optional children (font, fill,
+/// alignment, border, protection, plus number format), and no scenario above combines more
+/// than one or two of them in a single rule's style.
+[<Fact>]
+let ``example: conditional format rule combining font, fill, alignment, and border`` () =
+    let richStyle =
+        { CellStyle.Default with
+            Font = Some { FontStyle.Default with Bold = true }
+            Fill = Some { Color = Rgb(255uy, 0uy, 0uy) }
+            Alignment = Some { Horizontal = Some AlignCenter; Vertical = None; WrapText = false }
+            Border = Some { BorderStyle.None with Bottom = Some { Style = Thin; Color = Some Color.black } } }
+
+    let data =
+        sheet
+            "Sheet1"
+            [ row [ cell (Number 5.0) ]
+              conditionalFormat (CellRef.ofA1 "A1", CellRef.ofA1 "A1", CellValueRule(GreaterThan, "0", None, richStyle)) ]
+
+    verifyScenario "ConditionalFormat_RichStyle" (workbook [ data ])
+
+/// Also from the ordering audit - `BuildStylesheet` appends both a custom `numFmts`
+/// collection and a `dxfs` collection conditionally; no scenario above has a custom
+/// number format and a conditional format present in the same workbook.
+[<Fact>]
+let ``example: custom number format alongside a conditional format`` () =
+    let customFmtStyle = { CellStyle.Default with NumberFormat = Some(Custom "0.000%") }
+
+    let data =
+        sheet
+            "Sheet1"
+            [ row [ cell (Number 0.5, style = customFmtStyle) ]
+              row [ cell (Number 5.0) ]
+              conditionalFormat (CellRef.ofA1 "A2", CellRef.ofA1 "A2", CellValueRule(GreaterThan, "0", None, redFillStyle)) ]
+
+    verifyScenario "CustomNumberFormatWithConditionalFormat" (workbook [ data ])
 
 // --- Data validation ----------------------------------------------------------------
 
@@ -965,6 +1059,27 @@ let ``example: chart and image sharing one worksheet's drawing canvas`` () =
                     BottomRightAnchor = CellRef.ofA1 "F15" } ]
 
     verifyScenario "ChartAndImage" (workbook [ data ])
+
+/// From the same element-ordering audit as the style-combination scenarios above -
+/// `Writer.fs`'s per-worksheet body appends `Drawing` (charts/images) and `LegacyDrawing`
+/// (comments) as two independently-optional children of `<worksheet>`. `ChartAndImage`
+/// above already proves two features sharing one `Drawing` don't collide, but nothing
+/// combines an image *and* a comment - the one combination that actually exercises both
+/// `Drawing` and `LegacyDrawing` being present on the same worksheet at once.
+[<Fact>]
+let ``example: image and comment sharing one worksheet`` () =
+    let data =
+        sheet
+            "Sheet1"
+            [ row [ cell (Text "Logo below:") ]
+              EmbeddedImage
+                  { Data = onePixelGif
+                    Format = Gif
+                    TopLeftAnchor = CellRef.ofA1 "A3"
+                    BottomRightAnchor = CellRef.ofA1 "C10" }
+              comment (CellRef.ofA1 "A1", "See the logo below for the current brand mark.") ]
+
+    verifyScenario "ImageAndComment" (workbook [ data ])
 
 // --- Macros / VBA --------------------------------------------------------------------
 

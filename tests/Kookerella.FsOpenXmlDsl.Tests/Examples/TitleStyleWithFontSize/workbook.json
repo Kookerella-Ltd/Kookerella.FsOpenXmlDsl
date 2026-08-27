@@ -1,0 +1,28 @@
+{
+  "sheets": [
+    {
+      "name": "Sheet1",
+      "cells": [
+        {
+          "ref": "A1",
+          "text": "INVOICE",
+          "style": {
+            "font": {
+              "size": 16,
+              "bold": true,
+              "italic": true,
+              "underline": true,
+              "color": {
+                "rgb": {
+                  "r": 68,
+                  "g": 84,
+                  "b": 106
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

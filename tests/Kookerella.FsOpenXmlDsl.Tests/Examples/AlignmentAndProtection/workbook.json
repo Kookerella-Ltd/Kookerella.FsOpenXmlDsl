@@ -1,0 +1,24 @@
+{
+  "sheets": [
+    {
+      "name": "Sheet1",
+      "cells": [
+        {
+          "ref": "A1",
+          "text": "Centered and unlocked",
+          "style": {
+            "alignment": {
+              "horizontal": "center",
+              "vertical": "middle",
+              "wrapText": true
+            },
+            "protection": {
+              "locked": false,
+              "hidden": true
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

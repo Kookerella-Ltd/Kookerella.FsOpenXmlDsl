@@ -270,15 +270,26 @@ type internal StyleRegistry() =
             dxfIndex.[style] <- idx
             idx
 
+    /// Child order matches the shared "run properties" content model
+    /// (`DocumentFormat.OpenXml.Spreadsheet.Font` reuses the same element group `rPr` does
+    /// for rich-text runs) exactly: b, i, strike, u, sz, color, name - notably *not* the
+    /// human-readable "name first" order the element's own subsections are documented in.
+    /// Getting this wrong doesn't fail to compile or even fail most manual testing (Excel
+    /// itself is often lenient about it), only strict schema validation - confirmed
+    /// empirically by round-tripping every ordering through a real `OpenXmlValidator`, not
+    /// assumed from the spec text, since a previous version of this function got it wrong
+    /// for over a year without a single test catching it (no scenario combined `Size` with
+    /// any of `Bold`/`Italic`/`Underline`/`Strikethrough` through `Workbook.save` until the
+    /// regression test added alongside this fix).
     member private _.FontToOpenXml(f: FontStyle) : Font =
         let font = Font()
-        f.Name |> Option.iter (fun n -> font.AppendChild(FontName(Val = StringValue(n))) |> ignore)
-        f.Size |> Option.iter (fun s -> font.AppendChild(FontSize(Val = DoubleValue(s))) |> ignore)
         if f.Bold then font.AppendChild(Bold()) |> ignore
         if f.Italic then font.AppendChild(Italic()) |> ignore
-        if f.Underline then font.AppendChild(Underline()) |> ignore
         if f.Strikethrough then font.AppendChild(Strike()) |> ignore
+        if f.Underline then font.AppendChild(Underline()) |> ignore
+        f.Size |> Option.iter (fun s -> font.AppendChild(FontSize(Val = DoubleValue(s))) |> ignore)
         f.Color |> Option.iter (fun c -> font.AppendChild(ColorMapping.colorElement c) |> ignore)
+        f.Name |> Option.iter (fun n -> font.AppendChild(FontName(Val = StringValue(n))) |> ignore)
         font
 
     member private _.FillToOpenXml(fill: FillStyle) : Fill =
