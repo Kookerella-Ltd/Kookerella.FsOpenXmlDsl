@@ -524,6 +524,99 @@ re-run the aggregation, unlike everything else this schema covers:
             aggregation="average" valueCaption="Avg Sales" anchorTopLeft="F1" />
 ```
 
+An `Image`'s raw bytes are the element's own base64 text content, the same convention
+`vbaProject` below uses:
+
+```xml
+<image format="gif" topLeft="A1" bottomRight="D6">R0lGODlhAQABAIAAAAAAAP...</image>
+```
+
+A `Hyperlink`'s `Target` nests the same way `ValidationKind`/`ConditionalFormatRule` do:
+
+```xml
+<hyperlink topLeft="A1" bottomRight="A1" tooltip="Visit site">
+  <externalHyperlink>https://example.com</externalHyperlink>
+</hyperlink>
+<hyperlink topLeft="A2" bottomRight="B3" display="Go to top">
+  <internalHyperlink>Sheet1!A1</internalHyperlink>
+</hyperlink>
+```
+
+A `Comment`'s text is also the element's own content, not an attribute - `author` is
+simply omitted when empty rather than written as `author=""`:
+
+```xml
+<comment cell="A1" author="Alex">Check this figure</comment>
+<comment cell="A2">Unnamed author</comment>
+```
+
+Sheet and workbook protection are both flat attribute bags - no nested elements needed,
+since none of `SheetProtection`/`WorkbookProtection`'s fields are structured data:
+
+```xml
+<protection password="hunter2" sheet="true" formatCells="true" sort="true" autoFilter="true" />
+```
+
+```xml
+<workbook>
+  <sheets>...</sheets>
+  <protection password="hunter2" lockStructure="true" />
+</workbook>
+```
+
+`PageSetup` shows the mixed-DU convention again - `PaperSize`'s named cases become a
+`kind` attribute, the same escape-hatch shape `NumberFormat` uses on a cell's style:
+
+```xml
+<pageSetup orientation="landscape">
+  <paperSize kind="a4" />
+  <margins left="0.5" right="0.5" top="1" bottom="1" header="0.2" footer="0.2" />
+</pageSetup>
+```
+
+A macro-enabled workbook's `VbaProject` bytes sit at the workbook level, alongside
+`sheets`, not inside any one sheet:
+
+```xml
+<workbook>
+  <sheets>...</sheets>
+  <vbaProject>AQIDBA==</vbaProject>
+</workbook>
+```
+
+`DefinedNameScope`'s two cases show a different shape than `PaperSize`/`NumberFormat`'s
+"kind attribute" trick: `WorkbookScope` carries no data of its own, yet still becomes its
+own (empty) element rather than an attribute value, since it sits in a `<choice>` alongside
+`SheetScope`, which does carry data:
+
+```xml
+<definedNames>
+  <definedName name="LocalTotal" formula="Sheet1!$A$2" hidden="true">
+    <sheetScope sheetName="Sheet1" />
+  </definedName>
+  <definedName name="TaxRate" formula="0.075">
+    <workbookScope />
+  </definedName>
+</definedNames>
+```
+
+The smaller range-shaped fields (`MergedRange`, `FreezePane`, `AutoFilter`, `ColumnProps`,
+`RowProps`) are all straightforward attribute bags or lists of them:
+
+```xml
+<mergedRanges>
+  <mergedRange topLeft="A1" bottomRight="C1" />
+</mergedRanges>
+<freezePane rows="1" columns="0" />
+<autoFilter topLeft="A1" bottomRight="D11" />
+<columnProps>
+  <columnProp index="0" width="20" />
+</columnProps>
+<rowProps>
+  <rowProp index="0" height="30" />
+</rowProps>
+```
+
 `Xml.schemaSet()` loads the compiled schema for validating either direction yourself
 (`XDocument.Validate`) - every scenario under `tests/Kookerella.FsOpenXmlDsl.Tests/Examples/`
 has a committed `workbook.xml` validated against it this way as part of the same test that
@@ -681,6 +774,90 @@ nothing here that's a list or a nested structure:
   "aggregation": "average",
   "valueCaption": "Avg Sales",
   "anchorTopLeft": "F1"
+}
+```
+
+An `Image`'s bytes are a base64 string value, same as `vbaProject` below:
+
+```json
+{ "format": "gif", "topLeft": "A1", "bottomRight": "D6", "data": "R0lGODlhAQABAIAAAAAAAP..." }
+```
+
+A `Hyperlink`, in JSON:
+
+```json
+{
+  "topLeft": "A1",
+  "bottomRight": "A1",
+  "target": { "externalHyperlink": "https://example.com" },
+  "tooltip": "Visit site"
+}
+```
+```json
+{
+  "topLeft": "A2",
+  "bottomRight": "B3",
+  "target": { "internalHyperlink": "Sheet1!A1" },
+  "display": "Go to top"
+}
+```
+
+A `Comment` - `author` is a plain optional field, omitted rather than an empty string:
+
+```json
+{ "cell": "A1", "author": "Alex", "text": "Check this figure" }
+{ "cell": "A2", "text": "Unnamed author" }
+```
+
+Sheet and workbook protection, in JSON - flat objects, same as the XML:
+
+```json
+{ "password": "hunter2", "sheet": true, "formatCells": true, "sort": true, "autoFilter": true }
+```
+
+```json
+{ "sheets": [ { "name": "Sheet1" } ], "protection": { "password": "hunter2", "lockStructure": true } }
+```
+
+`PageSetup` - `PaperSize`'s named cases are a bare string, the mixed-DU convention
+`NumberFormat` also uses:
+
+```json
+{
+  "orientation": "landscape",
+  "paperSize": "a4",
+  "margins": { "left": 0.5, "right": 0.5, "top": 1, "bottom": 1, "header": 0.2, "footer": 0.2 }
+}
+```
+
+`VbaProject`, at the workbook level:
+
+```json
+{ "sheets": [ { "name": "Sheet1" } ], "vbaProject": "AQIDBA==" }
+```
+
+`DefinedNameScope`'s two cases follow the standard JSON convention cleanly, unlike XML's
+`<workbookScope />`/`<sheetScope>` split - `WorkbookScope` is simply the bare string, same
+treatment as any other parameterless case:
+
+```json
+{
+  "definedNames": [
+    { "name": "LocalTotal", "formula": "Sheet1!$A$2", "scope": { "sheetScope": "Sheet1" }, "hidden": true },
+    { "name": "TaxRate", "formula": "0.075", "scope": "workbookScope" }
+  ]
+}
+```
+
+The smaller range-shaped fields, in JSON:
+
+```json
+{
+  "mergedRanges": [ { "topLeft": "A1", "bottomRight": "C1" } ],
+  "freezePane": { "rows": 1, "columns": 0 },
+  "autoFilter": { "topLeft": "A1", "bottomRight": "D11" },
+  "columnProps": [ { "index": 0, "width": 20 } ],
+  "rowProps": [ { "index": 0, "height": 30 } ]
 }
 ```
 
