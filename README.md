@@ -498,6 +498,22 @@ already has a natural singular (`column`), so no `<s>`-style workaround is neede
 </table>
 ```
 
+A `SparklineGroup`'s `Color` field wraps in its own `<color>` child element, same
+convention `CellStyle`'s font/fill use:
+
+```xml
+<sparklineGroup>
+  <style type="column" lineWeight="1.5" showNegative="true">
+    <color>
+      <rgb r="0" g="112" b="192" />
+    </color>
+  </style>
+  <sparklines>
+    <sparkline cell="E1" dataTopLeft="A1" dataBottomRight="D1" />
+  </sparklines>
+</sparklineGroup>
+```
+
 `Xml.schemaSet()` loads the compiled schema for validating either direction yourself
 (`XDocument.Validate`) - every scenario under `tests/Kookerella.FsOpenXmlDsl.Tests/Examples/`
 has a committed `workbook.xml` validated against it this way as part of the same test that
@@ -621,6 +637,23 @@ as `series`:
     "showLastColumn": true,
     "showColumnStripes": true
   }
+}
+```
+
+The same `SparklineGroup` example as above, in JSON - `color` sits as a plain nested key
+alongside the style's other fields, the same way `fill`'s does under `CellStyle`:
+
+```json
+{
+  "style": {
+    "type": "column",
+    "lineWeight": 1.5,
+    "showNegative": true,
+    "color": { "rgb": { "r": 0, "g": 112, "b": 192 } }
+  },
+  "sparklines": [
+    { "cell": "E1", "dataTopLeft": "A1", "dataBottomRight": "D1" }
+  ]
 }
 ```
 
