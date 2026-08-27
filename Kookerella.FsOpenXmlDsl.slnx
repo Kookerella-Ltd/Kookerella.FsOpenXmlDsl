@@ -2,10 +2,16 @@
   <Folder Name="/samples/">
     <Project Path="samples/Kookerella.FsOpenXmlDsl.Sample/Kookerella.FsOpenXmlDsl.Sample.fsproj" />
   </Folder>
+  <Folder Name="/Solution Items/">
+    <File Path="build.fsx" />
+    <File Path="llms.txt" />
+    <File Path="MAPPING.md" />
+    <File Path="README.md" />
+  </Folder>
   <Folder Name="/src/">
-    <Project Path="src/Kookerella.FsOpenXmlDsl/Kookerella.FsOpenXmlDsl.fsproj" />
     <Project Path="src/Kookerella.CsOpenXmlDsl/Kookerella.CsOpenXmlDsl.csproj" />
     <Project Path="src/Kookerella.FsOpenXmlDsl.Mcp/Kookerella.FsOpenXmlDsl.Mcp.fsproj" />
+    <Project Path="src/Kookerella.FsOpenXmlDsl/Kookerella.FsOpenXmlDsl.fsproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Kookerella.CsOpenXmlDsl.Tests/Kookerella.CsOpenXmlDsl.Tests.csproj" />
