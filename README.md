@@ -439,6 +439,17 @@ several parameterless alternatives - e.g. a cell's value:
 </cell>
 ```
 
+A richer example - `ValidationKind`'s six cases follow the same convention, and
+`ValidationAlert`'s fields are written as attributes directly on `<dataValidation>` itself
+rather than nested:
+
+```xml
+<dataValidation topLeft="A2" bottomRight="A2" errorTitle="Invalid quantity"
+                errorMessage="Quantity must be a positive whole number.">
+  <wholeNumberValidation operator="greaterThan" formula1="0" />
+</dataValidation>
+```
+
 `Xml.schemaSet()` loads the compiled schema for validating either direction yourself
 (`XDocument.Validate`) - every scenario under `tests/Kookerella.FsOpenXmlDsl.Tests/Examples/`
 has a committed `workbook.xml` validated against it this way as part of the same test that
@@ -488,6 +499,22 @@ it's one of several parameterless alternatives - e.g. a cell's value:
   "ref": "B2",
   "number": 42.5,
   "style": { "numberFormat": "currency" }
+}
+```
+
+The same `DataValidation` example as above, in JSON - unlike the XML surface, which
+flattens `ValidationAlert`'s fields onto `<dataValidation>` itself, JSON nests both `kind`
+and `alert` as their own objects, the more natural shape for this format:
+
+```json
+{
+  "topLeft": "A2",
+  "bottomRight": "A2",
+  "kind": { "wholeNumberValidation": { "operator": "greaterThan", "formula1": "0" } },
+  "alert": {
+    "errorTitle": "Invalid quantity",
+    "errorMessage": "Quantity must be a positive whole number."
+  }
 }
 ```
 
