@@ -514,6 +514,16 @@ convention `CellStyle`'s font/fill use:
 </sparklineGroup>
 ```
 
+A `PivotTable` is the flattest shape here - just attributes, no nested elements at all.
+Note this only carries the *description* through: loading one via `Xml.toWorkbook` doesn't
+re-run the aggregation, unlike everything else this schema covers:
+
+```xml
+<pivotTable sourceSheet="Data" sourceTopLeft="A1" sourceBottomRight="C9"
+            rowField="Region" columnField="Quarter" valueField="Sales"
+            aggregation="average" valueCaption="Avg Sales" anchorTopLeft="F1" />
+```
+
 `Xml.schemaSet()` loads the compiled schema for validating either direction yourself
 (`XDocument.Validate`) - every scenario under `tests/Kookerella.FsOpenXmlDsl.Tests/Examples/`
 has a committed `workbook.xml` validated against it this way as part of the same test that
@@ -654,6 +664,23 @@ alongside the style's other fields, the same way `fill`'s does under `CellStyle`
   "sparklines": [
     { "cell": "E1", "dataTopLeft": "A1", "dataBottomRight": "D1" }
   ]
+}
+```
+
+The same `PivotTable` example as above, in JSON - a flat object either way, since there's
+nothing here that's a list or a nested structure:
+
+```json
+{
+  "sourceSheet": "Data",
+  "sourceTopLeft": "A1",
+  "sourceBottomRight": "C9",
+  "rowField": "Region",
+  "columnField": "Quarter",
+  "valueField": "Sales",
+  "aggregation": "average",
+  "valueCaption": "Avg Sales",
+  "anchorTopLeft": "F1"
 }
 ```
 
