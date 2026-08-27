@@ -28,11 +28,13 @@ how past drift happened — each step below has a real, specific incident behind
    field/case needs a schema change too, not just a code change; the "every generated
    `workbook.xml` validates against `Xml.xsd`" check inside `verifyScenarioNamed` is what
    catches the two drifting apart) + `Json.fs`/`Json.schema.json` (the JSON surface - same
-   feature set as `Xml.fs`, same drift risk, but the schema check only runs from
-   `JsonTests.fs`'s own `roundTrip` helper, not from `verifyScenarioNamed`, since
-   `Json.schema.json` is test-suite only - see `Json.fs`'s own doc comment) + a test in
-   `tests/Kookerella.FsOpenXmlDsl.Tests` for both `XmlTests.fs` and `JsonTests.fs`, and the
-   F# core's own `<Description>` in `Kookerella.FsOpenXmlDsl.fsproj` (this package went
+   feature set as `Xml.fs`, same drift risk; `verifyScenarioNamed` also writes and validates
+   an `Examples/<name>/workbook.json` for every scenario, the same way it does
+   `workbook.xml` - `Json.schema.json` is test-suite only, so this check runs from
+   `JsonTests.assertJsonSchemaValid`, not a public `Json.schemaSet()`-equivalent API - see
+   `Json.fs`'s own doc comment) + a test in `tests/Kookerella.FsOpenXmlDsl.Tests` for both
+   `XmlTests.fs` and `JsonTests.fs`, and the F# core's own `<Description>` in
+   `Kookerella.FsOpenXmlDsl.fsproj` (this package went
    stale once already - `Xml.fs` shipped in source for several commits before anyone
    noticed the *published* package was still an old version without it, because the Mcp
    server builds against local source via `ProjectReference` and never surfaced the gap).
@@ -117,7 +119,7 @@ something" regardless of what kind of change is in flight, since a doc/metadata-
 | `src/Kookerella.FsOpenXmlDsl.Mcp/WorkbookTools.fs` | Every tool's `[<Description>]` text, and the `WorkbookTools` type's own doc comment | Nothing automated - this is what an MCP client/agent actually reads, separate from any README |
 | `src/Kookerella.FsOpenXmlDsl.Mcp/Dockerfile` | `COPY` list mirrors every `ProjectReference` in the `.fsproj` exactly | Nothing automated unless someone actually runs `docker build` |
 | `src/Kookerella.FsOpenXmlDsl/Xml.xsd` | Matches what `Xml.fs`'s `ofWorkbook`/`toWorkbook` actually read and write | `assertXmlSchemaValid` inside `verifyScenarioNamed` - real, but only as strong as the scenarios that exist |
-| `src/Kookerella.FsOpenXmlDsl/Json.schema.json` | Matches what `Json.fs`'s `ofWorkbook`/`toWorkbook` actually read and write | `assertJsonSchemaValid`, called from every `JsonTests.fs` round trip via its `roundTrip` helper - not wired into `verifyScenarioNamed`/the `Examples/` scenarios the way `Xml.xsd` is, so its coverage is scoped to `JsonTests.fs`'s own test cases only |
+| `src/Kookerella.FsOpenXmlDsl/Json.schema.json` | Matches what `Json.fs`'s `ofWorkbook`/`toWorkbook` actually read and write | `assertJsonSchemaValid`, called from every `JsonTests.fs` round trip via its `roundTrip` helper, **and** from `verifyScenarioNamed` for every `Examples/` scenario (writes `workbook.json`, same as `workbook.xml`/`Xml.xsd`) - real, but only as strong as the scenarios that exist |
 | `tests/Kookerella.CsOpenXmlDsl.Tests/ExampleTests.cs`'s `AssertWorkbooksMatch` | Checks every `Sheet`/`Workbook` field the slow round-trip theory is supposed to verify | Nothing - it silently stopped covering five-plus features in a row once already |
 | `tests/Kookerella.CsOpenXmlDsl.Tests/DriftGuardTests.cs`'s `EnumMirrors`/`ClosedHierarchyMirrors` | Lists every F# DU mirrored as a C# enum/closed hierarchy | Only guards types already registered with it - a brand-new type is invisible until added |
 | `MAPPING.md` | What the F# core maps 1:1 vs. approximates vs. doesn't model | Nothing automated - only touch this for a new OOXML-level capability, not a wrapper-level one |

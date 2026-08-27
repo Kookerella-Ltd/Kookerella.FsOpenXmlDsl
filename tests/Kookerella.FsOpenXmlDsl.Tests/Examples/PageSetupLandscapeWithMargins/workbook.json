@@ -1,0 +1,30 @@
+{
+  "sheets": [
+    {
+      "name": "Sheet1",
+      "cells": [
+        {
+          "ref": "A1",
+          "text": "Wide report"
+        }
+      ],
+      "pageSetup": {
+        "orientation": "landscape",
+        "paperSize": "a4",
+        "scaling": {
+          "percent": 85
+        },
+        "margins": {
+          "left": 0.5,
+          "right": 0.5,
+          "top": 0.75,
+          "bottom": 0.75,
+          "header": 0.3,
+          "footer": 0.3
+        },
+        "header": "\u0026C\u0026\u0022Arial,Bold\u0022Quarterly Report",
+        "footer": "\u0026LPage \u0026P of \u0026N\u0026R\u0026D"
+      }
+    }
+  ]
+}

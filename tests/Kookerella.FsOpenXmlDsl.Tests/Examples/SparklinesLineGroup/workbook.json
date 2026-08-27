@@ -1,0 +1,70 @@
+{
+  "sheets": [
+    {
+      "name": "Sheet1",
+      "cells": [
+        {
+          "ref": "A1",
+          "text": "Widgets"
+        },
+        {
+          "ref": "B1",
+          "number": 3
+        },
+        {
+          "ref": "C1",
+          "number": 8
+        },
+        {
+          "ref": "D1",
+          "number": 5
+        },
+        {
+          "ref": "E1",
+          "number": 9
+        },
+        {
+          "ref": "A2",
+          "text": "Gadgets"
+        },
+        {
+          "ref": "B2",
+          "number": 6
+        },
+        {
+          "ref": "C2",
+          "number": 4
+        },
+        {
+          "ref": "D2",
+          "number": 7
+        },
+        {
+          "ref": "E2",
+          "number": 2
+        }
+      ],
+      "sparklineGroups": [
+        {
+          "style": {
+            "type": "line",
+            "showHigh": true,
+            "showLow": true
+          },
+          "sparklines": [
+            {
+              "cell": "F1",
+              "dataTopLeft": "B1",
+              "dataBottomRight": "E1"
+            },
+            {
+              "cell": "F2",
+              "dataTopLeft": "B2",
+              "dataBottomRight": "E2"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

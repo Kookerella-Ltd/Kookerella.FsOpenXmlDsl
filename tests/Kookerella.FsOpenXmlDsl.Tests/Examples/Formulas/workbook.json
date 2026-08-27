@@ -1,0 +1,58 @@
+{
+  "sheets": [
+    {
+      "name": "Sheet1",
+      "cells": [
+        {
+          "ref": "A1",
+          "text": "Widgets"
+        },
+        {
+          "ref": "B1",
+          "number": 4
+        },
+        {
+          "ref": "C1",
+          "number": 2.5
+        },
+        {
+          "ref": "D1",
+          "formula": {
+            "expression": "B1*C1",
+            "cachedValue": 10
+          }
+        },
+        {
+          "ref": "A2",
+          "text": "Gadgets"
+        },
+        {
+          "ref": "B2",
+          "number": 2
+        },
+        {
+          "ref": "C2",
+          "number": 19.99
+        },
+        {
+          "ref": "D2",
+          "formula": {
+            "expression": "B2*C2",
+            "cachedValue": 39.98
+          }
+        },
+        {
+          "ref": "A3",
+          "text": "Total"
+        },
+        {
+          "ref": "B3",
+          "formula": {
+            "expression": "SUM(D1:D2)",
+            "cachedValue": 49.98
+          }
+        }
+      ]
+    }
+  ]
+}

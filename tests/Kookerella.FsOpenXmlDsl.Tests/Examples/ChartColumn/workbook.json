@@ -1,0 +1,82 @@
+{
+  "sheets": [
+    {
+      "name": "Sheet1",
+      "cells": [
+        {
+          "ref": "A1",
+          "text": "Quarter"
+        },
+        {
+          "ref": "B1",
+          "text": "North"
+        },
+        {
+          "ref": "C1",
+          "text": "South"
+        },
+        {
+          "ref": "A2",
+          "text": "Q1"
+        },
+        {
+          "ref": "B2",
+          "number": 12
+        },
+        {
+          "ref": "C2",
+          "number": 9
+        },
+        {
+          "ref": "A3",
+          "text": "Q2"
+        },
+        {
+          "ref": "B3",
+          "number": 15
+        },
+        {
+          "ref": "C3",
+          "number": 11
+        },
+        {
+          "ref": "A4",
+          "text": "Q3"
+        },
+        {
+          "ref": "B4",
+          "number": 9
+        },
+        {
+          "ref": "C4",
+          "number": 14
+        }
+      ],
+      "charts": [
+        {
+          "type": "column",
+          "title": "Sales by Quarter",
+          "showLegend": true,
+          "anchorTopLeft": "E1",
+          "anchorBottomRight": "L15",
+          "categories": {
+            "topLeft": "A2",
+            "bottomRight": "A4"
+          },
+          "series": [
+            {
+              "name": "B1",
+              "valuesTopLeft": "B2",
+              "valuesBottomRight": "B4"
+            },
+            {
+              "name": "C1",
+              "valuesTopLeft": "C2",
+              "valuesBottomRight": "C4"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,29 @@
+{
+  "sheets": [
+    {
+      "name": "Sheet1",
+      "cells": [
+        {
+          "ref": "A1",
+          "text": "Quantity"
+        }
+      ],
+      "dataValidations": [
+        {
+          "topLeft": "A2",
+          "bottomRight": "A2",
+          "kind": {
+            "wholeNumberValidation": {
+              "operator": "greaterThan",
+              "formula1": "0"
+            }
+          },
+          "alert": {
+            "errorTitle": "Invalid quantity",
+            "errorMessage": "Quantity must be a positive whole number."
+          }
+        }
+      ]
+    }
+  ]
+}

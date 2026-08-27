@@ -1,0 +1,20 @@
+{
+  "sheets": [
+    {
+      "name": "Sheet1",
+      "cells": [
+        {
+          "ref": "A1",
+          "text": "Protected sheet"
+        }
+      ],
+      "protection": {
+        "password": "hunter2",
+        "sheet": true,
+        "formatCells": true,
+        "sort": true,
+        "autoFilter": true
+      }
+    }
+  ]
+}

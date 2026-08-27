@@ -1,0 +1,52 @@
+{
+  "sheets": [
+    {
+      "name": "Sheet1",
+      "cells": [
+        {
+          "ref": "A1",
+          "text": "Item"
+        },
+        {
+          "ref": "B1",
+          "text": "Quantity"
+        },
+        {
+          "ref": "A2",
+          "text": "Widgets"
+        },
+        {
+          "ref": "B2",
+          "number": 12
+        },
+        {
+          "ref": "A3",
+          "text": "Gadgets"
+        },
+        {
+          "ref": "B3",
+          "number": 5
+        }
+      ],
+      "tables": [
+        {
+          "topLeft": "A1",
+          "bottomRight": "B3",
+          "name": "Inventory",
+          "columns": [
+            {
+              "name": "Item"
+            },
+            {
+              "name": "Quantity"
+            }
+          ],
+          "style": {
+            "name": "TableStyleMedium2",
+            "showRowStripes": true
+          }
+        }
+      ]
+    }
+  ]
+}

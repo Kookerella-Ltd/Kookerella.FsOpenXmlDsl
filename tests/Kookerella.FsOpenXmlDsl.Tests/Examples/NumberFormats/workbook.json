@@ -1,0 +1,75 @@
+{
+  "sheets": [
+    {
+      "name": "Sheet1",
+      "cells": [
+        {
+          "ref": "A1",
+          "text": "Integer"
+        },
+        {
+          "ref": "B1",
+          "number": 1234,
+          "style": {
+            "numberFormat": "integer"
+          }
+        },
+        {
+          "ref": "A2",
+          "text": "TwoDecimal"
+        },
+        {
+          "ref": "B2",
+          "number": 1234.5,
+          "style": {
+            "numberFormat": "twoDecimal"
+          }
+        },
+        {
+          "ref": "A3",
+          "text": "Percentage"
+        },
+        {
+          "ref": "B3",
+          "number": 0.42,
+          "style": {
+            "numberFormat": "percentage"
+          }
+        },
+        {
+          "ref": "A4",
+          "text": "Currency"
+        },
+        {
+          "ref": "B4",
+          "number": 19.99,
+          "style": {
+            "numberFormat": "currency"
+          }
+        },
+        {
+          "ref": "A5",
+          "text": "ShortDate"
+        },
+        {
+          "ref": "B5",
+          "date": "2026-03-01T00:00:00.0000000",
+          "style": {
+            "numberFormat": "shortDate"
+          }
+        },
+        {
+          "ref": "A6",
+          "text": "DateAndTime"
+        },
+        {
+          "ref": "B6",
+          "date": "2026-03-01T13:30:00.0000000",
+          "style": {
+            "numberFormat": "dateAndTime"
+          }
+        }
+      ]
+    }
+  ]
+}

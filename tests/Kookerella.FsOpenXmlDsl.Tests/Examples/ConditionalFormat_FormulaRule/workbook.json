@@ -1,0 +1,47 @@
+{
+  "sheets": [
+    {
+      "name": "Sheet1",
+      "cells": [
+        {
+          "ref": "A1",
+          "number": 10
+        },
+        {
+          "ref": "B1",
+          "number": 20
+        },
+        {
+          "ref": "A2",
+          "number": 30
+        },
+        {
+          "ref": "B2",
+          "number": 5
+        }
+      ],
+      "conditionalFormats": [
+        {
+          "topLeft": "A1",
+          "bottomRight": "A2",
+          "rule": {
+            "formulaRule": {
+              "formula": "A1\u003EB1",
+              "style": {
+                "fill": {
+                  "color": {
+                    "rgb": {
+                      "r": 198,
+                      "g": 239,
+                      "b": 206
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

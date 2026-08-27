@@ -1,0 +1,27 @@
+{
+  "sheets": [
+    {
+      "name": "Sheet1",
+      "cells": [
+        {
+          "ref": "A1",
+          "text": "Must be a number"
+        }
+      ],
+      "dataValidations": [
+        {
+          "topLeft": "A2",
+          "bottomRight": "A2",
+          "kind": {
+            "customValidation": "ISNUMBER(A2)"
+          },
+          "alert": {
+            "allowBlank": false,
+            "inputTitle": "Note",
+            "inputMessage": "Enter a numeric value."
+          }
+        }
+      ]
+    }
+  ]
+}

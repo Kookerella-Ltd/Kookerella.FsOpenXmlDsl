@@ -1,0 +1,45 @@
+{
+  "sheets": [
+    {
+      "name": "Sheet1",
+      "cells": [
+        {
+          "ref": "A1",
+          "number": 10
+        },
+        {
+          "ref": "A2",
+          "number": 50
+        },
+        {
+          "ref": "A3",
+          "number": 90
+        }
+      ],
+      "conditionalFormats": [
+        {
+          "topLeft": "A1",
+          "bottomRight": "A3",
+          "rule": {
+            "colorScale2": {
+              "minColor": {
+                "rgb": {
+                  "r": 255,
+                  "g": 255,
+                  "b": 255
+                }
+              },
+              "maxColor": {
+                "rgb": {
+                  "r": 255,
+                  "g": 0,
+                  "b": 0
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

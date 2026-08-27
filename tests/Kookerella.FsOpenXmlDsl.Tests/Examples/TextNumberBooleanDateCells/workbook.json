@@ -1,0 +1,28 @@
+{
+  "sheets": [
+    {
+      "name": "Sheet1",
+      "cells": [
+        {
+          "ref": "A1",
+          "text": "Name"
+        },
+        {
+          "ref": "B1",
+          "number": 42.5
+        },
+        {
+          "ref": "C1",
+          "boolean": true
+        },
+        {
+          "ref": "D1",
+          "date": "2026-03-01T00:00:00.0000000",
+          "style": {
+            "numberFormat": "shortDate"
+          }
+        }
+      ]
+    }
+  ]
+}

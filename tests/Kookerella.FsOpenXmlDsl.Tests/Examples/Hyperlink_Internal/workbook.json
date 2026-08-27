@@ -1,0 +1,31 @@
+{
+  "sheets": [
+    {
+      "name": "Sheet1",
+      "cells": [
+        {
+          "ref": "A1",
+          "text": "Go to Sheet2"
+        }
+      ],
+      "hyperlinks": [
+        {
+          "topLeft": "A1",
+          "bottomRight": "A1",
+          "target": {
+            "internalHyperlink": "Sheet2!A1"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Sheet2",
+      "cells": [
+        {
+          "ref": "A1",
+          "text": "You made it!"
+        }
+      ]
+    }
+  ]
+}

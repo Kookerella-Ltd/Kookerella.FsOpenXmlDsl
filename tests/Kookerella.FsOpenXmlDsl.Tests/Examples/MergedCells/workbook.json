@@ -1,0 +1,68 @@
+{
+  "sheets": [
+    {
+      "name": "Sheet1",
+      "cells": [
+        {
+          "ref": "A1",
+          "text": "Quarterly Report",
+          "style": {
+            "font": {
+              "bold": true,
+              "color": {
+                "rgb": {
+                  "r": 255,
+                  "g": 255,
+                  "b": 255
+                }
+              }
+            },
+            "fill": {
+              "color": {
+                "rgb": {
+                  "r": 68,
+                  "g": 84,
+                  "b": 106
+                }
+              }
+            },
+            "border": {
+              "bottom": {
+                "style": "thin",
+                "color": {
+                  "rgb": {
+                    "r": 0,
+                    "g": 0,
+                    "b": 0
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "ref": "A2",
+          "text": "Q1"
+        },
+        {
+          "ref": "B2",
+          "text": "Q2"
+        },
+        {
+          "ref": "C2",
+          "text": "Q3"
+        },
+        {
+          "ref": "D2",
+          "text": "Q4"
+        }
+      ],
+      "mergedRanges": [
+        {
+          "topLeft": "A1",
+          "bottomRight": "D1"
+        }
+      ]
+    }
+  ]
+}

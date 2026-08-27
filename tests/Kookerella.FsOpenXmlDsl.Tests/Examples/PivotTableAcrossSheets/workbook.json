@@ -1,0 +1,61 @@
+{
+  "sheets": [
+    {
+      "name": "Data",
+      "cells": [
+        {
+          "ref": "A1",
+          "text": "Category"
+        },
+        {
+          "ref": "B1",
+          "text": "Amount"
+        },
+        {
+          "ref": "A2",
+          "text": "A"
+        },
+        {
+          "ref": "B2",
+          "number": 3
+        },
+        {
+          "ref": "A3",
+          "text": "B"
+        },
+        {
+          "ref": "B3",
+          "number": 7
+        },
+        {
+          "ref": "A4",
+          "text": "A"
+        },
+        {
+          "ref": "B4",
+          "number": 4
+        }
+      ]
+    },
+    {
+      "name": "Report",
+      "cells": [
+        {
+          "ref": "A1",
+          "text": "Pivot table below:"
+        }
+      ],
+      "pivotTables": [
+        {
+          "sourceSheet": "Data",
+          "sourceTopLeft": "A1",
+          "sourceBottomRight": "B4",
+          "rowField": "Category",
+          "valueField": "Amount",
+          "aggregation": "count",
+          "anchorTopLeft": "A3"
+        }
+      ]
+    }
+  ]
+}

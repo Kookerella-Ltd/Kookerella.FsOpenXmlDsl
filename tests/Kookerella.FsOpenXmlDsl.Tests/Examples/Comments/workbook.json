@@ -1,0 +1,41 @@
+{
+  "sheets": [
+    {
+      "name": "Sheet1",
+      "cells": [
+        {
+          "ref": "A1",
+          "text": "Revenue"
+        },
+        {
+          "ref": "B1",
+          "number": 1250
+        },
+        {
+          "ref": "A2",
+          "text": "Costs"
+        },
+        {
+          "ref": "B2",
+          "number": 900
+        }
+      ],
+      "comments": [
+        {
+          "cell": "A1",
+          "text": "Double check this label."
+        },
+        {
+          "cell": "B1",
+          "author": "Alex",
+          "text": "Figure is provisional pending audit."
+        },
+        {
+          "cell": "B2",
+          "author": "Alex",
+          "text": "Includes one-off relocation costs."
+        }
+      ]
+    }
+  ]
+}

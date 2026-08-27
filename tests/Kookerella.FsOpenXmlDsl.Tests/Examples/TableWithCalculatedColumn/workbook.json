@@ -1,0 +1,74 @@
+{
+  "sheets": [
+    {
+      "name": "Sheet1",
+      "cells": [
+        {
+          "ref": "A1",
+          "text": "Quantity"
+        },
+        {
+          "ref": "B1",
+          "text": "Unit Price"
+        },
+        {
+          "ref": "C1",
+          "text": "Total"
+        },
+        {
+          "ref": "A2",
+          "number": 12
+        },
+        {
+          "ref": "B2",
+          "number": 2.5
+        },
+        {
+          "ref": "C2",
+          "formula": {
+            "expression": "[@Quantity]*[@[Unit Price]]",
+            "cachedValue": 30
+          }
+        },
+        {
+          "ref": "A3",
+          "number": 5
+        },
+        {
+          "ref": "B3",
+          "number": 9
+        },
+        {
+          "ref": "C3",
+          "formula": {
+            "expression": "[@Quantity]*[@[Unit Price]]",
+            "cachedValue": 45
+          }
+        }
+      ],
+      "tables": [
+        {
+          "topLeft": "A1",
+          "bottomRight": "C3",
+          "name": "Orders",
+          "columns": [
+            {
+              "name": "Quantity"
+            },
+            {
+              "name": "Unit Price"
+            },
+            {
+              "name": "Total",
+              "calculatedFormula": "[@Quantity]*[@[Unit Price]]"
+            }
+          ],
+          "style": {
+            "name": "TableStyleLight9",
+            "showColumnStripes": true
+          }
+        }
+      ]
+    }
+  ]
+}

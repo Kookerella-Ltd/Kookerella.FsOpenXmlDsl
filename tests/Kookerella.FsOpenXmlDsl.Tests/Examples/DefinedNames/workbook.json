@@ -1,0 +1,38 @@
+{
+  "sheets": [
+    {
+      "name": "Sheet1",
+      "cells": [
+        {
+          "ref": "A1",
+          "number": 0.075
+        },
+        {
+          "ref": "A2",
+          "number": 100
+        },
+        {
+          "ref": "A3",
+          "formula": {
+            "expression": "B1*(1\u002BTaxRate)",
+            "cachedValue": 107.5
+          }
+        }
+      ]
+    }
+  ],
+  "definedNames": [
+    {
+      "name": "LocalTotal",
+      "formula": "Sheet1!$A$2",
+      "scope": {
+        "sheetScope": "Sheet1"
+      }
+    },
+    {
+      "name": "TaxRate",
+      "formula": "Sheet1!$A$1",
+      "scope": "workbookScope"
+    }
+  ]
+}

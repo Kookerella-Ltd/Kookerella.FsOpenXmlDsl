@@ -1,0 +1,82 @@
+{
+  "sheets": [
+    {
+      "name": "Sheet1",
+      "cells": [
+        {
+          "ref": "A1",
+          "text": "Month"
+        },
+        {
+          "ref": "B1",
+          "text": "2025"
+        },
+        {
+          "ref": "C1",
+          "text": "2026"
+        },
+        {
+          "ref": "A2",
+          "text": "Jan"
+        },
+        {
+          "ref": "B2",
+          "number": 100
+        },
+        {
+          "ref": "C2",
+          "number": 120
+        },
+        {
+          "ref": "A3",
+          "text": "Feb"
+        },
+        {
+          "ref": "B3",
+          "number": 110
+        },
+        {
+          "ref": "C3",
+          "number": 115
+        },
+        {
+          "ref": "A4",
+          "text": "Mar"
+        },
+        {
+          "ref": "B4",
+          "number": 105
+        },
+        {
+          "ref": "C4",
+          "number": 130
+        }
+      ],
+      "charts": [
+        {
+          "type": "line",
+          "title": "Monthly Trend",
+          "showLegend": true,
+          "anchorTopLeft": "E1",
+          "anchorBottomRight": "L15",
+          "categories": {
+            "topLeft": "A2",
+            "bottomRight": "A4"
+          },
+          "series": [
+            {
+              "name": "B1",
+              "valuesTopLeft": "B2",
+              "valuesBottomRight": "B4"
+            },
+            {
+              "name": "C1",
+              "valuesTopLeft": "C2",
+              "valuesBottomRight": "C4"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "sheets": [
+    {
+      "name": "Sheet1",
+      "cells": [
+        {
+          "ref": "A1",
+          "text": "Sheets can\u0027t be added, removed, or renamed"
+        }
+      ]
+    }
+  ],
+  "protection": {
+    "password": "hunter2",
+    "lockStructure": true
+  }
+}

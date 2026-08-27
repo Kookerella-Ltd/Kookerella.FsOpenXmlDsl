@@ -1,0 +1,59 @@
+{
+  "sheets": [
+    {
+      "name": "Sheet1",
+      "cells": [
+        {
+          "ref": "A1",
+          "text": "Month"
+        },
+        {
+          "ref": "B1",
+          "text": "Units"
+        },
+        {
+          "ref": "A2",
+          "text": "Jan"
+        },
+        {
+          "ref": "B2",
+          "number": 10
+        },
+        {
+          "ref": "A3",
+          "text": "Feb"
+        },
+        {
+          "ref": "B3",
+          "number": 14
+        }
+      ],
+      "images": [
+        {
+          "format": "gif",
+          "topLeft": "D10",
+          "bottomRight": "F15",
+          "data": "R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBTAA7"
+        }
+      ],
+      "charts": [
+        {
+          "type": "column",
+          "anchorTopLeft": "D1",
+          "anchorBottomRight": "H8",
+          "categories": {
+            "topLeft": "A2",
+            "bottomRight": "A3"
+          },
+          "series": [
+            {
+              "name": "B1",
+              "valuesTopLeft": "B2",
+              "valuesBottomRight": "B3"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

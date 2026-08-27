@@ -22,6 +22,7 @@
     <None Include="Examples\**\*.xlsm" />
     <None Include="Examples\**\*.fsx" />
     <None Include="Examples\**\*.xml" />
+    <None Include="Examples\**\*.json" />
   </ItemGroup>
 
   <ItemGroup>

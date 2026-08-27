@@ -1,0 +1,40 @@
+{
+  "sheets": [
+    {
+      "name": "Sheet1",
+      "cells": [
+        {
+          "ref": "A1",
+          "text": "Apple"
+        },
+        {
+          "ref": "A2",
+          "text": "Banana"
+        },
+        {
+          "ref": "A3",
+          "text": "Apple"
+        }
+      ],
+      "conditionalFormats": [
+        {
+          "topLeft": "A1",
+          "bottomRight": "A3",
+          "rule": {
+            "uniqueValuesRule": {
+              "fill": {
+                "color": {
+                  "rgb": {
+                    "r": 198,
+                    "g": 239,
+                    "b": 206
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

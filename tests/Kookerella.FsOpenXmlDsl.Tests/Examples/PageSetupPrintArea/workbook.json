@@ -1,0 +1,42 @@
+{
+  "sheets": [
+    {
+      "name": "Sheet1",
+      "cells": [
+        {
+          "ref": "A1",
+          "text": "Included"
+        },
+        {
+          "ref": "A2",
+          "text": "Excluded"
+        },
+        {
+          "ref": "A3",
+          "text": "Also included"
+        }
+      ],
+      "pageSetup": {
+        "orientation": "portrait",
+        "margins": {
+          "left": 0.7,
+          "right": 0.7,
+          "top": 0.75,
+          "bottom": 0.75,
+          "header": 0.3,
+          "footer": 0.3
+        },
+        "printArea": [
+          {
+            "topLeft": "A1",
+            "bottomRight": "A1"
+          },
+          {
+            "topLeft": "A3",
+            "bottomRight": "A3"
+          }
+        ]
+      }
+    }
+  ]
+}

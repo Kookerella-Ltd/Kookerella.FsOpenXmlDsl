@@ -118,6 +118,9 @@ several parameterless alternatives, e.g. `{"ref": "B2", "number": 42.5}`. Unlike
 `Json.schemaSet()`-equivalent API - .NET has no built-in JSON Schema validator the way
 `System.Xml.Schema` exists for XML, so validation (via a test-only `JsonSchema.Net`
 dependency) is test-suite only; see `tests/Kookerella.FsOpenXmlDsl.Tests/JsonTests.fs`.
+Every scenario under `tests/Kookerella.FsOpenXmlDsl.Tests/Examples/` also has a committed
+`workbook.json` validated against it this way, the same as `workbook.xml` is against
+`Xml.xsd`.
 
 ## C# wrapper: `Kookerella.CsOpenXmlDsl`
 
@@ -292,8 +295,8 @@ core's own `Xml.fs`/`Json.fs`/`Api.fs`.
   the MCP server's tool reference and client configuration examples.
 - `tests/Kookerella.FsOpenXmlDsl.Tests/Examples/` — one real, openable example workbook
   per F# core feature, plus the F# script that regenerates it and the equivalent
-  `workbook.xml` (validated against `Xml.xsd`) - a working reference implementation, in
-  three forms, for any feature described above.
+  `workbook.xml`/`workbook.json` (validated against `Xml.xsd`/`Json.schema.json`) - a
+  working reference implementation, in four forms, for any feature described above.
 - `tests/Kookerella.CsOpenXmlDsl.Tests/Examples/` — the same idea for the C# wrapper: one
   example workbook plus a `script.cs` (a real .NET 10 file-based app, `dotnet run script.cs`
   from that folder) per wrapper feature, covering everything in its v1 scope above.

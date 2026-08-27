@@ -1,0 +1,59 @@
+{
+  "sheets": [
+    {
+      "name": "Sheet1",
+      "cells": [
+        {
+          "ref": "A1",
+          "text": "Region"
+        },
+        {
+          "ref": "B1",
+          "text": "Sales"
+        },
+        {
+          "ref": "A2",
+          "text": "East"
+        },
+        {
+          "ref": "B2",
+          "number": 10
+        },
+        {
+          "ref": "A3",
+          "text": "West"
+        },
+        {
+          "ref": "B3",
+          "number": 20
+        },
+        {
+          "ref": "A4",
+          "text": "East"
+        },
+        {
+          "ref": "B4",
+          "number": 5
+        },
+        {
+          "ref": "A5",
+          "text": "West"
+        },
+        {
+          "ref": "B5",
+          "number": 15
+        }
+      ],
+      "pivotTables": [
+        {
+          "sourceTopLeft": "A1",
+          "sourceBottomRight": "B5",
+          "rowField": "Region",
+          "valueField": "Sales",
+          "aggregation": "sum",
+          "anchorTopLeft": "D1"
+        }
+      ]
+    }
+  ]
+}

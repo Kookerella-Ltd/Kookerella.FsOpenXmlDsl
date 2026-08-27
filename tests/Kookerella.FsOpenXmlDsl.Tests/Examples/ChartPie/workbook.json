@@ -1,0 +1,61 @@
+{
+  "sheets": [
+    {
+      "name": "Sheet1",
+      "cells": [
+        {
+          "ref": "A1",
+          "text": "Segment"
+        },
+        {
+          "ref": "B1",
+          "text": "Share"
+        },
+        {
+          "ref": "A2",
+          "text": "Retail"
+        },
+        {
+          "ref": "B2",
+          "number": 55
+        },
+        {
+          "ref": "A3",
+          "text": "Wholesale"
+        },
+        {
+          "ref": "B3",
+          "number": 30
+        },
+        {
+          "ref": "A4",
+          "text": "Online"
+        },
+        {
+          "ref": "B4",
+          "number": 15
+        }
+      ],
+      "charts": [
+        {
+          "type": "pie",
+          "title": "Revenue Share",
+          "showLegend": true,
+          "anchorTopLeft": "D1",
+          "anchorBottomRight": "K14",
+          "categories": {
+            "topLeft": "A2",
+            "bottomRight": "A4"
+          },
+          "series": [
+            {
+              "name": "B1",
+              "valuesTopLeft": "B2",
+              "valuesBottomRight": "B4"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

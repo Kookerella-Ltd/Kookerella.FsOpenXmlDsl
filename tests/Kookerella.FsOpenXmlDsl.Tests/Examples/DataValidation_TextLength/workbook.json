@@ -1,0 +1,26 @@
+{
+  "sheets": [
+    {
+      "name": "Sheet1",
+      "cells": [
+        {
+          "ref": "A1",
+          "text": "Short code (\u003C= 10 chars)"
+        }
+      ],
+      "dataValidations": [
+        {
+          "topLeft": "A2",
+          "bottomRight": "A2",
+          "kind": {
+            "textLengthValidation": {
+              "operator": "lessThanOrEqual",
+              "formula1": "10"
+            }
+          },
+          "alert": {}
+        }
+      ]
+    }
+  ]
+}

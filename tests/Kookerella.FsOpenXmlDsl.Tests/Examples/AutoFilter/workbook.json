@@ -1,0 +1,148 @@
+{
+  "sheets": [
+    {
+      "name": "Sheet1",
+      "cells": [
+        {
+          "ref": "A1",
+          "text": "Name",
+          "style": {
+            "font": {
+              "bold": true,
+              "color": {
+                "rgb": {
+                  "r": 255,
+                  "g": 255,
+                  "b": 255
+                }
+              }
+            },
+            "fill": {
+              "color": {
+                "rgb": {
+                  "r": 68,
+                  "g": 84,
+                  "b": 106
+                }
+              }
+            },
+            "border": {
+              "bottom": {
+                "style": "thin",
+                "color": {
+                  "rgb": {
+                    "r": 0,
+                    "g": 0,
+                    "b": 0
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "ref": "B1",
+          "text": "Amount",
+          "style": {
+            "font": {
+              "bold": true,
+              "color": {
+                "rgb": {
+                  "r": 255,
+                  "g": 255,
+                  "b": 255
+                }
+              }
+            },
+            "fill": {
+              "color": {
+                "rgb": {
+                  "r": 68,
+                  "g": 84,
+                  "b": 106
+                }
+              }
+            },
+            "border": {
+              "bottom": {
+                "style": "thin",
+                "color": {
+                  "rgb": {
+                    "r": 0,
+                    "g": 0,
+                    "b": 0
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "ref": "C1",
+          "text": "Region",
+          "style": {
+            "font": {
+              "bold": true,
+              "color": {
+                "rgb": {
+                  "r": 255,
+                  "g": 255,
+                  "b": 255
+                }
+              }
+            },
+            "fill": {
+              "color": {
+                "rgb": {
+                  "r": 68,
+                  "g": 84,
+                  "b": 106
+                }
+              }
+            },
+            "border": {
+              "bottom": {
+                "style": "thin",
+                "color": {
+                  "rgb": {
+                    "r": 0,
+                    "g": 0,
+                    "b": 0
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "ref": "A2",
+          "text": "Widgets"
+        },
+        {
+          "ref": "B2",
+          "number": 42.5
+        },
+        {
+          "ref": "C2",
+          "text": "North"
+        },
+        {
+          "ref": "A3",
+          "text": "Gadgets"
+        },
+        {
+          "ref": "B3",
+          "number": 19.99
+        },
+        {
+          "ref": "C3",
+          "text": "South"
+        }
+      ],
+      "autoFilter": {
+        "topLeft": "A1",
+        "bottomRight": "C3"
+      }
+    }
+  ]
+}

@@ -1,0 +1,51 @@
+{
+  "sheets": [
+    {
+      "name": "Sheet1",
+      "cells": [
+        {
+          "ref": "A1",
+          "text": "Team"
+        },
+        {
+          "ref": "B1",
+          "text": "Score"
+        },
+        {
+          "ref": "A2",
+          "text": "Alpha"
+        },
+        {
+          "ref": "B2",
+          "number": 42
+        },
+        {
+          "ref": "A3",
+          "text": "Beta"
+        },
+        {
+          "ref": "B3",
+          "number": 37
+        }
+      ],
+      "charts": [
+        {
+          "type": "bar",
+          "anchorTopLeft": "D1",
+          "anchorBottomRight": "K12",
+          "categories": {
+            "topLeft": "A2",
+            "bottomRight": "A3"
+          },
+          "series": [
+            {
+              "name": "B1",
+              "valuesTopLeft": "B2",
+              "valuesBottomRight": "B3"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,47 @@
+{
+  "sheets": [
+    {
+      "name": "Sheet1",
+      "cells": [
+        {
+          "ref": "A1",
+          "number": -2
+        },
+        {
+          "ref": "B1",
+          "number": 4
+        },
+        {
+          "ref": "C1",
+          "number": -1
+        },
+        {
+          "ref": "D1",
+          "number": 3
+        }
+      ],
+      "sparklineGroups": [
+        {
+          "style": {
+            "type": "column",
+            "showNegative": true,
+            "color": {
+              "rgb": {
+                "r": 0,
+                "g": 112,
+                "b": 192
+              }
+            }
+          },
+          "sparklines": [
+            {
+              "cell": "E1",
+              "dataTopLeft": "A1",
+              "dataBottomRight": "D1"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

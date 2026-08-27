@@ -1,0 +1,27 @@
+{
+  "sheets": [
+    {
+      "name": "Sheet1",
+      "cells": [
+        {
+          "ref": "A1",
+          "text": "Report"
+        }
+      ],
+      "pageSetup": {
+        "orientation": "portrait",
+        "margins": {
+          "left": 0.7,
+          "right": 0.7,
+          "top": 0.75,
+          "bottom": 0.75,
+          "header": 0.3,
+          "footer": 0.3
+        },
+        "header": "\u0026CPage \u0026P",
+        "evenFooter": "\u0026L\u0026F",
+        "firstHeader": "\u0026CCover Page"
+      }
+    }
+  ]
+}

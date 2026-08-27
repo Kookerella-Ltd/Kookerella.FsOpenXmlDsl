@@ -116,9 +116,11 @@ fsopenxmldsl-mcp convert your-file.xlsx --lang csharp
   "Regenerating a file as F# source" below - which a separate, slower `Category=Slow` test
   group actually executes via `dotnet fsi` and verifies against the committed `.xlsx`, and
   an `Examples/<test name>/workbook.xml` - the same workbook through `Xml.ofWorkbook`,
-  validated against `Xml.xsd` at generation time (see "## XML" below) - so one folder always
-  has three views of the same example: the real file, the F# source that rebuilds it, and
-  the XML that also rebuilds it.
+  validated against `Xml.xsd` at generation time (see "## XML" below) - and an
+  `Examples/<test name>/workbook.json` - the same workbook through `Json.ofWorkbook`,
+  validated against `Json.schema.json` at generation time (see "## JSON" below) - so one
+  folder always has four views of the same example: the real file, the F# source that
+  rebuilds it, and the XML/JSON that also rebuild it.
   `Assets/` holds the one test fixture too large to inline as a base64 literal like every
   other binary fixture in `Tests.fs` - a real `vbaProject.bin` extracted from a workbook
   actually saved by Excel, used by the macro example.
@@ -590,7 +592,10 @@ self-delimiting:
 Unlike XML, .NET has no built-in JSON Schema validator the way `System.Xml.Schema` exists
 for XML, so `Json.schema.json` (in the repo, matching this shape) is validated only from
 this repo's own test suite (via a test-only `JsonSchema.Net` dependency) rather than exposed
-as a public `Json.schemaSet()`-style API - see `JsonTests.fs`. `Json.fs` covers the same
+as a public `Json.schemaSet()`-style API. Every scenario under
+`tests/Kookerella.FsOpenXmlDsl.Tests/Examples/` has a committed `workbook.json` validated
+against it this way too, the same as `workbook.xml` is against `Xml.xsd`, so the schema and
+`Json.fs` itself can never silently drift apart there either. `Json.fs` covers the same
 worksheet/workbook-level feature set `Xml.fs` does - cell values, styles, merged ranges,
 freeze panes, autofilter, column/row sizing, VBA (base64), defined names, hyperlinks,
 comments, sheet/workbook protection, print settings, images (base64), Excel Tables,

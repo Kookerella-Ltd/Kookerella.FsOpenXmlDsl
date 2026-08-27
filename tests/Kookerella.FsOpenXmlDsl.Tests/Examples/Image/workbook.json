@@ -1,0 +1,21 @@
+{
+  "sheets": [
+    {
+      "name": "Sheet1",
+      "cells": [
+        {
+          "ref": "A1",
+          "text": "Logo below:"
+        }
+      ],
+      "images": [
+        {
+          "format": "gif",
+          "topLeft": "A3",
+          "bottomRight": "C10",
+          "data": "R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBTAA7"
+        }
+      ]
+    }
+  ]
+}

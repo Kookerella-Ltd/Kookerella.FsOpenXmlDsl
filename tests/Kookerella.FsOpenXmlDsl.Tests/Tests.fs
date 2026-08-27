@@ -150,6 +150,12 @@ let private verifyScenarioNamed (name: string) (fileName: string) (wb: Workbook)
     // XmlTests.assertXmlSchemaValid's own doc comment).
     XmlTests.assertXmlSchemaValid xmlDoc
 
+    let json = Json.ofWorkbook wb
+    File.WriteAllText(Path.Combine(dir, "workbook.json"), json.ToJsonString(Text.Json.JsonSerializerOptions(WriteIndented = true)))
+    // Same reasoning as the XML validation above - validated here, synchronously, against
+    // Json.schema.json (see JsonTests.assertJsonSchemaValid's own doc comment).
+    JsonTests.assertJsonSchemaValid json
+
 let private verifyScenario (name: string) (wb: Workbook) = verifyScenarioNamed name "output.xlsx" wb
 
 // --- Core: cell values, styles, layout --------------------------------------------

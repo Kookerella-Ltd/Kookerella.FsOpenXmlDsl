@@ -1,0 +1,36 @@
+{
+  "sheets": [
+    {
+      "name": "Sheet1",
+      "cells": [
+        {
+          "ref": "A1",
+          "number": 10
+        },
+        {
+          "ref": "A2",
+          "number": 50
+        },
+        {
+          "ref": "A3",
+          "number": 90
+        }
+      ],
+      "conditionalFormats": [
+        {
+          "topLeft": "A1",
+          "bottomRight": "A3",
+          "rule": {
+            "dataBarRule": {
+              "rgb": {
+                "r": 0,
+                "g": 0,
+                "b": 255
+              }
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

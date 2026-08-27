@@ -1,0 +1,29 @@
+{
+  "sheets": [
+    {
+      "name": "Sheet1",
+      "cells": [
+        {
+          "ref": "A1",
+          "text": "Wide column"
+        },
+        {
+          "ref": "B1",
+          "text": "Tall row"
+        }
+      ],
+      "columnProps": [
+        {
+          "index": 0,
+          "width": 30
+        }
+      ],
+      "rowProps": [
+        {
+          "index": 0,
+          "height": 30
+        }
+      ]
+    }
+  ]
+}

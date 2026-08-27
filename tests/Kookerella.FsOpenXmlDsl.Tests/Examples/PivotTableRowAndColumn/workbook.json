@@ -1,0 +1,81 @@
+{
+  "sheets": [
+    {
+      "name": "Sheet1",
+      "cells": [
+        {
+          "ref": "A1",
+          "text": "Region"
+        },
+        {
+          "ref": "B1",
+          "text": "Quarter"
+        },
+        {
+          "ref": "C1",
+          "text": "Sales"
+        },
+        {
+          "ref": "A2",
+          "text": "East"
+        },
+        {
+          "ref": "B2",
+          "text": "Q1"
+        },
+        {
+          "ref": "C2",
+          "number": 10
+        },
+        {
+          "ref": "A3",
+          "text": "East"
+        },
+        {
+          "ref": "B3",
+          "text": "Q2"
+        },
+        {
+          "ref": "C3",
+          "number": 5
+        },
+        {
+          "ref": "A4",
+          "text": "West"
+        },
+        {
+          "ref": "B4",
+          "text": "Q1"
+        },
+        {
+          "ref": "C4",
+          "number": 20
+        },
+        {
+          "ref": "A5",
+          "text": "West"
+        },
+        {
+          "ref": "B5",
+          "text": "Q2"
+        },
+        {
+          "ref": "C5",
+          "number": 15
+        }
+      ],
+      "pivotTables": [
+        {
+          "sourceTopLeft": "A1",
+          "sourceBottomRight": "C5",
+          "rowField": "Region",
+          "columnField": "Quarter",
+          "valueField": "Sales",
+          "aggregation": "sum",
+          "valueCaption": "Total Sales",
+          "anchorTopLeft": "E1"
+        }
+      ]
+    }
+  ]
+}

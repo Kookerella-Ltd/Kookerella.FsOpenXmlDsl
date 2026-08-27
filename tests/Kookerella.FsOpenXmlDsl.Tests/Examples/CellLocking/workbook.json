@@ -1,0 +1,25 @@
+{
+  "sheets": [
+    {
+      "name": "Sheet1",
+      "cells": [
+        {
+          "ref": "A1",
+          "text": "Enter quantity:"
+        },
+        {
+          "ref": "B1",
+          "number": 0,
+          "style": {
+            "protection": {
+              "locked": false
+            }
+          }
+        }
+      ],
+      "protection": {
+        "sheet": true
+      }
+    }
+  ]
+}

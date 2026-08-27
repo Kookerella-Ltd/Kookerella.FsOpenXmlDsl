@@ -1,0 +1,27 @@
+{
+  "sheets": [
+    {
+      "name": "Sheet1",
+      "cells": [
+        {
+          "ref": "A1",
+          "text": "Fraction (0-1)"
+        }
+      ],
+      "dataValidations": [
+        {
+          "topLeft": "A2",
+          "bottomRight": "A2",
+          "kind": {
+            "decimalValidation": {
+              "operator": "between",
+              "formula1": "0",
+              "formula2": "1"
+            }
+          },
+          "alert": {}
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "sheets": [
+    {
+      "name": "Sheet1",
+      "cells": [
+        {
+          "ref": "A1",
+          "text": "Open-XML-SDK on GitHub"
+        }
+      ],
+      "hyperlinks": [
+        {
+          "topLeft": "A1",
+          "bottomRight": "A1",
+          "target": {
+            "externalHyperlink": "https://github.com/dotnet/Open-XML-SDK"
+          },
+          "tooltip": "Open in browser",
+          "display": "dotnet/Open-XML-SDK"
+        }
+      ]
+    }
+  ]
+}
