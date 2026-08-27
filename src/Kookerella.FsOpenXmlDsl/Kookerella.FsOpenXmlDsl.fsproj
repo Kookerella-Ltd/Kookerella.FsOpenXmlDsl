@@ -70,6 +70,11 @@
     <EmbeddedResource Include="Xml.xsd">
       <LogicalName>Kookerella.FsOpenXmlDsl.Xml.xsd</LogicalName>
     </EmbeddedResource>
+    <!-- Deliberately NOT embedded and NOT packed, unlike Xml.xsd - Json's schema validation
+         is test-suite only (see Json.fs's own doc comment for why), so this is just a loose
+         repo file the test project reads via a relative path. Listed explicitly so Solution
+         Explorer shows it; F#'s SDK doesn't auto-include files the way C#'s does. -->
+    <None Include="Json.schema.json" />
   </ItemGroup>
 
   <ItemGroup>

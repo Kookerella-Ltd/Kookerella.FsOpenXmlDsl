@@ -1,8 +1,33 @@
 module Kookerella.FsOpenXmlDsl.JsonTests
 
 open System
+open System.IO
+open System.Text.Json.Nodes
 open Xunit
+open Json.Schema
+open DocumentFormat.OpenXml.Packaging
+open DocumentFormat.OpenXml.Validation
 open Kookerella.FsOpenXmlDsl
+
+let private schema =
+    JsonSchema.FromText(File.ReadAllText(Path.Combine(__SOURCE_DIRECTORY__, "..", "..", "src", "Kookerella.FsOpenXmlDsl", "Json.schema.json")))
+
+/// Validates `node` against `Json.schema.json`, collecting every error rather than
+/// stopping at the first, and asserting there were none - the JSON-side equivalent of
+/// `XmlTests.assertXmlSchemaValid`. Not `private`: a future scenario-writing test helper
+/// (mirroring `Tests.fs`'s own `verifyScenarioNamed`) will want this too.
+let assertJsonSchemaValid (node: JsonNode) =
+    let element = Text.Json.JsonDocument.Parse(node.ToJsonString()).RootElement
+    let options = EvaluationOptions(OutputFormat = OutputFormat.List)
+    let results = schema.Evaluate(element, options)
+
+    let errors =
+        results.Details
+        |> Seq.filter (fun d -> not d.IsValid)
+        |> Seq.collect (fun d -> if isNull d.Errors then Seq.empty else d.Errors.Values :> string seq)
+        |> List.ofSeq
+
+    Assert.True(results.IsValid, String.Join("\n", errors))
 
 /// Mirrors `XmlTests.fs`'s `emptySheet`/`emptyWorkbook` - a `Worksheet`/`Workbook` with
 /// every field this pass of `Json` doesn't yet model already at the "empty" value
@@ -34,6 +59,16 @@ let private emptyWorkbook sheets =
       Protection = None
       VbaProject = None }
 
+/// `Json.ofWorkbook >> Json.toWorkbook`, but validating the intermediate JSON against
+/// `Json.schema.json` along the way - every round-trip test below goes through this
+/// rather than calling `Json.ofWorkbook`/`Json.toWorkbook` directly, so a schema/`Json.fs`
+/// drift (the JSON-side equivalent of the bool-capitalization bug `Xml.xsd` caught) fails
+/// here rather than passing silently just because `toWorkbook` happens to tolerate it.
+let private roundTrip (wb: Workbook) : Workbook =
+    let json = Json.ofWorkbook wb
+    assertJsonSchemaValid json
+    Json.toWorkbook json
+
 /// The canonical "1x1 transparent GIF" - same fixture `XmlTests.fs`/`Tests.fs` use, for the
 /// same reason: the smallest possible valid image file, well-known and trustworthy as a
 /// test fixture.
@@ -54,7 +89,7 @@ let ``Json round trip: every CellValue kind`` () =
                   { Ref = CellRef.create 0 5; Value = Formula("A1", None); Style = None } ] }
 
     let original = emptyWorkbook [ sheet ]
-    let roundTripped = original |> Json.ofWorkbook |> Json.toWorkbook
+    let roundTripped = roundTrip original
 
     Assert.Equal<Workbook>(original, roundTripped)
 
@@ -102,7 +137,7 @@ let ``Json round trip: full CellStyle`` () =
                     Style = Some themeColorStyle } ] }
 
     let original = emptyWorkbook [ sheet ]
-    let roundTripped = original |> Json.ofWorkbook |> Json.toWorkbook
+    let roundTripped = roundTrip original
 
     Assert.Equal<Workbook>(original, roundTripped)
 
@@ -120,21 +155,21 @@ let ``Json round trip: merged ranges, freeze pane, autofilter, column and row si
             RowProps = Map.ofList [ 0, { Height = Some 30.0 } ] }
 
     let original = emptyWorkbook [ sheet ]
-    let roundTripped = original |> Json.ofWorkbook |> Json.toWorkbook
+    let roundTripped = roundTrip original
 
     Assert.Equal<Workbook>(original, roundTripped)
 
 [<Fact>]
 let ``Json round trip: multiple sheets and an empty workbook`` () =
     let original = emptyWorkbook [ emptySheet "First"; emptySheet "Second" ]
-    let roundTripped = original |> Json.ofWorkbook |> Json.toWorkbook
+    let roundTripped = roundTrip original
     Assert.Equal<Workbook>(original, roundTripped)
 
 [<Fact>]
 let ``Json round trip: VbaProject`` () =
     let bytes = IO.File.ReadAllBytes(IO.Path.Combine(__SOURCE_DIRECTORY__, "Assets", "sample.vbaProject.bin"))
     let original = { emptyWorkbook [ emptySheet "Sheet1" ] with VbaProject = Some bytes }
-    let roundTripped = original |> Json.ofWorkbook |> Json.toWorkbook
+    let roundTripped = roundTrip original
 
     Assert.Equal<Workbook>(original, roundTripped)
     Assert.Equal<byte[]>(bytes, roundTripped.VbaProject.Value)
@@ -142,7 +177,7 @@ let ``Json round trip: VbaProject`` () =
 [<Fact>]
 let ``Json round trip: no VbaProject stays None`` () =
     let original = emptyWorkbook [ emptySheet "Sheet1" ]
-    let roundTripped = original |> Json.ofWorkbook |> Json.toWorkbook
+    let roundTripped = roundTrip original
     Assert.True(roundTripped.VbaProject.IsNone)
 
 [<Fact>]
@@ -156,7 +191,7 @@ let ``Json round trip: DefinedNames, workbook and sheet scoped`` () =
                     Hidden = true }
                   { Name = "TaxRate"; Formula = "0.075"; Scope = WorkbookScope; Hidden = false } ] }
 
-    let roundTripped = original |> Json.ofWorkbook |> Json.toWorkbook
+    let roundTripped = roundTrip original
     Assert.Equal<Workbook>(original, roundTripped)
 
 [<Fact>]
@@ -168,7 +203,7 @@ let ``Json round trip: Comments`` () =
                   { Cell = CellRef.create 1 0; Author = ""; Text = "Unnamed author" } ] }
 
     let original = emptyWorkbook [ sheet ]
-    let roundTripped = original |> Json.ofWorkbook |> Json.toWorkbook
+    let roundTripped = roundTrip original
     Assert.Equal<Workbook>(original, roundTripped)
 
 [<Fact>]
@@ -188,7 +223,7 @@ let ``Json round trip: Hyperlinks, external and internal`` () =
                     Display = Some "Go to top" } ] }
 
     let original = emptyWorkbook [ sheet ]
-    let roundTripped = original |> Json.ofWorkbook |> Json.toWorkbook
+    let roundTripped = roundTrip original
     Assert.Equal<Workbook>(original, roundTripped)
 
 [<Fact>]
@@ -202,7 +237,7 @@ let ``Json round trip: SheetProtection`` () =
 
     let sheet = { emptySheet "Sheet1" with Protection = Some protection }
     let original = emptyWorkbook [ sheet ]
-    let roundTripped = original |> Json.ofWorkbook |> Json.toWorkbook
+    let roundTripped = roundTrip original
 
     Assert.Equal<Workbook>(original, roundTripped)
 
@@ -210,7 +245,7 @@ let ``Json round trip: SheetProtection`` () =
 let ``Json round trip: SheetProtection default has no optional flags set`` () =
     let sheet = { emptySheet "Sheet1" with Protection = Some SheetProtection.Default }
     let original = emptyWorkbook [ sheet ]
-    let roundTripped = original |> Json.ofWorkbook |> Json.toWorkbook
+    let roundTripped = roundTrip original
     Assert.Equal<Workbook>(original, roundTripped)
 
 [<Fact>]
@@ -219,7 +254,7 @@ let ``Json round trip: WorkbookProtection`` () =
         { emptyWorkbook [ emptySheet "Sheet1" ] with
             Protection = Some { WorkbookProtection.Default with Password = Some "hunter2"; LockStructure = Some true } }
 
-    let roundTripped = original |> Json.ofWorkbook |> Json.toWorkbook
+    let roundTripped = roundTrip original
     Assert.Equal<Workbook>(original, roundTripped)
 
 [<Fact>]
@@ -232,7 +267,7 @@ let ``Json round trip: PageSetup, landscape with custom margins and named paper 
 
     let sheet = { emptySheet "Sheet1" with PageSetup = Some pageSetup }
     let original = emptyWorkbook [ sheet ]
-    let roundTripped = original |> Json.ofWorkbook |> Json.toWorkbook
+    let roundTripped = roundTrip original
     Assert.Equal<Workbook>(original, roundTripped)
 
 [<Fact>]
@@ -244,7 +279,7 @@ let ``Json round trip: PageSetup, fit-to-page scaling and OtherPaperSize`` () =
 
     let sheet = { emptySheet "Sheet1" with PageSetup = Some pageSetup }
     let original = emptyWorkbook [ sheet ]
-    let roundTripped = original |> Json.ofWorkbook |> Json.toWorkbook
+    let roundTripped = roundTrip original
     Assert.Equal<Workbook>(original, roundTripped)
 
 [<Fact>]
@@ -262,14 +297,14 @@ let ``Json round trip: PageSetup, print area and header/footer variants`` () =
 
     let sheet = { emptySheet "Sheet1" with PageSetup = Some pageSetup }
     let original = emptyWorkbook [ sheet ]
-    let roundTripped = original |> Json.ofWorkbook |> Json.toWorkbook
+    let roundTripped = roundTrip original
     Assert.Equal<Workbook>(original, roundTripped)
 
 [<Fact>]
 let ``Json round trip: PageSetup.Default omits unset optional fields`` () =
     let sheet = { emptySheet "Sheet1" with PageSetup = Some PageSetup.Default }
     let original = emptyWorkbook [ sheet ]
-    let roundTripped = original |> Json.ofWorkbook |> Json.toWorkbook
+    let roundTripped = roundTrip original
     Assert.Equal<Workbook>(original, roundTripped)
 
 [<Fact>]
@@ -283,7 +318,7 @@ let ``Json round trip: Images`` () =
                     BottomRightAnchor = CellRef.create 5 3 } ] }
 
     let original = emptyWorkbook [ sheet ]
-    let roundTripped = original |> Json.ofWorkbook |> Json.toWorkbook
+    let roundTripped = roundTrip original
 
     Assert.Equal<Workbook>(original, roundTripped)
     Assert.Equal<byte[]>(onePixelGif, (roundTripped.Sheets |> List.exactlyOne).Images.[0].Data)
@@ -299,7 +334,7 @@ let ``Json round trip: Table with default style`` () =
 
     let sheet = { emptySheet "Sheet1" with Tables = [ table ] }
     let original = emptyWorkbook [ sheet ]
-    let roundTripped = original |> Json.ofWorkbook |> Json.toWorkbook
+    let roundTripped = roundTrip original
     Assert.Equal<Workbook>(original, roundTripped)
 
 [<Fact>]
@@ -320,7 +355,7 @@ let ``Json round trip: Table with calculated column and custom style`` () =
 
     let sheet = { emptySheet "Sheet1" with Tables = [ table ] }
     let original = emptyWorkbook [ sheet ]
-    let roundTripped = original |> Json.ofWorkbook |> Json.toWorkbook
+    let roundTripped = roundTrip original
     Assert.Equal<Workbook>(original, roundTripped)
 
 [<Fact>]
@@ -333,7 +368,7 @@ let ``Json round trip: SparklineGroup, line with high/low markers`` () =
 
     let sheet = { emptySheet "Sheet1" with SparklineGroups = [ group ] }
     let original = emptyWorkbook [ sheet ]
-    let roundTripped = original |> Json.ofWorkbook |> Json.toWorkbook
+    let roundTripped = roundTrip original
     Assert.Equal<Workbook>(original, roundTripped)
 
 [<Fact>]
@@ -349,7 +384,7 @@ let ``Json round trip: SparklineGroup, column with custom color and negative hig
 
     let sheet = { emptySheet "Sheet1" with SparklineGroups = [ group ] }
     let original = emptyWorkbook [ sheet ]
-    let roundTripped = original |> Json.ofWorkbook |> Json.toWorkbook
+    let roundTripped = roundTrip original
     Assert.Equal<Workbook>(original, roundTripped)
 
 [<Fact>]
@@ -368,7 +403,7 @@ let ``Json round trip: Chart, column with title, legend, and two series`` () =
 
     let sheet = { emptySheet "Sheet1" with Charts = [ chart ] }
     let original = emptyWorkbook [ sheet ]
-    let roundTripped = original |> Json.ofWorkbook |> Json.toWorkbook
+    let roundTripped = roundTrip original
     Assert.Equal<Workbook>(original, roundTripped)
 
 [<Fact>]
@@ -385,7 +420,7 @@ let ``Json round trip: Chart, bar with no title and one series`` () =
 
     let sheet = { emptySheet "Sheet1" with Charts = [ chart ] }
     let original = emptyWorkbook [ sheet ]
-    let roundTripped = original |> Json.ofWorkbook |> Json.toWorkbook
+    let roundTripped = roundTrip original
     Assert.Equal<Workbook>(original, roundTripped)
 
 [<Fact>]
@@ -403,7 +438,7 @@ let ``Json round trip: PivotTable, row field only`` () =
 
     let sheet = { emptySheet "Sheet1" with PivotTables = [ pivot ] }
     let original = emptyWorkbook [ sheet ]
-    let roundTripped = original |> Json.ofWorkbook |> Json.toWorkbook
+    let roundTripped = roundTrip original
     Assert.Equal<Workbook>(original, roundTripped)
 
 [<Fact>]
@@ -421,7 +456,7 @@ let ``Json round trip: PivotTable, row and column fields, cross-sheet source, an
 
     let sheet = { emptySheet "Sheet1" with PivotTables = [ pivot ] }
     let original = emptyWorkbook [ sheet ]
-    let roundTripped = original |> Json.ofWorkbook |> Json.toWorkbook
+    let roundTripped = roundTrip original
     Assert.Equal<Workbook>(original, roundTripped)
 
 let private redFillStyle = { CellStyle.Default with Fill = Some { Color = Rgb(255uy, 199uy, 206uy) } }
@@ -436,7 +471,7 @@ let ``Json round trip: ConditionalFormat, CellValueRule`` () =
 
     let sheet = { emptySheet "Sheet1" with ConditionalFormats = [ entry ] }
     let original = emptyWorkbook [ sheet ]
-    let roundTripped = original |> Json.ofWorkbook |> Json.toWorkbook
+    let roundTripped = roundTrip original
     Assert.Equal<Workbook>(original, roundTripped)
 
 [<Fact>]
@@ -448,7 +483,7 @@ let ``Json round trip: ConditionalFormat, FormulaRule`` () =
 
     let sheet = { emptySheet "Sheet1" with ConditionalFormats = [ entry ] }
     let original = emptyWorkbook [ sheet ]
-    let roundTripped = original |> Json.ofWorkbook |> Json.toWorkbook
+    let roundTripped = roundTrip original
     Assert.Equal<Workbook>(original, roundTripped)
 
 [<Fact>]
@@ -461,7 +496,7 @@ let ``Json round trip: ConditionalFormat, ColorScale2 and ColorScale3`` () =
 
     let sheet = { emptySheet "Sheet1" with ConditionalFormats = entries }
     let original = emptyWorkbook [ sheet ]
-    let roundTripped = original |> Json.ofWorkbook |> Json.toWorkbook
+    let roundTripped = roundTrip original
     Assert.Equal<Workbook>(original, roundTripped)
 
 [<Fact>]
@@ -473,7 +508,7 @@ let ``Json round trip: ConditionalFormat, DataBarRule, DuplicateValuesRule, and 
 
     let sheet = { emptySheet "Sheet1" with ConditionalFormats = entries }
     let original = emptyWorkbook [ sheet ]
-    let roundTripped = original |> Json.ofWorkbook |> Json.toWorkbook
+    let roundTripped = roundTrip original
     Assert.Equal<Workbook>(original, roundTripped)
 
 [<Fact>]
@@ -490,7 +525,7 @@ let ``Json round trip: DataValidation, ListValidation and ListFromRangeValidatio
 
     let sheet = { emptySheet "Sheet1" with DataValidations = entries }
     let original = emptyWorkbook [ sheet ]
-    let roundTripped = original |> Json.ofWorkbook |> Json.toWorkbook
+    let roundTripped = roundTrip original
     Assert.Equal<Workbook>(original, roundTripped)
 
 [<Fact>]
@@ -506,7 +541,7 @@ let ``Json round trip: DataValidation, WholeNumberValidation with error alert`` 
 
     let sheet = { emptySheet "Sheet1" with DataValidations = [ entry ] }
     let original = emptyWorkbook [ sheet ]
-    let roundTripped = original |> Json.ofWorkbook |> Json.toWorkbook
+    let roundTripped = roundTrip original
     Assert.Equal<Workbook>(original, roundTripped)
 
 [<Fact>]
@@ -523,7 +558,7 @@ let ``Json round trip: DataValidation, DecimalValidation and TextLengthValidatio
 
     let sheet = { emptySheet "Sheet1" with DataValidations = entries }
     let original = emptyWorkbook [ sheet ]
-    let roundTripped = original |> Json.ofWorkbook |> Json.toWorkbook
+    let roundTripped = roundTrip original
     Assert.Equal<Workbook>(original, roundTripped)
 
 [<Fact>]
@@ -542,7 +577,7 @@ let ``Json round trip: DataValidation, CustomValidation with allowBlank false, w
 
     let sheet = { emptySheet "Sheet1" with DataValidations = [ entry ] }
     let original = emptyWorkbook [ sheet ]
-    let roundTripped = original |> Json.ofWorkbook |> Json.toWorkbook
+    let roundTripped = roundTrip original
     Assert.Equal<Workbook>(original, roundTripped)
 
 /// Mirrors `` Xml.ofWorkbook produces deterministic, input-order-independent output `` -
@@ -579,3 +614,50 @@ let ``Json.ofWorkbook produces deterministic, input-order-independent output`` (
     let wbB = { wbA with DefinedNames = wbA.DefinedNames |> List.rev; Sheets = [ sheetB ] }
 
     Assert.Equal((Json.ofWorkbook wbA).ToJsonString(), (Json.ofWorkbook wbB).ToJsonString())
+
+/// Proves the whole pipeline end to end from a hand-authored JSON string (documenting the
+/// actual schema `Json.ofWorkbook` produces) all the way to a real, schema-valid .xlsx -
+/// mirrors `` Xml.toWorkbook on hand-authored XML produces a schema-valid xlsx ``.
+[<Fact>]
+let ``Json.toWorkbook on hand-authored JSON produces a schema-valid xlsx`` () =
+    let json =
+        """
+        {
+          "sheets": [
+            {
+              "name": "Report",
+              "cells": [
+                { "ref": "A1", "text": "Item", "style": { "font": { "bold": true } } },
+                { "ref": "B1", "text": "Amount", "style": { "font": { "bold": true } } },
+                { "ref": "A2", "text": "Widgets" },
+                { "ref": "B2", "number": 42.5, "style": { "numberFormat": "currency" } },
+                { "ref": "B3", "formula": { "expression": "SUM(B2:B2)", "cachedValue": 42.5 } }
+              ]
+            }
+          ]
+        }
+        """
+
+    let node = JsonNode.Parse(json)
+    assertJsonSchemaValid node
+
+    let wb = Json.toWorkbook (node.AsObject())
+    let path = Path.Combine(Path.GetTempPath(), sprintf "json-schema-demo-%s.xlsx" (Guid.NewGuid().ToString("N")))
+
+    try
+        Workbook.save path wb
+
+        use document = SpreadsheetDocument.Open(path, false)
+        let errors = OpenXmlValidator().Validate(document) |> List.ofSeq
+        Assert.True(errors.IsEmpty, String.Join("\n", errors |> Seq.map (fun e -> sprintf "%s: %s" e.Path.XPath e.Description)))
+
+        let loaded = Workbook.load path
+        let sheet = loaded.Sheets |> List.exactlyOne
+        Assert.Equal("Report", sheet.Name)
+        Assert.Equal(5, sheet.Cells.Length)
+
+        let b2 = sheet.Cells |> List.find (fun c -> c.Ref = CellRef.ofA1 "B2")
+        Assert.Equal(Number 42.5, b2.Value)
+        Assert.Equal(Some Currency, b2.Style |> Option.bind (fun s -> s.NumberFormat))
+    finally
+        if File.Exists path then File.Delete path

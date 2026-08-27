@@ -1,0 +1,684 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kookerella.dev/schemas/fsopenxmldsl-workbook.schema.json",
+  "title": "Kookerella.FsOpenXmlDsl workbook",
+  "description": "The formal schema for the JSON surface Json.fs translates to/from a Workbook, alongside Xml.xsd for the XML surface. Test-suite only - not embedded in the F# core package, no public API exposes it - see Json.fs's own doc comment for why. Mirrors Xml.xsd's own doc comment: a discriminated union case becomes a single-key object named after the case when it carries data, or a bare string when it's one of several parameterless alternatives. Built up in step with Json.fs feature-by-feature; anything not yet covered there has no schema definition here either.",
+  "$ref": "#/$defs/workbook",
+  "$defs": {
+    "a1Ref": {
+      "type": "string",
+      "pattern": "^\\$?[A-Za-z]+\\$?[0-9]+$"
+    },
+    "rangeRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["topLeft", "bottomRight"],
+      "properties": {
+        "topLeft": { "$ref": "#/$defs/a1Ref" },
+        "bottomRight": { "$ref": "#/$defs/a1Ref" }
+      }
+    },
+
+    "workbook": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sheets"],
+      "properties": {
+        "sheets": { "type": "array", "items": { "$ref": "#/$defs/sheet" } },
+        "definedNames": { "type": "array", "items": { "$ref": "#/$defs/definedNameEntry" } },
+        "protection": { "$ref": "#/$defs/workbookProtection" },
+        "vbaProject": { "type": "string", "contentEncoding": "base64" }
+      }
+    },
+
+    "sheet": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name"],
+      "properties": {
+        "name": { "type": "string" },
+        "cells": { "type": "array", "items": { "$ref": "#/$defs/cell" } },
+        "mergedRanges": { "type": "array", "items": { "$ref": "#/$defs/rangeRef" } },
+        "freezePane": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["rows", "columns"],
+          "properties": { "rows": { "type": "integer", "minimum": 0 }, "columns": { "type": "integer", "minimum": 0 } }
+        },
+        "autoFilter": { "$ref": "#/$defs/rangeRef" },
+        "columnProps": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["index"],
+            "properties": { "index": { "type": "integer", "minimum": 0 }, "width": { "type": "number" } }
+          }
+        },
+        "rowProps": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["index"],
+            "properties": { "index": { "type": "integer", "minimum": 0 }, "height": { "type": "number" } }
+          }
+        },
+        "hyperlinks": { "type": "array", "items": { "$ref": "#/$defs/hyperlinkEntry" } },
+        "comments": { "type": "array", "items": { "$ref": "#/$defs/commentEntry" } },
+        "pageSetup": { "$ref": "#/$defs/pageSetup" },
+        "protection": { "$ref": "#/$defs/sheetProtection" },
+        "images": { "type": "array", "items": { "$ref": "#/$defs/imageEntry" } },
+        "tables": { "type": "array", "items": { "$ref": "#/$defs/tableEntry" } },
+        "sparklineGroups": { "type": "array", "items": { "$ref": "#/$defs/sparklineGroupEntry" } },
+        "charts": { "type": "array", "items": { "$ref": "#/$defs/chartEntry" } },
+        "pivotTables": { "type": "array", "items": { "$ref": "#/$defs/pivotTableEntry" } },
+        "conditionalFormats": { "type": "array", "items": { "$ref": "#/$defs/conditionalFormatEntry" } },
+        "dataValidations": { "type": "array", "items": { "$ref": "#/$defs/dataValidationEntry" } }
+      }
+    },
+
+    "cell": {
+      "type": "object",
+      "required": ["ref"],
+      "properties": {
+        "ref": { "$ref": "#/$defs/a1Ref" },
+        "text": { "type": "string" },
+        "number": { "type": "number" },
+        "boolean": { "type": "boolean" },
+        "date": { "type": "string", "format": "date-time" },
+        "formula": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["expression"],
+          "properties": { "expression": { "type": "string" }, "cachedValue": { "type": "number" } }
+        },
+        "style": { "$ref": "#/$defs/cellStyle" }
+      },
+      "oneOf": [
+        { "required": ["text"] },
+        { "required": ["number"] },
+        { "required": ["boolean"] },
+        { "required": ["date"] },
+        { "required": ["formula"] },
+        { "not": { "anyOf": [{ "required": ["text"] }, { "required": ["number"] }, { "required": ["boolean"] }, { "required": ["date"] }, { "required": ["formula"] }] } }
+      ],
+      "additionalProperties": false
+    },
+
+    "color": {
+      "type": "object",
+      "properties": {
+        "rgb": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["r", "g", "b"],
+          "properties": {
+            "r": { "type": "integer", "minimum": 0, "maximum": 255 },
+            "g": { "type": "integer", "minimum": 0, "maximum": 255 },
+            "b": { "type": "integer", "minimum": 0, "maximum": 255 }
+          }
+        },
+        "indexed": { "type": "integer" },
+        "theme": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["index"],
+          "properties": { "index": { "type": "integer" }, "tint": { "type": "number" } }
+        }
+      },
+      "oneOf": [{ "required": ["rgb"] }, { "required": ["indexed"] }, { "required": ["theme"] }],
+      "additionalProperties": false
+    },
+
+    "cellStyle": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "font": { "$ref": "#/$defs/fontStyle" },
+        "fill": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["color"],
+          "properties": { "color": { "$ref": "#/$defs/color" } }
+        },
+        "border": { "$ref": "#/$defs/borderStyle" },
+        "numberFormat": { "$ref": "#/$defs/numberFormat" },
+        "alignment": { "$ref": "#/$defs/alignmentStyle" },
+        "protection": { "$ref": "#/$defs/cellProtection" }
+      }
+    },
+
+    "fontStyle": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string" },
+        "size": { "type": "number" },
+        "bold": { "type": "boolean" },
+        "italic": { "type": "boolean" },
+        "underline": { "type": "boolean" },
+        "strikethrough": { "type": "boolean" },
+        "color": { "$ref": "#/$defs/color" }
+      }
+    },
+
+    "borderLineStyle": { "type": "string" },
+
+    "borderSide": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["style"],
+      "properties": { "style": { "$ref": "#/$defs/borderLineStyle" }, "color": { "$ref": "#/$defs/color" } }
+    },
+
+    "borderStyle": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "left": { "$ref": "#/$defs/borderSide" },
+        "right": { "$ref": "#/$defs/borderSide" },
+        "top": { "$ref": "#/$defs/borderSide" },
+        "bottom": { "$ref": "#/$defs/borderSide" }
+      }
+    },
+
+    "alignmentStyle": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "horizontal": { "enum": ["general", "left", "center", "right", "fill", "justify"] },
+        "vertical": { "enum": ["top", "middle", "bottom"] },
+        "wrapText": { "type": "boolean" }
+      }
+    },
+
+    "numberFormat": {
+      "oneOf": [
+        { "enum": ["general", "integer", "twoDecimal", "percentage", "currency", "shortDate", "dateAndTime"] },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["custom"],
+          "properties": { "custom": { "type": "string" } }
+        }
+      ]
+    },
+
+    "cellProtection": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": { "locked": { "type": "boolean" }, "hidden": { "type": "boolean" } }
+    },
+
+    "definedNameScope": {
+      "oneOf": [
+        { "const": "workbookScope" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["sheetScope"],
+          "properties": { "sheetScope": { "type": "string" } }
+        }
+      ]
+    },
+
+    "definedNameEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "formula", "scope"],
+      "properties": {
+        "name": { "type": "string" },
+        "formula": { "type": "string" },
+        "scope": { "$ref": "#/$defs/definedNameScope" },
+        "hidden": { "type": "boolean" }
+      }
+    },
+
+    "commentEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["cell", "text"],
+      "properties": {
+        "cell": { "$ref": "#/$defs/a1Ref" },
+        "author": { "type": "string" },
+        "text": { "type": "string" }
+      }
+    },
+
+    "hyperlinkTarget": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["externalHyperlink"],
+          "properties": { "externalHyperlink": { "type": "string" } }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["internalHyperlink"],
+          "properties": { "internalHyperlink": { "type": "string" } }
+        }
+      ]
+    },
+
+    "hyperlinkEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["topLeft", "bottomRight", "target"],
+      "properties": {
+        "topLeft": { "$ref": "#/$defs/a1Ref" },
+        "bottomRight": { "$ref": "#/$defs/a1Ref" },
+        "target": { "$ref": "#/$defs/hyperlinkTarget" },
+        "tooltip": { "type": "string" },
+        "display": { "type": "string" }
+      }
+    },
+
+    "sheetProtection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sheet"],
+      "properties": {
+        "password": { "type": "string" },
+        "sheet": { "type": "boolean" },
+        "objects": { "type": "boolean" },
+        "scenarios": { "type": "boolean" },
+        "formatCells": { "type": "boolean" },
+        "formatColumns": { "type": "boolean" },
+        "formatRows": { "type": "boolean" },
+        "insertColumns": { "type": "boolean" },
+        "insertRows": { "type": "boolean" },
+        "insertHyperlinks": { "type": "boolean" },
+        "deleteColumns": { "type": "boolean" },
+        "deleteRows": { "type": "boolean" },
+        "selectLockedCells": { "type": "boolean" },
+        "sort": { "type": "boolean" },
+        "autoFilter": { "type": "boolean" },
+        "pivotTables": { "type": "boolean" },
+        "selectUnlockedCells": { "type": "boolean" }
+      }
+    },
+
+    "workbookProtection": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "password": { "type": "string" },
+        "lockStructure": { "type": "boolean" },
+        "lockWindows": { "type": "boolean" }
+      }
+    },
+
+    "paperSize": {
+      "oneOf": [
+        { "enum": ["letter", "legal", "tabloid", "a3", "a4"] },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["other"],
+          "properties": { "other": { "type": "integer" } }
+        }
+      ]
+    },
+
+    "printScaling": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["percent"],
+          "properties": { "percent": { "type": "integer" } }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["fitToPage"],
+          "properties": {
+            "fitToPage": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["width", "height"],
+              "properties": { "width": { "type": "integer", "minimum": 0 }, "height": { "type": "integer", "minimum": 0 } }
+            }
+          }
+        }
+      ]
+    },
+
+    "pageMargins": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["left", "right", "top", "bottom", "header", "footer"],
+      "properties": {
+        "left": { "type": "number" },
+        "right": { "type": "number" },
+        "top": { "type": "number" },
+        "bottom": { "type": "number" },
+        "header": { "type": "number" },
+        "footer": { "type": "number" }
+      }
+    },
+
+    "pageSetup": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["orientation", "margins"],
+      "properties": {
+        "orientation": { "enum": ["portrait", "landscape"] },
+        "paperSize": { "$ref": "#/$defs/paperSize" },
+        "scaling": { "$ref": "#/$defs/printScaling" },
+        "margins": { "$ref": "#/$defs/pageMargins" },
+        "printArea": { "type": "array", "items": { "$ref": "#/$defs/rangeRef" } },
+        "header": { "type": "string" },
+        "footer": { "type": "string" },
+        "evenHeader": { "type": "string" },
+        "evenFooter": { "type": "string" },
+        "firstHeader": { "type": "string" },
+        "firstFooter": { "type": "string" }
+      }
+    },
+
+    "imageEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["format", "topLeft", "bottomRight", "data"],
+      "properties": {
+        "format": { "enum": ["png", "jpeg", "gif", "bmp"] },
+        "topLeft": { "$ref": "#/$defs/a1Ref" },
+        "bottomRight": { "$ref": "#/$defs/a1Ref" },
+        "data": { "type": "string", "contentEncoding": "base64" }
+      }
+    },
+
+    "tableColumn": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name"],
+      "properties": { "name": { "type": "string" }, "calculatedFormula": { "type": "string" } }
+    },
+
+    "tableStyle": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string" },
+        "showFirstColumn": { "type": "boolean" },
+        "showLastColumn": { "type": "boolean" },
+        "showRowStripes": { "type": "boolean" },
+        "showColumnStripes": { "type": "boolean" }
+      }
+    },
+
+    "tableEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["topLeft", "bottomRight", "name", "columns", "style"],
+      "properties": {
+        "topLeft": { "$ref": "#/$defs/a1Ref" },
+        "bottomRight": { "$ref": "#/$defs/a1Ref" },
+        "name": { "type": "string" },
+        "columns": { "type": "array", "items": { "$ref": "#/$defs/tableColumn" } },
+        "style": { "$ref": "#/$defs/tableStyle" }
+      }
+    },
+
+    "sparklineStyle": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type"],
+      "properties": {
+        "type": { "enum": ["line", "column", "winLoss"] },
+        "lineWeight": { "type": "number" },
+        "showMarkers": { "type": "boolean" },
+        "showHigh": { "type": "boolean" },
+        "showLow": { "type": "boolean" },
+        "showFirst": { "type": "boolean" },
+        "showLast": { "type": "boolean" },
+        "showNegative": { "type": "boolean" },
+        "color": { "$ref": "#/$defs/color" }
+      }
+    },
+
+    "sparklineCell": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["cell", "dataTopLeft", "dataBottomRight"],
+      "properties": {
+        "cell": { "$ref": "#/$defs/a1Ref" },
+        "dataTopLeft": { "$ref": "#/$defs/a1Ref" },
+        "dataBottomRight": { "$ref": "#/$defs/a1Ref" }
+      }
+    },
+
+    "sparklineGroupEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["style", "sparklines"],
+      "properties": {
+        "style": { "$ref": "#/$defs/sparklineStyle" },
+        "sparklines": { "type": "array", "items": { "$ref": "#/$defs/sparklineCell" } }
+      }
+    },
+
+    "chartSeries": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "valuesTopLeft", "valuesBottomRight"],
+      "properties": {
+        "name": { "$ref": "#/$defs/a1Ref" },
+        "valuesTopLeft": { "$ref": "#/$defs/a1Ref" },
+        "valuesBottomRight": { "$ref": "#/$defs/a1Ref" }
+      }
+    },
+
+    "chartEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "anchorTopLeft", "anchorBottomRight", "categories", "series"],
+      "properties": {
+        "type": { "enum": ["column", "bar", "line", "pie"] },
+        "title": { "type": "string" },
+        "showLegend": { "type": "boolean" },
+        "anchorTopLeft": { "$ref": "#/$defs/a1Ref" },
+        "anchorBottomRight": { "$ref": "#/$defs/a1Ref" },
+        "categories": { "$ref": "#/$defs/rangeRef" },
+        "series": { "type": "array", "items": { "$ref": "#/$defs/chartSeries" } }
+      }
+    },
+
+    "pivotTableEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sourceTopLeft", "sourceBottomRight", "rowField", "valueField", "aggregation", "anchorTopLeft"],
+      "properties": {
+        "sourceSheet": { "type": "string" },
+        "sourceTopLeft": { "$ref": "#/$defs/a1Ref" },
+        "sourceBottomRight": { "$ref": "#/$defs/a1Ref" },
+        "rowField": { "type": "string" },
+        "columnField": { "type": "string" },
+        "valueField": { "type": "string" },
+        "aggregation": { "enum": ["sum", "count", "countNumbers", "average", "min", "max"] },
+        "valueCaption": { "type": "string" },
+        "anchorTopLeft": { "$ref": "#/$defs/a1Ref" }
+      }
+    },
+
+    "comparisonOperator": {
+      "enum": ["equal", "notEqual", "greaterThan", "lessThan", "greaterThanOrEqual", "lessThanOrEqual", "between", "notBetween"]
+    },
+
+    "comparisonKind": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["operator", "formula1"],
+      "properties": {
+        "operator": { "$ref": "#/$defs/comparisonOperator" },
+        "formula1": { "type": "string" },
+        "formula2": { "type": "string" }
+      }
+    },
+
+    "conditionalFormatRule": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["cellValueRule"],
+          "properties": {
+            "cellValueRule": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["operator", "formula1", "style"],
+              "properties": {
+                "operator": { "$ref": "#/$defs/comparisonOperator" },
+                "formula1": { "type": "string" },
+                "formula2": { "type": "string" },
+                "style": { "$ref": "#/$defs/cellStyle" }
+              }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["formulaRule"],
+          "properties": {
+            "formulaRule": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["formula", "style"],
+              "properties": { "formula": { "type": "string" }, "style": { "$ref": "#/$defs/cellStyle" } }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["colorScale2"],
+          "properties": {
+            "colorScale2": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["minColor", "maxColor"],
+              "properties": { "minColor": { "$ref": "#/$defs/color" }, "maxColor": { "$ref": "#/$defs/color" } }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["colorScale3"],
+          "properties": {
+            "colorScale3": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["minColor", "midColor", "maxColor"],
+              "properties": {
+                "minColor": { "$ref": "#/$defs/color" },
+                "midColor": { "$ref": "#/$defs/color" },
+                "maxColor": { "$ref": "#/$defs/color" }
+              }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["dataBarRule"],
+          "properties": { "dataBarRule": { "$ref": "#/$defs/color" } }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["duplicateValuesRule"],
+          "properties": { "duplicateValuesRule": { "$ref": "#/$defs/cellStyle" } }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["uniqueValuesRule"],
+          "properties": { "uniqueValuesRule": { "$ref": "#/$defs/cellStyle" } }
+        }
+      ]
+    },
+
+    "conditionalFormatEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["topLeft", "bottomRight", "rule"],
+      "properties": {
+        "topLeft": { "$ref": "#/$defs/a1Ref" },
+        "bottomRight": { "$ref": "#/$defs/a1Ref" },
+        "rule": { "$ref": "#/$defs/conditionalFormatRule" }
+      }
+    },
+
+    "validationKind": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["listValidation"],
+          "properties": { "listValidation": { "type": "array", "items": { "type": "string" } } }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["listFromRangeValidation"],
+          "properties": { "listFromRangeValidation": { "$ref": "#/$defs/rangeRef" } }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["wholeNumberValidation"],
+          "properties": { "wholeNumberValidation": { "$ref": "#/$defs/comparisonKind" } }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["decimalValidation"],
+          "properties": { "decimalValidation": { "$ref": "#/$defs/comparisonKind" } }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["textLengthValidation"],
+          "properties": { "textLengthValidation": { "$ref": "#/$defs/comparisonKind" } }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["customValidation"],
+          "properties": { "customValidation": { "type": "string" } }
+        }
+      ]
+    },
+
+    "validationAlert": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "allowBlank": { "type": "boolean" },
+        "errorStyle": { "enum": ["stop", "warning", "information"] },
+        "errorTitle": { "type": "string" },
+        "errorMessage": { "type": "string" },
+        "inputTitle": { "type": "string" },
+        "inputMessage": { "type": "string" }
+      }
+    },
+
+    "dataValidationEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["topLeft", "bottomRight", "kind", "alert"],
+      "properties": {
+        "topLeft": { "$ref": "#/$defs/a1Ref" },
+        "bottomRight": { "$ref": "#/$defs/a1Ref" },
+        "kind": { "$ref": "#/$defs/validationKind" },
+        "alert": { "$ref": "#/$defs/validationAlert" }
+      }
+    }
+  }
+}
