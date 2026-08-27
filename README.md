@@ -574,6 +574,23 @@ since none of `SheetProtection`/`WorkbookProtection`'s fields are structured dat
 </pageSetup>
 ```
 
+`PrintScaling`'s two cases, `PaperSize`'s escape hatch (`other`, for any of the several
+dozen paper codes not worth naming), `PrintArea`'s list of ranges, and header/footer text
+all together:
+
+```xml
+<pageSetup orientation="portrait">
+  <paperSize other="9" />
+  <scaling fitWidth="1" fitHeight="0" />
+  <margins left="0.7" right="0.7" top="0.75" bottom="0.75" header="0.3" footer="0.3" />
+  <printArea>
+    <range topLeft="A1" bottomRight="D10" />
+  </printArea>
+  <header>&amp;C&amp;"Arial,Bold"Report</header>
+  <footer>&amp;LPage &amp;P of &amp;N</footer>
+</pageSetup>
+```
+
 A macro-enabled workbook's `VbaProject` bytes sit at the workbook level, alongside
 `sheets`, not inside any one sheet:
 
@@ -829,6 +846,32 @@ Sheet and workbook protection, in JSON - flat objects, same as the XML:
   "margins": { "left": 0.5, "right": 0.5, "top": 1, "bottom": 1, "header": 0.2, "footer": 0.2 }
 }
 ```
+
+The same richer example as above, in JSON - `PaperSize`'s escape hatch is `{"other": 9}`,
+`PrintScaling`'s two cases are single-key objects same as everywhere else, and `printArea`
+is a plain array:
+
+```json
+{
+  "orientation": "portrait",
+  "paperSize": { "other": 9 },
+  "scaling": { "fitToPage": { "width": 1, "height": 0 } },
+  "margins": { "left": 0.7, "right": 0.7, "top": 0.75, "bottom": 0.75, "header": 0.3, "footer": 0.3 },
+  "printArea": [ { "topLeft": "A1", "bottomRight": "D10" } ],
+  "header": "&C&\"Arial,Bold\"Report",
+  "footer": "&LPage &P of &N"
+}
+```
+
+**Worth knowing**: `System.Text.Json`'s default encoder escapes every `&`, `<`, `>`, and `"`
+character inside a string value as a `\uXXXX` sequence (the conservative choice for JSON
+that might end up embedded in HTML), so `generate_json`'s *actual* output for the header
+above has each of those characters replaced that way, not left as plain text the way it's
+shown here for readability. This is cosmetic, not a data-loss bug (`Json.toWorkbook` parses
+the escaped form back to the exact original string either way, verified by round-tripping
+this exact example) - but it's worth knowing before assuming a `generate_json` result is
+corrupted, especially since Excel's header/footer codes (`&C`/`&L`/`&R`/`&P`/`&N`/...) all
+begin with `&`, so real header/footer text is guaranteed to render this way.
 
 `VbaProject`, at the workbook level:
 
