@@ -20,8 +20,9 @@ open System.Text.Json.Nodes
 ///
 /// Built up feature-by-feature, the same order `Xml.fs` was: this pass covers the
 /// foundation (cell values, styles, merged ranges, freeze panes, autofilter, column/row
-/// sizing) plus VBA and defined names - see this module's own progress in `CLAUDE.md`/the
-/// project README for what's covered so far.
+/// sizing), VBA, defined names, comments, hyperlinks, sheet/workbook protection, page
+/// setup, images, tables, sparklines, charts, pivot tables, conditional formatting, and
+/// data validation - the same feature set `Xml.fs` covers.
 module Json =
 
     // --- JSON helpers ------------------------------------------------------------------
@@ -342,6 +343,635 @@ module Json =
     let private ofRowProps (index: int) (r: RowProps) : JsonNode =
         obj [ req "index" (jint index); optNode "height" (r.Height |> Option.map num) ] :> JsonNode
 
+    // --- Comments ------------------------------------------------------------------------
+
+    let private toCommentEntry (o: JsonObject) : CommentEntry =
+        { Cell = toCellRef (reqStr "cell" o)
+          Author = optStr "author" o |> Option.defaultValue ""
+          Text = reqStr "text" o }
+
+    let private ofCommentEntry (c: CommentEntry) : JsonNode =
+        obj
+            [ req "cell" (str (ofCellRef c.Cell))
+              optNode "author" (if c.Author = "" then None else Some(str c.Author))
+              req "text" (str c.Text) ]
+        :> JsonNode
+
+    // --- Hyperlinks ----------------------------------------------------------------------
+
+    let private toHyperlinkTarget (o: JsonObject) : HyperlinkTarget =
+        match tryGet "externalHyperlink" o with
+        | Some n -> ExternalHyperlink(n.GetValue<string>())
+        | None ->
+            match tryGet "internalHyperlink" o with
+            | Some n -> InternalHyperlink(n.GetValue<string>())
+            | None -> failwithf "Expected 'externalHyperlink' or 'internalHyperlink' in %s" (o.ToJsonString())
+
+    let private ofHyperlinkTarget (t: HyperlinkTarget) : JsonNode =
+        match t with
+        | ExternalHyperlink url -> obj [ req "externalHyperlink" (str url) ] :> JsonNode
+        | InternalHyperlink location -> obj [ req "internalHyperlink" (str location) ] :> JsonNode
+
+    let private toHyperlinkEntry (o: JsonObject) : HyperlinkEntry =
+        { TopLeft = toCellRef (reqStr "topLeft" o)
+          BottomRight = toCellRef (reqStr "bottomRight" o)
+          Target = toHyperlinkTarget ((childObj "target" o).Value)
+          Tooltip = optStr "tooltip" o
+          Display = optStr "display" o }
+
+    let private ofHyperlinkEntry (h: HyperlinkEntry) : JsonNode =
+        obj
+            [ req "topLeft" (str (ofCellRef h.TopLeft))
+              req "bottomRight" (str (ofCellRef h.BottomRight))
+              req "target" (ofHyperlinkTarget h.Target)
+              optNode "tooltip" (h.Tooltip |> Option.map str)
+              optNode "display" (h.Display |> Option.map str) ]
+        :> JsonNode
+
+    // --- Protection ----------------------------------------------------------------------
+
+    let private toSheetProtection (o: JsonObject) : SheetProtection =
+        { Password = optStr "password" o
+          Sheet = optBool "sheet" true o
+          Objects = optBoolOption "objects" o
+          Scenarios = optBoolOption "scenarios" o
+          FormatCells = optBoolOption "formatCells" o
+          FormatColumns = optBoolOption "formatColumns" o
+          FormatRows = optBoolOption "formatRows" o
+          InsertColumns = optBoolOption "insertColumns" o
+          InsertRows = optBoolOption "insertRows" o
+          InsertHyperlinks = optBoolOption "insertHyperlinks" o
+          DeleteColumns = optBoolOption "deleteColumns" o
+          DeleteRows = optBoolOption "deleteRows" o
+          SelectLockedCells = optBoolOption "selectLockedCells" o
+          Sort = optBoolOption "sort" o
+          AutoFilter = optBoolOption "autoFilter" o
+          PivotTables = optBoolOption "pivotTables" o
+          SelectUnlockedCells = optBoolOption "selectUnlockedCells" o }
+
+    let private ofSheetProtection (p: SheetProtection) : JsonNode =
+        obj
+            [ optNode "password" (p.Password |> Option.map str)
+              req "sheet" (jbool p.Sheet)
+              optNode "objects" (p.Objects |> Option.map jbool)
+              optNode "scenarios" (p.Scenarios |> Option.map jbool)
+              optNode "formatCells" (p.FormatCells |> Option.map jbool)
+              optNode "formatColumns" (p.FormatColumns |> Option.map jbool)
+              optNode "formatRows" (p.FormatRows |> Option.map jbool)
+              optNode "insertColumns" (p.InsertColumns |> Option.map jbool)
+              optNode "insertRows" (p.InsertRows |> Option.map jbool)
+              optNode "insertHyperlinks" (p.InsertHyperlinks |> Option.map jbool)
+              optNode "deleteColumns" (p.DeleteColumns |> Option.map jbool)
+              optNode "deleteRows" (p.DeleteRows |> Option.map jbool)
+              optNode "selectLockedCells" (p.SelectLockedCells |> Option.map jbool)
+              optNode "sort" (p.Sort |> Option.map jbool)
+              optNode "autoFilter" (p.AutoFilter |> Option.map jbool)
+              optNode "pivotTables" (p.PivotTables |> Option.map jbool)
+              optNode "selectUnlockedCells" (p.SelectUnlockedCells |> Option.map jbool) ]
+        :> JsonNode
+
+    let private toWorkbookProtection (o: JsonObject) : WorkbookProtection =
+        { Password = optStr "password" o
+          LockStructure = optBoolOption "lockStructure" o
+          LockWindows = optBoolOption "lockWindows" o }
+
+    let private ofWorkbookProtection (p: WorkbookProtection) : JsonNode =
+        obj
+            [ optNode "password" (p.Password |> Option.map str)
+              optNode "lockStructure" (p.LockStructure |> Option.map jbool)
+              optNode "lockWindows" (p.LockWindows |> Option.map jbool) ]
+        :> JsonNode
+
+    // --- PageSetup -----------------------------------------------------------------------
+
+    let private toPageOrientation (s: string) : PageOrientation =
+        match s with
+        | "portrait" -> Portrait
+        | "landscape" -> Landscape
+        | other -> failwithf "Unknown page orientation '%s'" other
+
+    let private ofPageOrientation (o: PageOrientation) : string =
+        match o with
+        | Portrait -> "portrait"
+        | Landscape -> "landscape"
+
+    let private toPaperSize (node: JsonNode) : PaperSize =
+        match node with
+        | :? JsonValue as v when v.TryGetValue<string>() |> fst ->
+            match v.GetValue<string>() with
+            | "letter" -> Letter
+            | "legal" -> Legal
+            | "tabloid" -> Tabloid
+            | "a3" -> A3
+            | "a4" -> A4
+            | other -> failwithf "Unknown paper size kind '%s'" other
+        | _ -> OtherPaperSize(reqInt "other" (node.AsObject()))
+
+    let private ofPaperSize (p: PaperSize) : JsonNode =
+        match p with
+        | Letter -> str "letter"
+        | Legal -> str "legal"
+        | Tabloid -> str "tabloid"
+        | A3 -> str "a3"
+        | A4 -> str "a4"
+        | OtherPaperSize code -> obj [ req "other" (jint code) ] :> JsonNode
+
+    let private toPrintScaling (o: JsonObject) : PrintScaling =
+        match tryGet "percent" o with
+        | Some n -> ScalePercent(n.GetValue<int>())
+        | None ->
+            let f = (childObj "fitToPage" o).Value
+            FitToPage(reqInt "width" f, reqInt "height" f)
+
+    let private ofPrintScaling (s: PrintScaling) : JsonNode =
+        match s with
+        | ScalePercent p -> obj [ req "percent" (jint p) ] :> JsonNode
+        | FitToPage(w, h) -> obj [ req "fitToPage" (obj [ req "width" (jint w); req "height" (jint h) ]) ] :> JsonNode
+
+    let private toPageMargins (o: JsonObject) : PageMargins =
+        { Left = reqNum "left" o
+          Right = reqNum "right" o
+          Top = reqNum "top" o
+          Bottom = reqNum "bottom" o
+          Header = reqNum "header" o
+          Footer = reqNum "footer" o }
+
+    let private ofPageMargins (m: PageMargins) : JsonNode =
+        obj
+            [ req "left" (num m.Left)
+              req "right" (num m.Right)
+              req "top" (num m.Top)
+              req "bottom" (num m.Bottom)
+              req "header" (num m.Header)
+              req "footer" (num m.Footer) ]
+        :> JsonNode
+
+    let private toPrintAreaRange (o: JsonObject) : CellRef * CellRef =
+        toCellRef (reqStr "topLeft" o), toCellRef (reqStr "bottomRight" o)
+
+    let private ofPrintAreaRange (topLeft: CellRef, bottomRight: CellRef) : JsonNode =
+        obj [ req "topLeft" (str (ofCellRef topLeft)); req "bottomRight" (str (ofCellRef bottomRight)) ] :> JsonNode
+
+    let private toPageSetup (o: JsonObject) : PageSetup =
+        { Orientation = optStr "orientation" o |> Option.map toPageOrientation |> Option.defaultValue Portrait
+          PaperSize = tryGet "paperSize" o |> Option.map toPaperSize
+          Scaling = childObj "scaling" o |> Option.map toPrintScaling
+          Margins = childObj "margins" o |> Option.map toPageMargins |> Option.defaultValue PageMargins.Default
+          PrintArea =
+            childArr "printArea" o
+            |> Option.map (Seq.map (fun n -> toPrintAreaRange (n.AsObject())) >> List.ofSeq)
+            |> Option.defaultValue []
+          Header = optStr "header" o
+          Footer = optStr "footer" o
+          EvenHeader = optStr "evenHeader" o
+          EvenFooter = optStr "evenFooter" o
+          FirstHeader = optStr "firstHeader" o
+          FirstFooter = optStr "firstFooter" o }
+
+    let private ofPageSetup (p: PageSetup) : JsonNode =
+        let printArea = if p.PrintArea.IsEmpty then None else Some(jarr (p.PrintArea |> List.map ofPrintAreaRange))
+
+        obj
+            [ req "orientation" (str (ofPageOrientation p.Orientation))
+              optNode "paperSize" (p.PaperSize |> Option.map ofPaperSize)
+              optNode "scaling" (p.Scaling |> Option.map ofPrintScaling)
+              req "margins" (ofPageMargins p.Margins)
+              optNode "printArea" printArea
+              optNode "header" (p.Header |> Option.map str)
+              optNode "footer" (p.Footer |> Option.map str)
+              optNode "evenHeader" (p.EvenHeader |> Option.map str)
+              optNode "evenFooter" (p.EvenFooter |> Option.map str)
+              optNode "firstHeader" (p.FirstHeader |> Option.map str)
+              optNode "firstFooter" (p.FirstFooter |> Option.map str) ]
+        :> JsonNode
+
+    // --- Images --------------------------------------------------------------------------
+
+    let private toImageFormat (s: string) : ImageFormat =
+        match s with
+        | "png" -> Png
+        | "jpeg" -> Jpeg
+        | "gif" -> Gif
+        | "bmp" -> Bmp
+        | other -> failwithf "Unknown image format '%s'" other
+
+    let private ofImageFormat (f: ImageFormat) : string =
+        match f with
+        | Png -> "png"
+        | Jpeg -> "jpeg"
+        | Gif -> "gif"
+        | Bmp -> "bmp"
+
+    let private toImageEntry (o: JsonObject) : ImageEntry =
+        { Data = Convert.FromBase64String(reqStr "data" o)
+          Format = toImageFormat (reqStr "format" o)
+          TopLeftAnchor = toCellRef (reqStr "topLeft" o)
+          BottomRightAnchor = toCellRef (reqStr "bottomRight" o) }
+
+    let private ofImageEntry (i: ImageEntry) : JsonNode =
+        obj
+            [ req "format" (str (ofImageFormat i.Format))
+              req "topLeft" (str (ofCellRef i.TopLeftAnchor))
+              req "bottomRight" (str (ofCellRef i.BottomRightAnchor))
+              req "data" (str (Convert.ToBase64String i.Data)) ]
+        :> JsonNode
+
+    // --- Tables --------------------------------------------------------------------------
+
+    let private toTableColumn (o: JsonObject) : TableColumn =
+        { Name = reqStr "name" o
+          CalculatedFormula = optStr "calculatedFormula" o }
+
+    let private ofTableColumn (c: TableColumn) : JsonNode =
+        obj [ req "name" (str c.Name); optNode "calculatedFormula" (c.CalculatedFormula |> Option.map str) ] :> JsonNode
+
+    let private toTableStyle (o: JsonObject) : TableStyle =
+        { Name = optStr "name" o
+          ShowFirstColumn = optBool "showFirstColumn" false o
+          ShowLastColumn = optBool "showLastColumn" false o
+          ShowRowStripes = optBool "showRowStripes" false o
+          ShowColumnStripes = optBool "showColumnStripes" false o }
+
+    let private ofTableStyle (s: TableStyle) : JsonNode =
+        obj
+            [ optNode "name" (s.Name |> Option.map str)
+              (if s.ShowFirstColumn then req "showFirstColumn" (jbool true) else "showFirstColumn", None)
+              (if s.ShowLastColumn then req "showLastColumn" (jbool true) else "showLastColumn", None)
+              (if s.ShowRowStripes then req "showRowStripes" (jbool true) else "showRowStripes", None)
+              (if s.ShowColumnStripes then req "showColumnStripes" (jbool true) else "showColumnStripes", None) ]
+        :> JsonNode
+
+    let private toTableEntry (o: JsonObject) : TableEntry =
+        { TopLeft = toCellRef (reqStr "topLeft" o)
+          BottomRight = toCellRef (reqStr "bottomRight" o)
+          Name = reqStr "name" o
+          Columns =
+            childArr "columns" o
+            |> Option.map (Seq.map (fun n -> toTableColumn (n.AsObject())) >> List.ofSeq)
+            |> Option.defaultValue []
+          Style = childObj "style" o |> Option.map toTableStyle |> Option.defaultValue TableStyle.Default }
+
+    let private ofTableEntry (t: TableEntry) : JsonNode =
+        obj
+            [ req "topLeft" (str (ofCellRef t.TopLeft))
+              req "bottomRight" (str (ofCellRef t.BottomRight))
+              req "name" (str t.Name)
+              req "columns" (jarr (t.Columns |> List.map ofTableColumn))
+              req "style" (ofTableStyle t.Style) ]
+        :> JsonNode
+
+    // --- Sparklines ----------------------------------------------------------------------
+
+    let private toSparklineType (s: string) : SparklineType =
+        match s with
+        | "line" -> Line
+        | "column" -> SparklineType.Column
+        | "winLoss" -> WinLoss
+        | other -> failwithf "Unknown sparkline type '%s'" other
+
+    let private ofSparklineType (t: SparklineType) : string =
+        match t with
+        | Line -> "line"
+        | SparklineType.Column -> "column"
+        | WinLoss -> "winLoss"
+
+    let private toSparklineStyle (o: JsonObject) : SparklineStyle =
+        { Type = toSparklineType (reqStr "type" o)
+          Color = tryGet "color" o |> Option.map (fun n -> toColor (n.AsObject()))
+          LineWeight = optNum "lineWeight" o
+          ShowMarkers = optBool "showMarkers" false o
+          ShowHigh = optBool "showHigh" false o
+          ShowLow = optBool "showLow" false o
+          ShowFirst = optBool "showFirst" false o
+          ShowLast = optBool "showLast" false o
+          ShowNegative = optBool "showNegative" false o }
+
+    let private ofSparklineStyle (s: SparklineStyle) : JsonNode =
+        obj
+            [ req "type" (str (ofSparklineType s.Type))
+              optNode "lineWeight" (s.LineWeight |> Option.map num)
+              (if s.ShowMarkers then req "showMarkers" (jbool true) else "showMarkers", None)
+              (if s.ShowHigh then req "showHigh" (jbool true) else "showHigh", None)
+              (if s.ShowLow then req "showLow" (jbool true) else "showLow", None)
+              (if s.ShowFirst then req "showFirst" (jbool true) else "showFirst", None)
+              (if s.ShowLast then req "showLast" (jbool true) else "showLast", None)
+              (if s.ShowNegative then req "showNegative" (jbool true) else "showNegative", None)
+              optNode "color" (s.Color |> Option.map ofColor) ]
+        :> JsonNode
+
+    let private toSparklineCell (o: JsonObject) : SparklineCell =
+        { Cell = toCellRef (reqStr "cell" o)
+          DataTopLeft = toCellRef (reqStr "dataTopLeft" o)
+          DataBottomRight = toCellRef (reqStr "dataBottomRight" o) }
+
+    let private ofSparklineCell (s: SparklineCell) : JsonNode =
+        obj
+            [ req "cell" (str (ofCellRef s.Cell))
+              req "dataTopLeft" (str (ofCellRef s.DataTopLeft))
+              req "dataBottomRight" (str (ofCellRef s.DataBottomRight)) ]
+        :> JsonNode
+
+    let private toSparklineGroupEntry (o: JsonObject) : SparklineGroupEntry =
+        { Style = childObj "style" o |> Option.map toSparklineStyle |> Option.defaultValue SparklineStyle.Default
+          Sparklines =
+            childArr "sparklines" o
+            |> Option.map (Seq.map (fun n -> toSparklineCell (n.AsObject())) >> List.ofSeq)
+            |> Option.defaultValue [] }
+
+    let private ofSparklineGroupEntry (g: SparklineGroupEntry) : JsonNode =
+        obj
+            [ req "style" (ofSparklineStyle g.Style)
+              req "sparklines" (jarr (g.Sparklines |> List.map ofSparklineCell)) ]
+        :> JsonNode
+
+    // --- Charts --------------------------------------------------------------------------
+
+    let private toChartType (s: string) : ChartType =
+        match s with
+        | "column" -> ChartColumn
+        | "bar" -> ChartBar
+        | "line" -> ChartLine
+        | "pie" -> ChartPie
+        | other -> failwithf "Unknown chart type '%s'" other
+
+    let private ofChartType (t: ChartType) : string =
+        match t with
+        | ChartColumn -> "column"
+        | ChartBar -> "bar"
+        | ChartLine -> "line"
+        | ChartPie -> "pie"
+
+    let private toChartSeries (o: JsonObject) : ChartSeries =
+        { Name = toCellRef (reqStr "name" o)
+          ValuesTopLeft = toCellRef (reqStr "valuesTopLeft" o)
+          ValuesBottomRight = toCellRef (reqStr "valuesBottomRight" o) }
+
+    let private ofChartSeries (s: ChartSeries) : JsonNode =
+        obj
+            [ req "name" (str (ofCellRef s.Name))
+              req "valuesTopLeft" (str (ofCellRef s.ValuesTopLeft))
+              req "valuesBottomRight" (str (ofCellRef s.ValuesBottomRight)) ]
+        :> JsonNode
+
+    let private toChartEntry (o: JsonObject) : ChartEntry =
+        let categories =
+            match childObj "categories" o with
+            | Some c -> c
+            | None -> failwith "chart is missing required 'categories'"
+
+        { Type = toChartType (reqStr "type" o)
+          Title = optStr "title" o
+          CategoriesTopLeft = toCellRef (reqStr "topLeft" categories)
+          CategoriesBottomRight = toCellRef (reqStr "bottomRight" categories)
+          Series =
+            childArr "series" o
+            |> Option.map (Seq.map (fun n -> toChartSeries (n.AsObject())) >> List.ofSeq)
+            |> Option.defaultValue []
+          ShowLegend = optBool "showLegend" false o
+          TopLeftAnchor = toCellRef (reqStr "anchorTopLeft" o)
+          BottomRightAnchor = toCellRef (reqStr "anchorBottomRight" o) }
+
+    let private ofChartEntry (c: ChartEntry) : JsonNode =
+        obj
+            [ req "type" (str (ofChartType c.Type))
+              optNode "title" (c.Title |> Option.map str)
+              (if c.ShowLegend then req "showLegend" (jbool true) else "showLegend", None)
+              req "anchorTopLeft" (str (ofCellRef c.TopLeftAnchor))
+              req "anchorBottomRight" (str (ofCellRef c.BottomRightAnchor))
+              req
+                  "categories"
+                  (obj [ req "topLeft" (str (ofCellRef c.CategoriesTopLeft)); req "bottomRight" (str (ofCellRef c.CategoriesBottomRight)) ])
+              req "series" (jarr (c.Series |> List.map ofChartSeries)) ]
+        :> JsonNode
+
+    // --- PivotTables ---------------------------------------------------------------------
+
+    let private toPivotAggregation (s: string) : PivotAggregation =
+        match s with
+        | "sum" -> PivotSum
+        | "count" -> PivotCount
+        | "countNumbers" -> PivotCountNumbers
+        | "average" -> PivotAverage
+        | "min" -> PivotMin
+        | "max" -> PivotMax
+        | other -> failwithf "Unknown pivot aggregation '%s'" other
+
+    let private ofPivotAggregation (a: PivotAggregation) : string =
+        match a with
+        | PivotSum -> "sum"
+        | PivotCount -> "count"
+        | PivotCountNumbers -> "countNumbers"
+        | PivotAverage -> "average"
+        | PivotMin -> "min"
+        | PivotMax -> "max"
+
+    let private toPivotTableEntry (o: JsonObject) : PivotTableEntry =
+        { SourceSheet = optStr "sourceSheet" o
+          SourceTopLeft = toCellRef (reqStr "sourceTopLeft" o)
+          SourceBottomRight = toCellRef (reqStr "sourceBottomRight" o)
+          RowField = reqStr "rowField" o
+          ColumnField = optStr "columnField" o
+          ValueField = reqStr "valueField" o
+          Aggregation = toPivotAggregation (reqStr "aggregation" o)
+          ValueCaption = optStr "valueCaption" o
+          TopLeftAnchor = toCellRef (reqStr "anchorTopLeft" o) }
+
+    let private ofPivotTableEntry (p: PivotTableEntry) : JsonNode =
+        obj
+            [ optNode "sourceSheet" (p.SourceSheet |> Option.map str)
+              req "sourceTopLeft" (str (ofCellRef p.SourceTopLeft))
+              req "sourceBottomRight" (str (ofCellRef p.SourceBottomRight))
+              req "rowField" (str p.RowField)
+              optNode "columnField" (p.ColumnField |> Option.map str)
+              req "valueField" (str p.ValueField)
+              req "aggregation" (str (ofPivotAggregation p.Aggregation))
+              optNode "valueCaption" (p.ValueCaption |> Option.map str)
+              req "anchorTopLeft" (str (ofCellRef p.TopLeftAnchor)) ]
+        :> JsonNode
+
+    // --- ComparisonOperator (shared by conditional formatting and data validation) ------
+
+    let private toComparisonOperator (s: string) : ComparisonOperator =
+        match s with
+        | "equal" -> Equal
+        | "notEqual" -> NotEqual
+        | "greaterThan" -> GreaterThan
+        | "lessThan" -> LessThan
+        | "greaterThanOrEqual" -> GreaterThanOrEqual
+        | "lessThanOrEqual" -> LessThanOrEqual
+        | "between" -> Between
+        | "notBetween" -> NotBetween
+        | other -> failwithf "Unknown comparison operator '%s'" other
+
+    let private ofComparisonOperator (o: ComparisonOperator) : string =
+        match o with
+        | Equal -> "equal"
+        | NotEqual -> "notEqual"
+        | GreaterThan -> "greaterThan"
+        | LessThan -> "lessThan"
+        | GreaterThanOrEqual -> "greaterThanOrEqual"
+        | LessThanOrEqual -> "lessThanOrEqual"
+        | Between -> "between"
+        | NotBetween -> "notBetween"
+
+    // --- Conditional formatting ------------------------------------------------------
+
+    let private toConditionalFormatRule (o: JsonObject) : ConditionalFormatRule =
+        match tryGet "cellValueRule" o with
+        | Some n ->
+            let r = n.AsObject()
+            CellValueRule(toComparisonOperator (reqStr "operator" r), reqStr "formula1" r, optStr "formula2" r, toCellStyle ((childObj "style" r).Value))
+        | None ->
+            match tryGet "formulaRule" o with
+            | Some n ->
+                let r = n.AsObject()
+                FormulaRule(reqStr "formula" r, toCellStyle ((childObj "style" r).Value))
+            | None ->
+                match tryGet "colorScale2" o with
+                | Some n ->
+                    let r = n.AsObject()
+                    ColorScale2(toColor ((childObj "minColor" r).Value), toColor ((childObj "maxColor" r).Value))
+                | None ->
+                    match tryGet "colorScale3" o with
+                    | Some n ->
+                        let r = n.AsObject()
+                        ColorScale3(toColor ((childObj "minColor" r).Value), toColor ((childObj "midColor" r).Value), toColor ((childObj "maxColor" r).Value))
+                    | None ->
+                        match tryGet "dataBarRule" o with
+                        | Some n -> DataBarRule(toColor (n.AsObject()))
+                        | None ->
+                            match tryGet "duplicateValuesRule" o with
+                            | Some n -> DuplicateValuesRule(toCellStyle (n.AsObject()))
+                            | None ->
+                                match tryGet "uniqueValuesRule" o with
+                                | Some n -> UniqueValuesRule(toCellStyle (n.AsObject()))
+                                | None -> failwithf "Unknown conditional format rule in %s" (o.ToJsonString())
+
+    let private ofConditionalFormatRule (r: ConditionalFormatRule) : JsonNode =
+        match r with
+        | CellValueRule(op, f1, f2, style) ->
+            obj
+                [ req
+                      "cellValueRule"
+                      (obj
+                          [ req "operator" (str (ofComparisonOperator op))
+                            req "formula1" (str f1)
+                            optNode "formula2" (f2 |> Option.map str)
+                            req "style" (ofCellStyle style) ]) ]
+            :> JsonNode
+        | FormulaRule(formula, style) ->
+            obj [ req "formulaRule" (obj [ req "formula" (str formula); req "style" (ofCellStyle style) ]) ] :> JsonNode
+        | ColorScale2(minColor, maxColor) ->
+            obj [ req "colorScale2" (obj [ req "minColor" (ofColor minColor); req "maxColor" (ofColor maxColor) ]) ] :> JsonNode
+        | ColorScale3(minColor, midColor, maxColor) ->
+            obj
+                [ req
+                      "colorScale3"
+                      (obj [ req "minColor" (ofColor minColor); req "midColor" (ofColor midColor); req "maxColor" (ofColor maxColor) ]) ]
+            :> JsonNode
+        | DataBarRule color -> obj [ req "dataBarRule" (ofColor color) ] :> JsonNode
+        | DuplicateValuesRule style -> obj [ req "duplicateValuesRule" (ofCellStyle style) ] :> JsonNode
+        | UniqueValuesRule style -> obj [ req "uniqueValuesRule" (ofCellStyle style) ] :> JsonNode
+
+    let private toConditionalFormatEntry (o: JsonObject) : ConditionalFormatEntry =
+        { TopLeft = toCellRef (reqStr "topLeft" o)
+          BottomRight = toCellRef (reqStr "bottomRight" o)
+          Rule = toConditionalFormatRule ((childObj "rule" o).Value) }
+
+    let private ofConditionalFormatEntry (c: ConditionalFormatEntry) : JsonNode =
+        obj
+            [ req "topLeft" (str (ofCellRef c.TopLeft))
+              req "bottomRight" (str (ofCellRef c.BottomRight))
+              req "rule" (ofConditionalFormatRule c.Rule) ]
+        :> JsonNode
+
+    // --- Data validation -------------------------------------------------------------
+
+    let private toErrorAlertStyle (s: string) : ErrorAlertStyle =
+        match s with
+        | "stop" -> Stop
+        | "warning" -> Warning
+        | "information" -> Information
+        | other -> failwithf "Unknown error alert style '%s'" other
+
+    let private ofErrorAlertStyle (s: ErrorAlertStyle) : string =
+        match s with
+        | Stop -> "stop"
+        | Warning -> "warning"
+        | Information -> "information"
+
+    let private comparisonKindOf (o: JsonObject) : ComparisonOperator * string * string option =
+        toComparisonOperator (reqStr "operator" o), reqStr "formula1" o, optStr "formula2" o
+
+    let private ofComparisonKind (op: ComparisonOperator) (f1: string) (f2: string option) : JsonNode =
+        obj [ req "operator" (str (ofComparisonOperator op)); req "formula1" (str f1); optNode "formula2" (f2 |> Option.map str) ]
+        :> JsonNode
+
+    let private toValidationKind (o: JsonObject) : ValidationKind =
+        match tryGet "listValidation" o with
+        | Some n -> ListValidation(n.AsArray() |> Seq.map (fun i -> i.GetValue<string>()) |> List.ofSeq)
+        | None ->
+            match tryGet "listFromRangeValidation" o with
+            | Some n ->
+                let r = n.AsObject()
+                ListFromRangeValidation(toCellRef (reqStr "topLeft" r), toCellRef (reqStr "bottomRight" r))
+            | None ->
+                match tryGet "wholeNumberValidation" o with
+                | Some n -> WholeNumberValidation(comparisonKindOf (n.AsObject()))
+                | None ->
+                    match tryGet "decimalValidation" o with
+                    | Some n -> DecimalValidation(comparisonKindOf (n.AsObject()))
+                    | None ->
+                        match tryGet "textLengthValidation" o with
+                        | Some n -> TextLengthValidation(comparisonKindOf (n.AsObject()))
+                        | None ->
+                            match tryGet "customValidation" o with
+                            | Some n -> CustomValidation(n.GetValue<string>())
+                            | None -> failwithf "Unknown validation kind in %s" (o.ToJsonString())
+
+    let private ofValidationKind (k: ValidationKind) : JsonNode =
+        match k with
+        | ListValidation items -> obj [ req "listValidation" (jarr (items |> List.map str)) ] :> JsonNode
+        | ListFromRangeValidation(topLeft, bottomRight) ->
+            obj [ req "listFromRangeValidation" (obj [ req "topLeft" (str (ofCellRef topLeft)); req "bottomRight" (str (ofCellRef bottomRight)) ]) ]
+            :> JsonNode
+        | WholeNumberValidation(op, f1, f2) -> obj [ req "wholeNumberValidation" (ofComparisonKind op f1 f2) ] :> JsonNode
+        | DecimalValidation(op, f1, f2) -> obj [ req "decimalValidation" (ofComparisonKind op f1 f2) ] :> JsonNode
+        | TextLengthValidation(op, f1, f2) -> obj [ req "textLengthValidation" (ofComparisonKind op f1 f2) ] :> JsonNode
+        | CustomValidation formula -> obj [ req "customValidation" (str formula) ] :> JsonNode
+
+    let private toValidationAlert (o: JsonObject) : ValidationAlert =
+        { AllowBlank = optBool "allowBlank" true o
+          ErrorStyle = optStr "errorStyle" o |> Option.map toErrorAlertStyle |> Option.defaultValue Stop
+          ErrorTitle = optStr "errorTitle" o
+          ErrorMessage = optStr "errorMessage" o
+          InputTitle = optStr "inputTitle" o
+          InputMessage = optStr "inputMessage" o }
+
+    let private ofValidationAlert (a: ValidationAlert) : JsonNode =
+        obj
+            [ (if not a.AllowBlank then req "allowBlank" (jbool false) else "allowBlank", None)
+              (if a.ErrorStyle <> Stop then req "errorStyle" (str (ofErrorAlertStyle a.ErrorStyle)) else "errorStyle", None)
+              optNode "errorTitle" (a.ErrorTitle |> Option.map str)
+              optNode "errorMessage" (a.ErrorMessage |> Option.map str)
+              optNode "inputTitle" (a.InputTitle |> Option.map str)
+              optNode "inputMessage" (a.InputMessage |> Option.map str) ]
+        :> JsonNode
+
+    let private toDataValidationEntry (o: JsonObject) : DataValidationEntry =
+        { TopLeft = toCellRef (reqStr "topLeft" o)
+          BottomRight = toCellRef (reqStr "bottomRight" o)
+          Kind = toValidationKind ((childObj "kind" o).Value)
+          Alert = childObj "alert" o |> Option.map toValidationAlert |> Option.defaultValue ValidationAlert.Default }
+
+    let private ofDataValidationEntry (d: DataValidationEntry) : JsonNode =
+        obj
+            [ req "topLeft" (str (ofCellRef d.TopLeft))
+              req "bottomRight" (str (ofCellRef d.BottomRight))
+              req "kind" (ofValidationKind d.Kind)
+              req "alert" (ofValidationAlert d.Alert) ]
+        :> JsonNode
+
     // --- DefinedNames --------------------------------------------------------------------
 
     let private toDefinedNameScope (node: JsonNode) : DefinedNameScope =
@@ -387,17 +1017,44 @@ module Json =
             |> Option.defaultValue []
           FreezePane = childObj "freezePane" o |> Option.map toFreezePane
           AutoFilter = childObj "autoFilter" o |> Option.map toAutoFilterRange
-          Protection = None
-          ConditionalFormats = []
-          DataValidations = []
-          Hyperlinks = []
-          Comments = []
-          PageSetup = None
-          Tables = []
-          SparklineGroups = []
-          Charts = []
-          Images = []
-          PivotTables = [] }
+          Protection = childObj "protection" o |> Option.map toSheetProtection
+          ConditionalFormats =
+            childArr "conditionalFormats" o
+            |> Option.map (Seq.map (fun n -> toConditionalFormatEntry (n.AsObject())) >> List.ofSeq)
+            |> Option.defaultValue []
+          DataValidations =
+            childArr "dataValidations" o
+            |> Option.map (Seq.map (fun n -> toDataValidationEntry (n.AsObject())) >> List.ofSeq)
+            |> Option.defaultValue []
+          Hyperlinks =
+            childArr "hyperlinks" o
+            |> Option.map (Seq.map (fun n -> toHyperlinkEntry (n.AsObject())) >> List.ofSeq)
+            |> Option.defaultValue []
+          Comments =
+            childArr "comments" o
+            |> Option.map (Seq.map (fun n -> toCommentEntry (n.AsObject())) >> List.ofSeq)
+            |> Option.defaultValue []
+          PageSetup = childObj "pageSetup" o |> Option.map toPageSetup
+          Tables =
+            childArr "tables" o
+            |> Option.map (Seq.map (fun n -> toTableEntry (n.AsObject())) >> List.ofSeq)
+            |> Option.defaultValue []
+          SparklineGroups =
+            childArr "sparklineGroups" o
+            |> Option.map (Seq.map (fun n -> toSparklineGroupEntry (n.AsObject())) >> List.ofSeq)
+            |> Option.defaultValue []
+          Charts =
+            childArr "charts" o
+            |> Option.map (Seq.map (fun n -> toChartEntry (n.AsObject())) >> List.ofSeq)
+            |> Option.defaultValue []
+          Images =
+            childArr "images" o
+            |> Option.map (Seq.map (fun n -> toImageEntry (n.AsObject())) >> List.ofSeq)
+            |> Option.defaultValue []
+          PivotTables =
+            childArr "pivotTables" o
+            |> Option.map (Seq.map (fun n -> toPivotTableEntry (n.AsObject())) >> List.ofSeq)
+            |> Option.defaultValue [] }
 
     let private sortedByCell (refOf: 'a -> CellRef) (items: 'a list) : 'a list = items |> List.sortBy refOf
 
@@ -406,6 +1063,19 @@ module Json =
         let mergedRanges = s.MergedRanges |> sortedByCell (fun m -> m.TopLeft) |> List.map ofMergedRange
         let columnProps = s.ColumnProps |> Map.toList |> List.map (fun (i, c) -> ofColumnProps i c)
         let rowProps = s.RowProps |> Map.toList |> List.map (fun (i, r) -> ofRowProps i r)
+        let comments = s.Comments |> sortedByCell (fun c -> c.Cell) |> List.map ofCommentEntry
+        let hyperlinks = s.Hyperlinks |> sortedByCell (fun h -> h.TopLeft) |> List.map ofHyperlinkEntry
+        let images = s.Images |> sortedByCell (fun i -> i.TopLeftAnchor) |> List.map ofImageEntry
+        let tables = s.Tables |> sortedByCell (fun t -> t.TopLeft) |> List.map ofTableEntry
+
+        let sparklineGroupAnchor (g: SparklineGroupEntry) =
+            g.Sparklines |> List.map (fun sl -> sl.Cell) |> List.sortBy id |> List.tryHead |> Option.defaultValue (CellRef.create 0 0)
+
+        let sparklineGroups = s.SparklineGroups |> List.sortBy sparklineGroupAnchor |> List.map ofSparklineGroupEntry
+        let charts = s.Charts |> sortedByCell (fun c -> c.TopLeftAnchor) |> List.map ofChartEntry
+        let pivotTables = s.PivotTables |> sortedByCell (fun p -> p.TopLeftAnchor) |> List.map ofPivotTableEntry
+        let conditionalFormats = s.ConditionalFormats |> sortedByCell (fun c -> c.TopLeft) |> List.map ofConditionalFormatEntry
+        let dataValidations = s.DataValidations |> sortedByCell (fun d -> d.TopLeft) |> List.map ofDataValidationEntry
 
         obj
             [ req "name" (str s.Name)
@@ -414,7 +1084,24 @@ module Json =
               optNode "freezePane" (s.FreezePane |> Option.map ofFreezePane)
               optNode "autoFilter" (s.AutoFilter |> Option.map ofAutoFilterRange)
               (if columnProps.IsEmpty then "columnProps", None else req "columnProps" (jarr columnProps))
-              (if rowProps.IsEmpty then "rowProps", None else req "rowProps" (jarr rowProps)) ]
+              (if rowProps.IsEmpty then "rowProps", None else req "rowProps" (jarr rowProps))
+              (if comments.IsEmpty then "comments", None else req "comments" (jarr comments))
+              (if hyperlinks.IsEmpty then "hyperlinks", None else req "hyperlinks" (jarr hyperlinks))
+              optNode "protection" (s.Protection |> Option.map ofSheetProtection)
+              optNode "pageSetup" (s.PageSetup |> Option.map ofPageSetup)
+              (if images.IsEmpty then "images", None else req "images" (jarr images))
+              (if tables.IsEmpty then "tables", None else req "tables" (jarr tables))
+              (if sparklineGroups.IsEmpty then "sparklineGroups", None else req "sparklineGroups" (jarr sparklineGroups))
+              (if charts.IsEmpty then "charts", None else req "charts" (jarr charts))
+              (if pivotTables.IsEmpty then "pivotTables", None else req "pivotTables" (jarr pivotTables))
+              (if conditionalFormats.IsEmpty then
+                   "conditionalFormats", None
+               else
+                   req "conditionalFormats" (jarr conditionalFormats))
+              (if dataValidations.IsEmpty then
+                   "dataValidations", None
+               else
+                   req "dataValidations" (jarr dataValidations)) ]
         :> JsonNode
 
     /// Reads a `Workbook` from a JSON tree. `root` should be the top-level `{"sheets": [...]
@@ -426,7 +1113,7 @@ module Json =
             childArr "definedNames" root
             |> Option.map (Seq.map (fun n -> toDefinedNameEntry (n.AsObject())) >> List.ofSeq)
             |> Option.defaultValue []
-          Protection = None
+          Protection = childObj "protection" root |> Option.map toWorkbookProtection
           VbaProject = optStr "vbaProject" root |> Option.map Convert.FromBase64String }
 
     /// Renders a `Workbook` as a JSON tree rooted at a plain `{"sheets": [...], ...}` object.
@@ -436,4 +1123,5 @@ module Json =
         obj
             [ req "sheets" (jarr (wb.Sheets |> List.map ofWorksheet))
               (if definedNames.IsEmpty then "definedNames", None else req "definedNames" (jarr definedNames))
+              optNode "protection" (wb.Protection |> Option.map ofWorkbookProtection)
               optNode "vbaProject" (wb.VbaProject |> Option.map (Convert.ToBase64String >> str)) ]
