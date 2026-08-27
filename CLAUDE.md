@@ -81,15 +81,33 @@ how past drift happened — each step below has a real, specific incident behind
      longer one at publish time, not at edit time).
 5. **Version bump + release** — bump `<Version>` by hand in whichever project(s) changed
    (a semver judgment call, not automated), then run
-   `dotnet fake run build.fsx -t Push<Core|Wrapper|Mcp>` (see `build.fsx` — this runs the
-   full test gate first, even for a single Push target). **Use this, not a manual `dotnet
-   pack`/`dotnet nuget push`** - `build.fsx` exists specifically so a release can't skip the
-   test gate, but that only holds if it's actually invoked; one release went out via plain
-   `dotnet pack` anyway, purely out of habit, defeating the point. NuGet indexing typically
-   takes 5–20 minutes after a successful push before the new version resolves anywhere
-   (search, flatcontainer index, `dotnet restore`) — don't assume a push failed just because
-   it isn't visible yet; check nuget.org's own package page (it updates before the API
-   indexes do) before retrying.
+   `dotnet fake run build.fsx -t PublishAll` (see `build.fsx` — this runs the full test gate
+   first). **Use `PublishAll`, never `Push<Core|Wrapper|Mcp>` individually, and never a
+   manual `dotnet pack`/`dotnet nuget push`** - two real incidents behind this, not caution
+   for its own sake:
+   - `build.fsx` exists specifically so a release can't skip the test gate, but that only
+     holds if it's actually invoked; one release went out via plain `dotnet pack` anyway,
+     purely out of habit, defeating the point.
+   - The C# wrapper's `ProjectReference` to the F# core gets converted into a NuGet
+     dependency *floor* (`>= x.y.z`) at whatever version the core happened to be at pack
+     time - `dotnet pack`/NuGet do this correctly and automatically, but only the wrapper's
+     *own* next pack captures a newer core version. Calling `PushCore` alone (three times in
+     a row, across the Xml.fs/Json.fs/font-ordering-fix releases) left the *published*
+     wrapper silently declaring a dependency floor two minor versions behind the core for
+     weeks, invisible locally because a local checkout is always self-consistent by
+     construction - it only showed up when a from-scratch NuGet restore (a demo project,
+     the decompiled `.g.cs`'s own `#:package` restore) pulled the ancient floor version.
+     `push` (in `build.fsx`) is deliberately a no-op for whichever package(s) didn't change
+     this release rather than erroring on "already published", specifically so `PublishAll`
+     is always safe and always the right thing to run — every release, not just ones that
+     "feel like" they touched more than one package. `VerifyDependencyFreshness` (chained
+     after `PublishAll`) then checks nuget.org's own live state and fails loudly if the
+     wrapper's published floor still doesn't match the core's latest published version - a
+     backstop for exactly the mistake above, in case `PublishAll` gets bypassed anyway.
+   NuGet indexing typically takes 5–20 minutes after a successful push before the new
+   version resolves anywhere (search, flatcontainer index, `dotnet restore`) — don't assume
+   a push failed just because it isn't visible yet; check nuget.org's own package page (it
+   updates before the API indexes do) before retrying.
 6. **MCP Registry sync**, only if the Mcp package's version changed: `mcp-publisher login
    github` (interactive GitHub device-flow — this needs the user, it can't be scripted or
    run non-interactively) immediately followed by `mcp-publisher publish` from
@@ -119,6 +137,7 @@ something" regardless of what kind of change is in flight, since a doc/metadata-
 | `src/Kookerella.FsOpenXmlDsl.Mcp/WorkbookTools.fs` | Every tool's `[<Description>]` text, and the `WorkbookTools` type's own doc comment | Nothing automated - this is what an MCP client/agent actually reads, separate from any README |
 | `src/Kookerella.FsOpenXmlDsl.Mcp/Dockerfile` | `COPY` list mirrors every `ProjectReference` in the `.fsproj` exactly | Nothing automated unless someone actually runs `docker build` |
 | `src/Kookerella.FsOpenXmlDsl/Xml.xsd` | Matches what `Xml.fs`'s `ofWorkbook`/`toWorkbook` actually read and write | `assertXmlSchemaValid` inside `verifyScenarioNamed` - real, but only as strong as the scenarios that exist |
+| Published `Kookerella.CsOpenXmlDsl`'s NuGet dependency floor on `Kookerella.FsOpenXmlDsl` | Must equal the F# core's latest *published* version, not just whatever's in the local `.fsproj` | `VerifyDependencyFreshness` in `build.fsx`, chained after `PublishAll` - queries nuget.org's live state directly; only catches it if `PublishAll` (not a standalone `Push*`) is actually what ran |
 | `src/Kookerella.FsOpenXmlDsl/Json.schema.json` | Matches what `Json.fs`'s `ofWorkbook`/`toWorkbook` actually read and write | `assertJsonSchemaValid`, called from every `JsonTests.fs` round trip via its `roundTrip` helper, **and** from `verifyScenarioNamed` for every `Examples/` scenario (writes `workbook.json`, same as `workbook.xml`/`Xml.xsd`) - real, but only as strong as the scenarios that exist |
 | `tests/Kookerella.CsOpenXmlDsl.Tests/ExampleTests.cs`'s `AssertWorkbooksMatch` | Checks every `Sheet`/`Workbook` field the slow round-trip theory is supposed to verify | Nothing - it silently stopped covering five-plus features in a row once already |
 | `tests/Kookerella.CsOpenXmlDsl.Tests/DriftGuardTests.cs`'s `EnumMirrors`/`ClosedHierarchyMirrors` | Lists every F# DU mirrored as a C# enum/closed hierarchy | Only guards types already registered with it - a brand-new type is invisible until added |
