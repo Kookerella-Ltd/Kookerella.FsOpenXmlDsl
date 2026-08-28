@@ -100,10 +100,22 @@ how past drift happened — each step below has a real, specific incident behind
      `push` (in `build.fsx`) is deliberately a no-op for whichever package(s) didn't change
      this release rather than erroring on "already published", specifically so `PublishAll`
      is always safe and always the right thing to run — every release, not just ones that
-     "feel like" they touched more than one package. `VerifyDependencyFreshness` (chained
-     after `PublishAll`) then checks nuget.org's own live state and fails loudly if the
-     wrapper's published floor still doesn't match the core's latest published version - a
-     backstop for exactly the mistake above, in case `PublishAll` gets bypassed anyway.
+     "feel like" they touched more than one package. `PublishAll`'s own action (not a
+     separate target merely chained after it, which would only run on `-t
+     VerifyDependencyFreshness`, never on the `-t PublishAll` people actually type) then
+     checks nuget.org's own live state and fails loudly if the wrapper's published floor
+     still doesn't match the core's latest published version - a backstop for exactly the
+     mistake above, in case `PublishAll` gets bypassed anyway. Also independently invocable
+     any time via `dotnet fake run build.fsx -t VerifyDependencyFreshness --single-target`.
+   - The Mcp tool has the same problem one layer deeper, discovered live while building an
+     unrelated demo project: it's a self-contained `dotnet tool` (`PackAsTool`) that bundles
+     its full dependency closure as plain files rather than declaring a NuGet floor, built
+     via its own `ProjectReference`s the same way - so it goes stale the same way, for the
+     same reason, and `dotnet tool update` can't fix an already-stale *published* package,
+     only install whatever's currently there. `PublishAll`'s action also downloads the live
+     Mcp `.nupkg` and reads its bundled `Kookerella.FsOpenXmlDsl.dll`/
+     `Kookerella.CsOpenXmlDsl.dll` version metadata directly, comparing against the core's/
+     wrapper's own latest published versions.
    NuGet indexing typically takes 5–20 minutes after a successful push before the new
    version resolves anywhere (search, flatcontainer index, `dotnet restore`) — don't assume
    a push failed just because it isn't visible yet; check nuget.org's own package page (it
@@ -137,7 +149,8 @@ something" regardless of what kind of change is in flight, since a doc/metadata-
 | `src/Kookerella.FsOpenXmlDsl.Mcp/WorkbookTools.fs` | Every tool's `[<Description>]` text, and the `WorkbookTools` type's own doc comment | Nothing automated - this is what an MCP client/agent actually reads, separate from any README |
 | `src/Kookerella.FsOpenXmlDsl.Mcp/Dockerfile` | `COPY` list mirrors every `ProjectReference` in the `.fsproj` exactly | Nothing automated unless someone actually runs `docker build` |
 | `src/Kookerella.FsOpenXmlDsl/Xml.xsd` | Matches what `Xml.fs`'s `ofWorkbook`/`toWorkbook` actually read and write | `assertXmlSchemaValid` inside `verifyScenarioNamed` - real, but only as strong as the scenarios that exist |
-| Published `Kookerella.CsOpenXmlDsl`'s NuGet dependency floor on `Kookerella.FsOpenXmlDsl` | Must equal the F# core's latest *published* version, not just whatever's in the local `.fsproj` | `VerifyDependencyFreshness` in `build.fsx`, chained after `PublishAll` - queries nuget.org's live state directly; only catches it if `PublishAll` (not a standalone `Push*`) is actually what ran |
+| Published `Kookerella.CsOpenXmlDsl`'s NuGet dependency floor on `Kookerella.FsOpenXmlDsl` | Must equal the F# core's latest *published* version, not just whatever's in the local `.fsproj` | `VerifyDependencyFreshness`/`PublishAll`'s own action in `build.fsx` (`verifyWrapperDependencyFloor`) - queries nuget.org's live state directly; only catches it if `PublishAll` (not a standalone `Push*`) is actually what ran |
+| Published `Kookerella.FsOpenXmlDsl.Mcp`'s *bundled* `Kookerella.FsOpenXmlDsl.dll`/`Kookerella.CsOpenXmlDsl.dll` (it's a self-contained `dotnet tool`, no nuspec dependency floor to check instead) | Their assembly versions must equal the core's/wrapper's latest *published* versions | `VerifyDependencyFreshness`/`PublishAll`'s own action in `build.fsx` (`verifyMcpBundleFreshness`) - downloads the live `.nupkg` and reads the bundled DLLs' own version metadata; found live and stale (bundling a pre-font-fix core) the first time this was built, from a from-scratch `dotnet tool update` + demo project restore, not from anything local |
 | `src/Kookerella.FsOpenXmlDsl/Json.schema.json` | Matches what `Json.fs`'s `ofWorkbook`/`toWorkbook` actually read and write | `assertJsonSchemaValid`, called from every `JsonTests.fs` round trip via its `roundTrip` helper, **and** from `verifyScenarioNamed` for every `Examples/` scenario (writes `workbook.json`, same as `workbook.xml`/`Xml.xsd`) - real, but only as strong as the scenarios that exist |
 | `tests/Kookerella.CsOpenXmlDsl.Tests/ExampleTests.cs`'s `AssertWorkbooksMatch` | Checks every `Sheet`/`Workbook` field the slow round-trip theory is supposed to verify | Nothing - it silently stopped covering five-plus features in a row once already |
 | `tests/Kookerella.CsOpenXmlDsl.Tests/DriftGuardTests.cs`'s `EnumMirrors`/`ClosedHierarchyMirrors` | Lists every F# DU mirrored as a C# enum/closed hierarchy | Only guards types already registered with it - a brand-new type is invisible until added |

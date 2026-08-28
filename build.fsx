@@ -12,6 +12,7 @@ nuget FSharp.Core 8.0.401 //"
 open System.Net.Http
 open System.Text.Json
 open System.Xml.Linq
+open System.IO.Compression
 open Fake.Core
 open Fake.DotNet
 open Fake.IO
@@ -115,6 +116,45 @@ let private dependencyFloors (nuspecXml: string) (dependencyId: string) : string
     |> Seq.distinct
     |> List.ofSeq
 
+/// Downloads one published version's raw `.nupkg` (just a zip file) into a temp file and
+/// returns the path - the caller is responsible for deleting it.
+let private downloadNupkg (packageId: string) (version: string) : string =
+    let idLower = packageId.ToLowerInvariant()
+    let url = sprintf "https://api.nuget.org/v3-flatcontainer/%s/%s/%s.%s.nupkg" idLower version idLower version
+    let bytes = httpClient.GetByteArrayAsync(url) |> Async.AwaitTask |> Async.RunSynchronously
+    let path = System.IO.Path.GetTempFileName()
+    System.IO.File.WriteAllBytes(path, bytes)
+    path
+
+/// Reads one bundled assembly's own version out of a `dotnet tool` package's `.nupkg`,
+/// without ever loading or executing it - `PackAsTool` bundles its full dependency closure
+/// as plain files under `tools/<tfm>/any/`, rather than declaring them in the nuspec the way
+/// a normal library package does (verified: `Kookerella.FsOpenXmlDsl.Mcp`'s own published
+/// nuspec has no `<dependencies>` section at all), so this is the only way to see what a
+/// published tool actually contains. `AssemblyName.GetAssemblyName` only reads metadata from
+/// the file - the same "never load a foreign assembly to inspect it" caution this repo
+/// already applies elsewhere to untrusted input.
+let private bundledAssemblyVersion (nupkgPath: string) (dllFileName: string) : System.Version option =
+    use archive = ZipFile.OpenRead(nupkgPath)
+
+    archive.Entries
+    |> Seq.tryFind (fun e -> e.Name.Equals(dllFileName, System.StringComparison.OrdinalIgnoreCase))
+    |> Option.map (fun entry ->
+        let tempDll = System.IO.Path.GetTempFileName() + ".dll"
+
+        try
+            entry.ExtractToFile(tempDll, true)
+            System.Reflection.AssemblyName.GetAssemblyName(tempDll).Version
+        finally
+            System.IO.File.Delete tempDll)
+
+/// MSBuild pads a NuGet package's 3-part `<Version>` into a 4-part `AssemblyVersion` with a
+/// trailing `.0` - compare only the first three parts, not the padding.
+let private assemblyVersionMatchesPackageVersion (assemblyVersion: System.Version) (packageVersion: string) : bool =
+    match System.Version.TryParse(packageVersion) with
+    | false, _ -> false
+    | true, parsed -> assemblyVersion.Major = parsed.Major && assemblyVersion.Minor = parsed.Minor && assemblyVersion.Build = parsed.Build
+
 /// Pushes one project's packed .nupkg to nuget.org - but first checks whether `packageId`
 /// already has this exact version published, and skips (not fails) if so. This is what
 /// makes `PublishAll` safe to run on *every* release regardless of which package(s) actually
@@ -194,11 +234,8 @@ Target.create "PushMcp" (fun _ -> push mcpPackageId mcpProj)
 // idempotency: independent of *this* release having remembered to run `PublishAll`
 // correctly, directly check the live, already-published state on nuget.org and fail loudly
 // if it's still wrong - e.g. because someone ran `PushCore` alone again out of habit, the
-// exact way this drifted the first time. Only checks the wrapper's dependency on the core -
-// the Mcp tool bundles its own dependencies as a self-contained `dotnet tool` payload rather
-// than declaring them in its nuspec at all (verified: its published nuspec has no
-// `<dependencies>` section), so there's no "stale floor" for it to have.
-let verifyDependencyFreshness () =
+// exact way this drifted the first time.
+let private verifyWrapperDependencyFloor () =
     let latestCore = latestPublishedVersion fsCorePackageId
     let latestWrapper = latestPublishedVersion csWrapperPackageId
     let wrapperNuspec = fetchNuspec csWrapperPackageId latestWrapper
@@ -224,6 +261,53 @@ let verifyDependencyFreshness () =
             latestCore
             csWrapperPackageId
     | _ -> Trace.tracefn "%s %s correctly depends on the latest published %s %s." csWrapperPackageId latestWrapper fsCorePackageId latestCore
+
+// The Mcp tool's own version of the exact same problem, one layer deeper: it bundles its
+// full dependency closure as plain files (`PackAsTool`, no nuspec `<dependencies>` at all -
+// verified against a real published package) rather than declaring a NuGet floor, so it went
+// stale the same way and for the same reason (built via `ProjectReference` against whatever
+// local source existed the last time *it* was packed) - discovered live, while re-decompiling
+// a demo template: the installed `fsopenxmldsl-mcp` 0.6.0 turned out to bundle
+// Kookerella.FsOpenXmlDsl 0.3.0.0 (before the font-ordering fix) and Kookerella.CsOpenXmlDsl
+// 0.3.1.0 (before its own floor refresh), months-old despite being "latest" at the time.
+// `dotnet tool update` only reinstalls whatever's currently published - it can't fix a
+// published package that's already stale, so this has to be caught (and the affected
+// package republished) at release time instead.
+let private verifyMcpBundleFreshness () =
+    let latestCore = latestPublishedVersion fsCorePackageId
+    let latestWrapper = latestPublishedVersion csWrapperPackageId
+    let latestMcp = latestPublishedVersion mcpPackageId
+    let nupkg = downloadNupkg mcpPackageId latestMcp
+
+    try
+        let checkBundled (dllFileName: string) (bundledPackageId: string) (latestVersion: string) =
+            match bundledAssemblyVersion nupkg dllFileName with
+            | None ->
+                failwithf "%s %s doesn't bundle %s at all - has the ProjectReference been removed?" mcpPackageId latestMcp dllFileName
+            | Some assemblyVersion when not (assemblyVersionMatchesPackageVersion assemblyVersion latestVersion) ->
+                failwithf
+                    "%s %s bundles %s version %O, but the latest published %s is %s. Bump \
+                     and republish %s (via PublishAll, even with no code changes) to refresh \
+                     this - see the 'push' function's own doc comment in build.fsx for why \
+                     this class of drift happens at all."
+                    mcpPackageId
+                    latestMcp
+                    dllFileName
+                    assemblyVersion
+                    bundledPackageId
+                    latestVersion
+                    mcpPackageId
+            | Some assemblyVersion ->
+                Trace.tracefn "%s %s correctly bundles %s %O, matching the latest published %s." mcpPackageId latestMcp dllFileName assemblyVersion bundledPackageId
+
+        checkBundled "Kookerella.FsOpenXmlDsl.dll" fsCorePackageId latestCore
+        checkBundled "Kookerella.CsOpenXmlDsl.dll" csWrapperPackageId latestWrapper
+    finally
+        System.IO.File.Delete nupkg
+
+let verifyDependencyFreshness () =
+    verifyWrapperDependencyFloor ()
+    verifyMcpBundleFreshness ()
 
 // Independently invocable (`fake run build.fsx -t VerifyDependencyFreshness --single-target`)
 // as a standalone health check, any time - it needs none of PublishAll's prerequisites
