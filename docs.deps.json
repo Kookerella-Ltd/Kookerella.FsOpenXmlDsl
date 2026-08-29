@@ -79,11 +79,13 @@
       ]
     },
     {
-      "trigger": "This repo's own README.md, or src/Kookerella.CsOpenXmlDsl/README.md, or src/Kookerella.FsOpenXmlDsl.Mcp/README.md's '## Demos' section",
+      "trigger": "Any of this repo's five cross-links to the companion demo repo (README.md's '## Demos' section, the C# wrapper's and Mcp server's own README.md, MAPPING.md, llms.txt)",
       "targets": [
         { "path": "README.md", "check": "Demos section link still resolves to a real, public repo" },
         { "path": "src/Kookerella.CsOpenXmlDsl/README.md", "check": "Demos cross-link still resolves" },
-        { "path": "src/Kookerella.FsOpenXmlDsl.Mcp/README.md", "check": "Demos cross-link still resolves" }
+        { "path": "src/Kookerella.FsOpenXmlDsl.Mcp/README.md", "check": "Demos cross-link still resolves" },
+        { "path": "MAPPING.md", "check": "Demos cross-link still resolves" },
+        { "path": "llms.txt", "check": "Demos cross-link in the ## Docs section still resolves" }
       ]
     }
   ]

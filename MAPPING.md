@@ -6,6 +6,11 @@ where that mapping is inexact, lossy, or simply not implemented yet in Core, so 
 what to expect from a round trip (`Workbook.save` then `Workbook.load`) and what would
 need to be added to close the gap.
 
+For a real, working example of decompiling an existing file and extending it - rather than
+this document's feature-by-feature fidelity list - see the companion
+[Kookerella.Demo.DecompileToSource](https://github.com/Kookerella-Ltd/Kookerella.Demo.DecompileToSource)
+repo.
+
 ## Modeled faithfully (1:1 or as close as makes sense)
 
 - Cell addressing (`CellRef` ↔ `"A1"` references), including the bijective base-26 column
