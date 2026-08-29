@@ -208,9 +208,12 @@ type WorkbookTools =
         "Reads an existing Excel workbook and returns it as XML, validated against Kookerella.FsOpenXmlDsl's \
          own embedded schema (Xml.xsd). A plain-data alternative to generate_fsharp_script/generate_csharp_script \
          for a caller who wants to inspect, transform (e.g. via XSLT), or archive a workbook's structure without \
-         any F#/C# source involved - unlike those two, this returns data, not a runnable script, so there is no \
-         output-filename parameter to control what a rebuild saves as. Covers the same worksheet/workbook-level \
-         feature set generate_fsharp_script does."
+         any F#/C# source involved - and without any .NET runtime on the caller's side either: the .NET work \
+         happens inside this server, so Python, JavaScript, or any other language can call this tool directly, \
+         and a human with no MCP client at all can get the same result via \
+         `fsopenxmldsl-mcp convert <file> --lang xml` from a plain shell. Unlike those two, this returns data, \
+         not a runnable script, so there is no output-filename parameter to control what a rebuild saves as. \
+         Covers the same worksheet/workbook-level feature set generate_fsharp_script does."
     )>]
     static member GenerateXml([<Description("Path to an existing .xlsx/.xlsm file to convert to XML.")>] path: string) : string =
         let wb = Workbook.load path
@@ -221,9 +224,12 @@ type WorkbookTools =
         "Builds a new Excel workbook from XML matching Kookerella.FsOpenXmlDsl's own embedded schema (Xml.xsd) \
          and saves it to disk - the inverse of generate_xml. The natural target for a caller that already \
          produces data as XML (e.g. an XSLT pipeline generating a report) and wants to reach Excel without \
-         learning the OOXML schema or this library's own F#/C# API. Covers the same worksheet/workbook-level \
-         feature set generate_xml does; unlike create_workbook, this isn't limited to plain cell values - \
-         styling, tables, charts, and every other modeled feature can be expressed in the XML."
+         learning the OOXML schema, this library's own F#/C# API, or needing .NET installed at all - like \
+         generate_xml, the .NET work happens inside this server, so any language can call it directly, and a \
+         human with no MCP client at all can get the same result via `fsopenxmldsl-mcp build` from a plain \
+         shell. Covers the same worksheet/workbook-level feature set generate_xml does; unlike create_workbook, \
+         this isn't limited to plain cell values - styling, tables, charts, and every other modeled feature can \
+         be expressed in the XML."
     )>]
     static member CreateWorkbookFromXml
         (
@@ -238,10 +244,12 @@ type WorkbookTools =
     [<Description(
         "Reads an existing Excel workbook and returns it as JSON. The JSON-side equivalent of generate_xml, \
          for a caller whose tooling speaks JSON rather than XML - same use cases (inspect, transform, or \
-         archive a workbook's structure without any F#/C# source involved) and the same worksheet/workbook- \
-         level feature set. Unlike generate_xml, there's no runtime JSON Schema validation built into the \
-         core library itself (see generate_json_schema's own doc string for why) - but generate_json_schema \
-         still returns the documented shape this produces."
+         archive a workbook's structure without any F#/C# source, or any .NET runtime at all, on the caller's \
+         side) and the same worksheet/workbook-level feature set. Usable directly from Python, JavaScript, or \
+         any other language, and a human with no MCP client at all can get the same result via \
+         `fsopenxmldsl-mcp convert <file> --lang json` from a plain shell. Unlike generate_xml, there's no \
+         runtime JSON Schema validation built into the core library itself (see generate_json_schema's own doc \
+         string for why) - but generate_json_schema still returns the documented shape this produces."
     )>]
     static member GenerateJson([<Description("Path to an existing .xlsx/.xlsm file to convert to JSON.")>] path: string) : string =
         let wb = Workbook.load path
@@ -252,10 +260,12 @@ type WorkbookTools =
         "Builds a new Excel workbook from JSON matching the shape generate_json produces (see the main \
          library repo's Json.schema.json) and saves it to disk - the inverse of generate_json. The JSON-side \
          equivalent of create_workbook_from_xml, for a caller that already produces data as JSON and wants to \
-         reach Excel without learning the OOXML schema or this library's own F#/C# API. Covers the same \
-         worksheet/workbook-level feature set generate_json does; unlike create_workbook, this isn't limited \
-         to plain cell values - styling, tables, charts, and every other modeled feature can be expressed in \
-         the JSON."
+         reach Excel without learning the OOXML schema, this library's own F#/C# API, or needing .NET installed \
+         at all - the .NET work happens inside this server, so any language can call it directly, and a human \
+         with no MCP client at all can get the same result via `fsopenxmldsl-mcp build` from a plain shell. \
+         Covers the same worksheet/workbook-level feature set generate_json does; unlike create_workbook, this \
+         isn't limited to plain cell values - styling, tables, charts, and every other modeled feature can be \
+         expressed in the JSON."
     )>]
     static member CreateWorkbookFromJson
         (
