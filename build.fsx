@@ -11,6 +11,7 @@ nuget FSharp.Core 8.0.401 //"
 
 open System.Net.Http
 open System.Text.Json
+open System.Text.Json.Nodes
 open System.Xml.Linq
 open System.IO.Compression
 open Fake.Core
@@ -397,10 +398,13 @@ let private publishSelfContained (rid: string) =
 
 /// Zips just the one executable (renamed to the tool's own command name, not the assembly
 /// name) - not the loose .pdb/.xml files publish also drops alongside it, which are debug
-/// symbols/doc comments, not needed to run. Unix RIDs lose the executable bit across a zip
-/// (a real, known limitation of .NET's ZipFile API, not this script) - document
+/// symbols/doc comments, not needed to run. Unix RIDs lose the executable bit across a zip -
+/// checked empirically (parsed the zip's own central directory for the Unix mode bits) that
+/// this isn't specific to .NET's ZipFile API: a Linux/macOS binary cross-compiled *on
+/// Windows* has no Unix mode bits to begin with (NTFS doesn't track POSIX permissions at
+/// all), so no zip tool run from this machine could preserve what was never there. Document
 /// `chmod +x` as a required step for those platforms rather than reaching for a tar.gz
-/// writer just to preserve one bit.
+/// writer that wouldn't actually fix anything here.
 let private archiveSelfContained (version: string) (rid: string) =
     let outDir = selfContainedDir @@ rid
     let exeName = mcpExeName rid
@@ -419,6 +423,161 @@ Target.create "PackMcpSelfContained" (fun _ ->
     for rid in selfContainedRids do
         publishSelfContained rid
         archiveSelfContained version rid)
+
+// A third distribution channel again, this time via MCPB (github.com/modelcontextprotocol/
+// mcpb, "MCP Bundles" - formerly DXT) - Claude for macOS/Windows's own one-click local
+// server install mechanism, no command line at all needed by the end user. Verified this is
+// real and not just the registry's own `mcpb` package-type keyword: fetched the actual spec
+// (MANIFEST.md) and its official CLI (`npm install -g @anthropic-ai/mcpb`), hand-built a
+// manifest.json + server/<exe> bundle for win-x64, ran it through the real `mcpb validate`/
+// `pack`/`unpack`/`info` commands, then actually executed the unpacked binary (both the CLI
+// `convert` path and the real stdio MCP server startup) to confirm the round trip produces
+// something that actually runs, not just something the packer accepts.
+//
+// The `command`/`entry_point` path deliberately omits the .exe extension even for Windows
+// RIDs - MANIFEST.md's own words: "For binaries, apps will automatically append .exe on
+// Windows." The staged file itself still needs the real extension (mcpExeName), only the
+// manifest's own reference to it doesn't.
+let private mcpbCommandPath = "server/Kookerella.FsOpenXmlDsl.Mcp"
+
+let private mcpbPlatform (rid: string) =
+    if rid.StartsWith "win" then "win32"
+    elif rid.StartsWith "osx" then "darwin"
+    else "linux"
+
+/// Reads the one field manifest.json needs that already has a canonical source elsewhere -
+/// server.json's own "description" - rather than hand-typing a third copy of this string
+/// that could drift from the other two the same way CLAUDE.md's "Keep these in sync" table
+/// already warns about for the other copies.
+let private mcpServerDescription () =
+    use doc = JsonDocument.Parse(System.IO.File.ReadAllText mcpServerJson)
+    doc.RootElement.GetProperty("description").GetString()
+
+/// Built via JsonObject/JsonSerializer rather than a hand-formatted string template, so a
+/// description (or any future field) containing a `"` or `\` can't corrupt the JSON - a real
+/// risk a plain sprintf template would carry silently until the exact day some field's
+/// content happened to need escaping.
+let private mcpbManifestJson (version: string) (rid: string) : string =
+    let author = JsonObject()
+    author["name"] <- JsonValue.Create "Kookerella"
+
+    let repository = JsonObject()
+    repository["type"] <- JsonValue.Create "git"
+    repository["url"] <- JsonValue.Create "https://github.com/Kookerella-Ltd/Kookerella.FsOpenXmlDsl"
+
+    let mcpConfig = JsonObject()
+    mcpConfig["command"] <- JsonValue.Create mcpbCommandPath
+    mcpConfig["args"] <- JsonArray()
+    mcpConfig["env"] <- JsonObject()
+
+    let server = JsonObject()
+    server["type"] <- JsonValue.Create "binary"
+    server["entry_point"] <- JsonValue.Create mcpbCommandPath
+    server["mcp_config"] <- mcpConfig
+
+    let compatibility = JsonObject()
+    let platforms = JsonArray()
+    platforms.Add(JsonValue.Create(mcpbPlatform rid))
+    compatibility["platforms"] <- platforms
+
+    let manifest = JsonObject()
+    manifest["manifest_version"] <- JsonValue.Create "0.3"
+    manifest["name"] <- JsonValue.Create "fsopenxmldsl-mcp"
+    manifest["display_name"] <- JsonValue.Create "Excel MCP Server (FsOpenXmlDsl)"
+    manifest["version"] <- JsonValue.Create version
+    manifest["description"] <- JsonValue.Create(mcpServerDescription ())
+    manifest["author"] <- author
+    manifest["repository"] <- repository
+    manifest["homepage"] <-
+        JsonValue.Create "https://github.com/Kookerella-Ltd/Kookerella.FsOpenXmlDsl/tree/master/src/Kookerella.FsOpenXmlDsl.Mcp"
+    manifest["license"] <- JsonValue.Create "MIT"
+    manifest["server"] <- server
+    manifest["compatibility"] <- compatibility
+
+    manifest.ToJsonString(JsonSerializerOptions(WriteIndented = true))
+
+/// npm-installed CLI shims are `.cmd` files on Windows - confirmed empirically that
+/// `Process.Start("mcpb", ...)` with `UseShellExecute = false` fails outright there ("the
+/// system cannot find the file specified"), since it doesn't try PATHEXT resolution the way
+/// a real shell does. Routing through `cmd.exe /c` fixes it there; plain invocation
+/// elsewhere, where npm installs a real executable/shebang script instead.
+let private runProcess (fileName: string) (args: string list) (workingDir: string) =
+    let psi =
+        if System.OperatingSystem.IsWindows() then
+            let p = System.Diagnostics.ProcessStartInfo("cmd.exe")
+            p.ArgumentList.Add("/c")
+            p.ArgumentList.Add(fileName)
+            for a in args do
+                p.ArgumentList.Add(a)
+
+            p
+        else
+            let p = System.Diagnostics.ProcessStartInfo(fileName)
+
+            for a in args do
+                p.ArgumentList.Add(a)
+
+            p
+
+    psi.WorkingDirectory <- workingDir
+    psi.RedirectStandardOutput <- true
+    psi.RedirectStandardError <- true
+    psi.UseShellExecute <- false
+
+    use proc =
+        try
+            System.Diagnostics.Process.Start(psi)
+        with _ ->
+            failwithf
+                "Couldn't start '%s' - is it installed and on PATH? (For mcpb: npm install -g @anthropic-ai/mcpb)"
+                fileName
+
+    let stdout = proc.StandardOutput.ReadToEnd()
+    let stderr = proc.StandardError.ReadToEnd()
+    proc.WaitForExit()
+
+    if stdout <> "" then
+        Trace.log stdout
+
+    if stderr <> "" then
+        Trace.log stderr
+
+    if proc.ExitCode <> 0 then
+        failwithf "%s %s failed (exit %d) in %s - see output above." fileName (String.concat " " args) proc.ExitCode workingDir
+
+/// Stages manifest.json + server/<exe> in a throwaway directory, then shells out to the
+/// real `mcpb pack` CLI rather than hand-rolling the zip - not for the executable-bit
+/// reason that seemed plausible at first (checked and ruled out, see archiveSelfContained's
+/// own comment), but because MCPB is an actively evolving external spec (already at 0.3,
+/// with a 0.4 revision documented) - shelling out to the authoritative tool means this
+/// target stays correct as that spec changes, instead of this script silently drifting from
+/// it the way a hand-tracked reimplementation would.
+let private packMcpb (version: string) (rid: string) =
+    let stagingDir = selfContainedDir @@ "mcpb-staging" @@ rid
+    let serverDir = stagingDir @@ "server"
+    System.IO.Directory.CreateDirectory(serverDir) |> ignore
+
+    let exeName = mcpExeName rid
+    System.IO.File.Copy(selfContainedDir @@ rid @@ exeName, serverDir @@ exeName, true)
+    System.IO.File.WriteAllText(stagingDir @@ "manifest.json", mcpbManifestJson version rid)
+
+    let outputPath = selfContainedDir @@ sprintf "fsopenxmldsl-mcp-%s-%s.mcpb" version rid
+
+    if System.IO.File.Exists outputPath then
+        System.IO.File.Delete outputPath
+
+    runProcess "mcpb" [ "pack"; stagingDir; outputPath ] "."
+    Trace.tracefn "Wrote %s" outputPath
+
+Target.create "PackMcpMcpb" (fun _ ->
+    let version = localProjectVersion mcpProj
+
+    for rid in selfContainedRids do
+        packMcpb version rid)
+
+// Needs PackMcpSelfContained's own output (the per-RID single-file executables) to already
+// exist - staging just copies from there rather than re-publishing.
+"PackMcpSelfContained" ==> "PackMcpMcpb" |> ignore
 
 "Clean" ==> "Restore" ==> "Build" ==> "TestFast" ==> "TestSlow" |> ignore
 
