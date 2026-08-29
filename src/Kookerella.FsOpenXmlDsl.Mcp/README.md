@@ -94,6 +94,14 @@ fsopenxmldsl-mcp convert report.xlsx --lang json -o report.json # .xlsx -> JSON
 fsopenxmldsl-mcp build report.json rebuilt.xlsx                 # JSON -> .xlsx
 ```
 
+## Demos
+
+A full worked example of every `convert`/`build` direction above - decompiling one real
+invoice template into C#, F#, an XSLT transform, and a plain JSON-generation script, each
+wired up to real data and real tests proving the result stays schema-valid - lives in a
+companion repo:
+[Kookerella.Demo.DecompileToSource](https://github.com/Kookerella-Ltd/Kookerella.Demo.DecompileToSource).
+
 ## Tools
 
 - **`create_workbook(path, sheets)`** — creates a new `.xlsx` from a simple grid of
