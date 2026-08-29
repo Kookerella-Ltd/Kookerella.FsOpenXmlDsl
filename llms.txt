@@ -203,6 +203,11 @@ var roundTripped = WorkbookIO.Load("out.xlsx");
 convention as the F# core's `?col`/`?index`) — set explicitly via `.AtColumn(n)`/`.AtIndex(n)`
 to jump to a specific position.
 
+A full worked example of `CsCodeGen.Generate` used for real (decompile a template, wire it
+up to real data, test it) lives in the companion
+[Kookerella.Demo.DecompileToSource](https://github.com/Kookerella-Ltd/Kookerella.Demo.DecompileToSource)
+repo - see its C# walkthrough.
+
 ## MCP server: `Kookerella.FsOpenXmlDsl.Mcp`
 
 A local (stdio) MCP server, distributed as a `dotnet tool` (`fsopenxmldsl-mcp` command,
