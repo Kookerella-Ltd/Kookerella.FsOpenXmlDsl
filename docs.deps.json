@@ -1,0 +1,90 @@
+{
+  "$comment": "Structured version of CLAUDE.md's checklist and 'Keep these in sync' table - a machine-readable list of 'when trigger changes, review these targets too', derived from real incidents (not speculative). Read this at the start of any change touching a trigger; CLAUDE.md has the full incident-by-incident story behind each edge. 'path' is relative to this repo's root unless 'repo' says otherwise. An 'automated' field on a target means a real check already covers it (name the check); its absence means only a human/LLM re-reading the file catches drift.",
+  "edges": [
+    {
+      "trigger": "A new type/DU/field is added to the F# core's model (Worksheet/Workbook or anything they contain)",
+      "seeAlso": "CLAUDE.md 'Adding a feature to the DSL - checklist', steps 1-3",
+      "targets": [
+        { "path": "src/Kookerella.FsOpenXmlDsl/Interpreter/Writer.fs", "check": "handles the new case" },
+        { "path": "src/Kookerella.FsOpenXmlDsl/Interpreter/Reader.fs", "check": "handles the new case" },
+        { "path": "src/Kookerella.FsOpenXmlDsl/Interpreter/CodeGen.fs", "check": "F# source-gen renders the new case" },
+        { "path": "src/Kookerella.FsOpenXmlDsl/Xml.fs", "check": "XML surface (toWorkbook/ofWorkbook) covers it" },
+        { "path": "src/Kookerella.FsOpenXmlDsl/Xml.xsd", "check": "schema updated to match", "automated": "verifyScenarioNamed validates every generated workbook.xml against Xml.xsd" },
+        { "path": "src/Kookerella.FsOpenXmlDsl/Json.fs", "check": "JSON surface (toWorkbook/ofWorkbook) covers it" },
+        { "path": "src/Kookerella.FsOpenXmlDsl/Json.schema.json", "check": "schema updated to match", "automated": "verifyScenarioNamed validates every generated workbook.json via JsonTests.assertJsonSchemaValid (test-suite only, not a public API)" },
+        { "path": "tests/Kookerella.FsOpenXmlDsl.Tests/XmlTests.fs", "check": "new round-trip test added" },
+        { "path": "tests/Kookerella.FsOpenXmlDsl.Tests/JsonTests.fs", "check": "new round-trip test added" },
+        { "path": "src/Kookerella.FsOpenXmlDsl/Kookerella.FsOpenXmlDsl.fsproj", "check": "<Description> still matches the actual feature set" },
+        { "path": "src/Kookerella.CsOpenXmlDsl/ (new type file)", "check": "mirrors the F# shape - plain enum for a parameterless-only DU, closed hierarchy (CellValue's pattern) for a data-carrying one" },
+        { "path": "src/Kookerella.CsOpenXmlDsl/Sheet.cs", "check": "new property + fluent With*/Add* methods" },
+        { "path": "src/Kookerella.CsOpenXmlDsl/Workbook.cs", "check": "new property + fluent With*/Add* methods" },
+        { "path": "src/Kookerella.CsOpenXmlDsl/WorkbookConverter.cs", "check": "ToFsX/FromFsX, both directions" },
+        { "path": "src/Kookerella.CsOpenXmlDsl/CsCodeGen.cs", "check": "covers the new feature - do this before tests, not after (a real gap shipped once from leaving it until 'later')" },
+        { "path": "tests/Kookerella.CsOpenXmlDsl.Tests/ExampleTests.cs", "check": "new Examples/ scenario mirroring the F# suite's exact reference data, and AssertWorkbooksMatch updated - the test suite still passes without the latter, which is exactly how it silently stopped checking five-plus features" },
+        { "path": "tests/Kookerella.CsOpenXmlDsl.Tests/WorkbookTests.cs", "check": "unit tests added" },
+        { "path": "tests/Kookerella.CsOpenXmlDsl.Tests/DriftGuardTests.cs", "check": "only if this is a brand-new F# DU mirrored as a C# enum/closed hierarchy (not just a new case on an existing one) - register it in EnumMirrors/ClosedHierarchyMirrors, which only guards types already listed" },
+        { "path": "src/Kookerella.CsOpenXmlDsl/README.md", "check": "feature list and ## Scope section" },
+        { "path": "src/Kookerella.CsOpenXmlDsl/Kookerella.CsOpenXmlDsl.csproj", "check": "<Description> still matches the actual feature set" },
+        { "path": "README.md", "check": "wrapper-scope claims still accurate - don't assume old wording ('narrow first pass', feature lists) still holds" },
+        { "path": "llms.txt", "check": "C# wrapper's 'v1 scope' list and any 'not exposed' list" },
+        { "path": "MAPPING.md", "check": "only if this is a new OOXML-level capability in the F# core itself, not a C# wrapper concern" }
+      ]
+    },
+    {
+      "trigger": "A ProjectReference or a referenced package's version changes in src/Kookerella.FsOpenXmlDsl.Mcp",
+      "seeAlso": "CLAUDE.md 'Adding a feature to the DSL - checklist', step 4",
+      "targets": [
+        { "path": "src/Kookerella.FsOpenXmlDsl.Mcp/Dockerfile", "check": "COPY list mirrors every ProjectReference in the .fsproj exactly - broke once when Kookerella.CsOpenXmlDsl was added as a reference and this wasn't touched; nothing catches it except actually running docker build" }
+      ]
+    },
+    {
+      "trigger": "src/Kookerella.FsOpenXmlDsl.Mcp/WorkbookTools.fs changes (a new or changed MCP tool)",
+      "targets": [
+        { "path": "src/Kookerella.FsOpenXmlDsl.Mcp/WorkbookTools.fs", "check": "the tool's own [<Description>] text and the WorkbookTools type's own doc comment stay accurate about tool count/grouping - what an MCP client/agent reads directly, separate from any README" },
+        { "path": "src/Kookerella.FsOpenXmlDsl.Mcp/README.md", "check": "tool list, ## Scope tool count, CLI usage section" },
+        { "path": "src/Kookerella.FsOpenXmlDsl.Mcp/Kookerella.FsOpenXmlDsl.Mcp.fsproj", "check": "<Description> still matches the actual tool/CLI surface" },
+        { "path": "src/Kookerella.FsOpenXmlDsl.Mcp/.mcp/server.json", "check": "description field, if the tool/CLI surface's summary changed enough to warrant it (100-char registry limit)" }
+      ]
+    },
+    {
+      "trigger": "Any of the three <Version> fields is bumped (Kookerella.FsOpenXmlDsl.fsproj, Kookerella.CsOpenXmlDsl.csproj, Kookerella.FsOpenXmlDsl.Mcp.fsproj)",
+      "seeAlso": "CLAUDE.md step 5, 'Keep these in sync' table",
+      "targets": [
+        { "path": "src/Kookerella.FsOpenXmlDsl.Mcp/.mcp/server.json", "check": "both version fields (top-level and packages[0].version) match Kookerella.FsOpenXmlDsl.Mcp.fsproj's <Version> - only relevant when the Mcp version itself changed", "automated": "build.fsx verifyServerJsonVersion, run via VerifyDependencyFreshness/PublishAll" },
+        { "path": "(release process)", "check": "run `dotnet fake run build.fsx -t PublishAll` - never a standalone Push* target or a manual dotnet pack/nuget push, both of which are exactly how the wrapper's and Mcp's own dependency-floor/bundle staleness bugs happened", "automated": "build.fsx VerifyDependencyFreshness (wrapper dependency floor, Mcp bundled-DLL freshness, server.json version), run as PublishAll's own action" }
+      ]
+    },
+    {
+      "trigger": "Mcp package's version changed and it's ready to ship",
+      "targets": [
+        { "path": "(MCP Registry)", "check": "mcp-publisher login github, then mcp-publisher publish from src/Kookerella.FsOpenXmlDsl.Mcp/.mcp/ - needs an interactive GitHub device-flow login, can't run inside a script; the publish itself rejects a NuGet version that isn't indexed yet, which is the signal to wait, not a real failure" }
+      ]
+    },
+    {
+      "trigger": "A new decompile-target demo project is added to the companion repo (Kookerella.Demo.DecompileToSource)",
+      "targets": [
+        { "repo": "https://github.com/Kookerella-Ltd/Kookerella.Demo.DecompileToSource", "path": "README.md", "check": "Layout table, Quick start section, and the target count in the intro/'New to this?' framing" },
+        { "repo": "https://github.com/Kookerella-Ltd/Kookerella.Demo.DecompileToSource", "path": "src/*/WALKTHROUGH.md", "check": "'the other N demos' counts in every existing walkthrough - found stale once already (the XML walkthrough still said 'two' after the JSON demo made it three)" },
+        { "repo": "https://github.com/Kookerella-Ltd/Kookerella.Demo.DecompileToSource", "path": "Kookerella.Demo.DecompileToSource.slnx", "check": "new project and test project both added, with loose files (WALKTHROUGH.md, scripts, data) attached via Solution Items or a project's <None Include> so they're visible in Solution Explorer" },
+        { "repo": "https://github.com/Kookerella-Ltd/Kookerella.Demo.DecompileToSource", "path": ".gitignore", "check": "new generated-output paths (e.g. output.xlsx, invoice.xlsx, the intermediate workbook file) added" }
+      ]
+    },
+    {
+      "trigger": "generate_fsharp_script's or generate_csharp_script's output format changes (e.g. the #:package/#r line shape or content)",
+      "targets": [
+        { "repo": "https://github.com/Kookerella-Ltd/Kookerella.Demo.DecompileToSource", "path": "src/InvoiceDemo.CSharp/decompiled/InvoiceTemplate.g.cs", "check": "regenerate via decompile.ps1 and diff against the committed file - should be byte-identical with no manual editing" },
+        { "repo": "https://github.com/Kookerella-Ltd/Kookerella.Demo.DecompileToSource", "path": "src/InvoiceDemo.FSharp/decompiled/InvoiceTemplate.g.fsx", "check": "regenerate via decompile.ps1 and diff against the committed file - should be byte-identical with no manual editing" },
+        { "repo": "https://github.com/Kookerella-Ltd/Kookerella.Demo.DecompileToSource", "path": "src/InvoiceDemo.CSharp/WALKTHROUGH.md", "check": "any portability/version-pin claims in Step 2 still accurate" },
+        { "repo": "https://github.com/Kookerella-Ltd/Kookerella.Demo.DecompileToSource", "path": "src/InvoiceDemo.FSharp/WALKTHROUGH.md", "check": "any portability/version-pin claims in Step 2 still accurate - this exact edge is what made the F# walkthrough's #r-portability workaround explanation obsolete once generate_fsharp_script was fixed to emit a portable line directly" }
+      ]
+    },
+    {
+      "trigger": "This repo's own README.md, or src/Kookerella.CsOpenXmlDsl/README.md, or src/Kookerella.FsOpenXmlDsl.Mcp/README.md's '## Demos' section",
+      "targets": [
+        { "path": "README.md", "check": "Demos section link still resolves to a real, public repo" },
+        { "path": "src/Kookerella.CsOpenXmlDsl/README.md", "check": "Demos cross-link still resolves" },
+        { "path": "src/Kookerella.FsOpenXmlDsl.Mcp/README.md", "check": "Demos cross-link still resolves" }
+      ]
+    }
+  ]
+}

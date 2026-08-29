@@ -136,6 +136,13 @@ capability rather than implementing one - useful as a quick scan for "did I miss
 something" regardless of what kind of change is in flight, since a doc/metadata-only change
 (no new DSL feature at all) can still make one of these stale on its own.
 
+[`docs.deps.json`](docs.deps.json) is the same checklist again, a third way: a structured
+`trigger -> targets` list rather than prose, meant to be grepped/read by an LLM session at
+the start of a change rather than re-derived from memory each time. It doesn't replace this
+table or the checklist above - it's a query-friendly index into them, and only as trustworthy
+as it's kept current (add an edge when something drifts for real, the same rule everything
+else here follows - don't add one speculatively).
+
 | File | What must stay accurate | Checked by |
 |---|---|---|
 | `README.md` (root) | Top summary, per-feature sections, Layout list | Nothing automated - read it |
@@ -145,7 +152,7 @@ something" regardless of what kind of change is in flight, since a doc/metadata-
 | `src/Kookerella.FsOpenXmlDsl/Kookerella.FsOpenXmlDsl.fsproj` `<Description>` | Matches the F# core's actual feature set | Nothing automated - it's NuGet metadata, not code |
 | `src/Kookerella.CsOpenXmlDsl/Kookerella.CsOpenXmlDsl.csproj` `<Description>` | Matches the C# wrapper's actual feature set | Nothing automated |
 | `src/Kookerella.FsOpenXmlDsl.Mcp/Kookerella.FsOpenXmlDsl.Mcp.fsproj` `<Description>` | Matches the Mcp server's actual tool/CLI surface | Nothing automated |
-| `src/Kookerella.FsOpenXmlDsl.Mcp/.mcp/server.json` | `description` (≤100 chars, registry-enforced) **and** both `version` fields (top-level and `packages[].version`) match the `.fsproj`'s `<Version>` | The registry publish itself rejects a version it can't find on NuGet - but nothing checks `description` accuracy or that the two version fields agree with the `.fsproj` |
+| `src/Kookerella.FsOpenXmlDsl.Mcp/.mcp/server.json` | `description` (≤100 chars, registry-enforced) **and** both `version` fields (top-level and `packages[].version`) match the `.fsproj`'s `<Version>` | The registry publish itself rejects a version it can't find on NuGet, and `VerifyDependencyFreshness`/`PublishAll`'s own action (`verifyServerJsonVersion`) checks both version fields against the `.fsproj` - but nothing checks `description` accuracy |
 | `src/Kookerella.FsOpenXmlDsl.Mcp/WorkbookTools.fs` | Every tool's `[<Description>]` text, and the `WorkbookTools` type's own doc comment | Nothing automated - this is what an MCP client/agent actually reads, separate from any README |
 | `src/Kookerella.FsOpenXmlDsl.Mcp/Dockerfile` | `COPY` list mirrors every `ProjectReference` in the `.fsproj` exactly | Nothing automated unless someone actually runs `docker build` |
 | `src/Kookerella.FsOpenXmlDsl/Xml.xsd` | Matches what `Xml.fs`'s `ofWorkbook`/`toWorkbook` actually read and write | `assertXmlSchemaValid` inside `verifyScenarioNamed` - real, but only as strong as the scenarios that exist |

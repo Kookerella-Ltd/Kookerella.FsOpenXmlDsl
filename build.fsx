@@ -43,6 +43,8 @@ let mcpPackageId = "Kookerella.FsOpenXmlDsl.Mcp"
 let fsTestsProj = "tests/Kookerella.FsOpenXmlDsl.Tests/Kookerella.FsOpenXmlDsl.Tests.fsproj"
 let csTestsProj = "tests/Kookerella.CsOpenXmlDsl.Tests/Kookerella.CsOpenXmlDsl.Tests.csproj"
 
+let mcpServerJson = "src/Kookerella.FsOpenXmlDsl.Mcp/.mcp/server.json"
+
 let releaseDir (projPath: string) = (Fake.IO.Path.getDirectory projPath) @@ "bin" @@ "Release"
 
 /// The single .nupkg `dotnet pack` produces for a project - fails loudly (rather than
@@ -92,6 +94,15 @@ let private latestPublishedVersion (packageId: string) : string = publishedVersi
 let private versionOfNupkg (packageId: string) (nupkgPath: string) : string =
     let fileName = System.IO.Path.GetFileNameWithoutExtension nupkgPath
     fileName.Substring(packageId.Length + 1)
+
+/// The <Version> a project file declares locally. Unlike everything else in this file that
+/// reads a *published* version, this reads local source directly - the one thing it checks
+/// (server.json's own version fields, below) only needs to match this repo's own .fsproj,
+/// not anything on nuget.org yet.
+let private localProjectVersion (projPath: string) : string =
+    let doc = XDocument.Load(projPath: string)
+    let ns = doc.Root.Name.Namespace
+    doc.Descendants(ns + "Version") |> Seq.map (fun e -> e.Value) |> Seq.head
 
 /// Fetches one published version's raw `.nuspec` XML directly from the flatcontainer -
 /// this is "what NuGet actually served a consumer," not what the repo's own `.fsproj` says,
@@ -305,13 +316,40 @@ let private verifyMcpBundleFreshness () =
     finally
         System.IO.File.Delete nupkg
 
+// Flagged as an unchecked gap in CLAUDE.md's own "Keep these in sync" table: the MCP
+// registry publish rejects a version it can't find on NuGet, but nothing previously
+// confirmed server.json's own two version fields (top-level and packages[0].version) agree
+// with each other or with the .fsproj they're supposed to mirror by hand. Purely a local
+// check - no network call, no dependency on anything having been published yet.
+let private verifyServerJsonVersion () =
+    let projVersion = localProjectVersion mcpProj
+    use doc = JsonDocument.Parse(System.IO.File.ReadAllText mcpServerJson)
+    let root = doc.RootElement
+    let topLevelVersion = root.GetProperty("version").GetString()
+    let packageVersion = root.GetProperty("packages").EnumerateArray() |> Seq.head |> fun p -> p.GetProperty("version").GetString()
+
+    if topLevelVersion <> projVersion || packageVersion <> projVersion then
+        failwithf
+            "%s's version fields (top-level %s, packages[0].version %s) don't both match \
+             %s's <Version> (%s) - these three are edited by hand, not derived, so update \
+             whichever one(s) are stale."
+            mcpServerJson
+            topLevelVersion
+            packageVersion
+            mcpProj
+            projVersion
+    else
+        Trace.tracefn "%s's version fields correctly match %s's <Version> (%s)." mcpServerJson mcpProj projVersion
+
 let verifyDependencyFreshness () =
     verifyWrapperDependencyFloor ()
     verifyMcpBundleFreshness ()
+    verifyServerJsonVersion ()
 
 // Independently invocable (`fake run build.fsx -t VerifyDependencyFreshness --single-target`)
-// as a standalone health check, any time - it needs none of PublishAll's prerequisites
-// since it only ever looks at nuget.org's own already-published state, never local source.
+// as a standalone health check, any time - the two dependency-freshness checks need nothing
+// but nuget.org's own already-published state, and the server.json check needs nothing but
+// local source, so none of PublishAll's other prerequisites are required to run this alone.
 Target.create "VerifyDependencyFreshness" (fun _ -> verifyDependencyFreshness ())
 
 // PublishAll's whole purpose is to be the *only* sanctioned way to push a release (push
