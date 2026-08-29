@@ -348,6 +348,11 @@ for a real, openable `output.xlsx` plus a runnable `script.cs` per feature cover
 open any single example in Excel, or `cd` into its folder and run `dotnet run script.cs` to
 regenerate it yourself.
 
+A full worked example of the decompile-then-extend workflow above - reverse-engineering a
+real invoice template into C# via `CsCodeGen.Generate`, then wiring it up to real data and
+real tests proving the result stays schema-valid - lives in a companion repo:
+[Kookerella.Demo.DecompileToSource](https://github.com/Kookerella-Ltd/Kookerella.Demo.DecompileToSource).
+
 ## Scope
 
 This wrapper now covers every feature the F# core models at the worksheet/workbook level:
