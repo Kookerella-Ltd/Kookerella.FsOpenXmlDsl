@@ -18,5 +18,8 @@ jobs:
       - name: Restore dotnet tools
         run: dotnet tool restore
 
-      - name: Fast tests
-        run: dotnet fake run build.fsx -t TestFast
+      - name: Install mcpb CLI
+        run: npm install -g @anthropic-ai/mcpb
+
+      - name: Tests + MCPB packaging
+        run: dotnet fake run build.fsx -t PackMcpMcpb
