@@ -212,12 +212,12 @@ repo - see its C# walkthrough.
 
 A local (stdio) MCP server, distributed as a `dotnet tool` (`fsopenxmldsl-mcp` command,
 `dotnet tool install -g Kookerella.FsOpenXmlDsl.Mcp`). Already listed in the official MCP
-Registry as `io.github.MarkNicholls/fsopenxmldsl-mcp`. Exposes eight tools:
+Registry as `io.github.MarkNicholls/fsopenxmldsl-mcp`. Exposes ten tools:
 
 - `create_workbook(path, sheets)` — builds an `.xlsx` from a plain row/column grid of cell
   text (a leading `=` makes a formula, `true`/`false` a boolean, a bare number numeric,
   else text). No styling/tables/charts/etc. — a deliberately minimal tool, distinct from
-  the other seven, which all cover the full feature set.
+  the other nine, which all cover the full feature set.
 - `read_workbook(path)` — reads a file back as JSON using the same text convention.
 - `generate_fsharp_script(path, outputFileName)` — reads a workbook via the F# core and
   returns F# source via the full DSL, runnable with `dotnet fsi`.
@@ -234,12 +234,21 @@ Registry as `io.github.MarkNicholls/fsopenxmldsl-mcp`. Exposes eight tools:
   `Xml.xsd` via `Xml.toWorkbook` and saves it to `path`. Unlike `create_workbook`, not
   limited to plain cell values - anything `Xml.fs` models can be expressed.
 - `generate_json(path)` — the JSON equivalent of `generate_xml`: reads a workbook via
-  `Json.ofWorkbook` and returns it as JSON. No embedded runtime schema for this direction
-  (`Json.schema.json` is test-suite only) - the tool description points at that file in the
-  repo instead.
+  `Json.ofWorkbook` and returns it as JSON. Unlike `generate_xml`, there's no runtime JSON
+  Schema validation built into the core library itself (see `generate_json_schema` below
+  for why) - but the documented shape is still retrievable.
 - `create_workbook_from_json(json, path)` — the inverse of `generate_json`, via
   `Json.toWorkbook`. Same relationship to `create_workbook` as `create_workbook_from_xml`
   has - not limited to plain cell values.
+- `generate_xml_schema()` — returns the raw XSD (`Xml.xsd`) that `generate_xml`/
+  `create_workbook_from_xml` conform to, so a caller authoring XML by hand or by transform
+  (e.g. an XSLT stylesheet) gets real schema validation/autocomplete instead of reverse-
+  engineering the shape from an example. No arguments - it doesn't touch a workbook at all.
+- `generate_json_schema()` — the JSON equivalent: returns `Json.schema.json`. Bundled in
+  this Mcp tool specifically (not embedded in the core library) since JSON Schema has no
+  .NET-built-in validator the way `System.Xml.Schema` exists for XML, so validating against
+  it there would mean adding a runtime dependency (`JsonSchema.Net`) to every consumer of
+  the core library just for this.
 
 The same binary is also a plain CLI, without an MCP client at all: `fsopenxmldsl-mcp
 convert <input.xlsx> --lang <fsharp|csharp|xml|json> [-o <file>] [--rebuild-as <name.xlsx>]`
@@ -248,12 +257,19 @@ prints (or saves) the same source/XML/JSON the matching `generate_*` tool would 
 input.json> <output.xlsx>` is `create_workbook_from_xml`/`create_workbook_from_json` as a
 CLI command (which one runs is inferred from `<input>`'s own extension). Both run once and
 exit rather than starting the server — `fsopenxmldsl-mcp` with no arguments still starts the
-MCP server as before.
+MCP server as before. `generate_xml_schema`/`generate_json_schema` have no CLI equivalent -
+MCP-only, since there's no `convert`/`build` direction they'd correspond to.
+
+A full worked example of every `convert`/`build` direction above lives in the companion
+[Kookerella.Demo.DecompileToSource](https://github.com/Kookerella-Ltd/Kookerella.Demo.DecompileToSource)
+repo: one invoice template decompiled into C#, F#, an XSLT transform, and a plain
+JSON-generation script, each wired up to real data and tested.
 
 `create_workbook`/`read_workbook` go through the F# core directly; `generate_csharp_script`
 is the only tool that goes through the C# wrapper; `generate_fsharp_script`/`generate_xml`/
 `create_workbook_from_xml`/`generate_json`/`create_workbook_from_json` go through the F#
-core's own `Xml.fs`/`Json.fs`/`Api.fs`.
+core's own `Xml.fs`/`Json.fs`/`Api.fs`; `generate_xml_schema`/`generate_json_schema` read
+`Xml.xsd`/`Json.schema.json` directly as embedded resources, without touching a workbook.
 
 ## Load-bearing gotchas — read before generating code against any of these three packages
 

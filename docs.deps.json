@@ -43,7 +43,8 @@
         { "path": "src/Kookerella.FsOpenXmlDsl.Mcp/WorkbookTools.fs", "check": "the tool's own [<Description>] text and the WorkbookTools type's own doc comment stay accurate about tool count/grouping - what an MCP client/agent reads directly, separate from any README" },
         { "path": "src/Kookerella.FsOpenXmlDsl.Mcp/README.md", "check": "tool list, ## Scope tool count, CLI usage section" },
         { "path": "src/Kookerella.FsOpenXmlDsl.Mcp/Kookerella.FsOpenXmlDsl.Mcp.fsproj", "check": "<Description> still matches the actual tool/CLI surface" },
-        { "path": "src/Kookerella.FsOpenXmlDsl.Mcp/.mcp/server.json", "check": "description field, if the tool/CLI surface's summary changed enough to warrant it (100-char registry limit)" }
+        { "path": "src/Kookerella.FsOpenXmlDsl.Mcp/.mcp/server.json", "check": "description field, if the tool/CLI surface's summary changed enough to warrant it (100-char registry limit)" },
+        { "path": "llms.txt", "check": "the '## MCP server' section's tool count/list and routing summary - missed once already: this section still said 'eight tools' and was missing generate_xml_schema/generate_json_schema entirely after they were added everywhere else" }
       ]
     },
     {
@@ -79,13 +80,13 @@
       ]
     },
     {
-      "trigger": "Any of this repo's six cross-links to the companion demo repo (README.md's '## Demos' section, the C# wrapper's and Mcp server's own README.md, MAPPING.md, and two in llms.txt)",
+      "trigger": "Any of this repo's seven cross-links to the companion demo repo (README.md's '## Demos' section, the C# wrapper's and Mcp server's own README.md, MAPPING.md, and three in llms.txt)",
       "targets": [
         { "path": "README.md", "check": "Demos section link still resolves to a real, public repo" },
         { "path": "src/Kookerella.CsOpenXmlDsl/README.md", "check": "Demos cross-link still resolves" },
         { "path": "src/Kookerella.FsOpenXmlDsl.Mcp/README.md", "check": "Demos cross-link still resolves" },
         { "path": "MAPPING.md", "check": "Demos cross-link still resolves" },
-        { "path": "llms.txt", "check": "both cross-links resolve - one in the ## Docs section, one right after the C# wrapper's 'Building a workbook' example" }
+        { "path": "llms.txt", "check": "all three cross-links resolve - one in the ## Docs section, one after the C# wrapper's 'Building a workbook' example, one in the MCP server section's CLI paragraph" }
       ]
     }
   ]
