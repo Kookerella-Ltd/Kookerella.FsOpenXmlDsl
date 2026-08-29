@@ -158,11 +158,16 @@ type WorkbookTools =
         ) : string =
         let wb = Workbook.load path
 
-        let hashR (assemblyLocation: string) = sprintf "#r \"%s\"" (assemblyLocation.Replace("\\", "\\\\"))
+        // Portable across machines - #r "nuget: ..." pulls the package via FSI's own NuGet
+        // resolution (DocumentFormat.OpenXml comes in transitively, the same way it does for
+        // any normal project reference), matching whatever version of the core this server
+        // itself was built against. A raw #r "<dll path>" (this function's previous approach)
+        // only worked on this machine, wherever this server happened to be installed - see
+        // generate_csharp_script's own #:package for the C# equivalent of this fix.
+        let packageVersion: Version = typeof<Workbook>.Assembly.GetName().Version
 
         let referenceLines =
-            [ hashR typeof<Workbook>.Assembly.Location
-              hashR typeof<DocumentFormat.OpenXml.Packaging.SpreadsheetDocument>.Assembly.Location ]
+            [ sprintf "#r \"nuget: Kookerella.FsOpenXmlDsl, %d.%d.%d\"" packageVersion.Major packageVersion.Minor packageVersion.Build ]
 
         Workbook.generateScript referenceLines outputFileName wb
 

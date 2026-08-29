@@ -13,7 +13,7 @@
          rather than as a hosted service). -->
     <PackAsTool>true</PackAsTool>
     <ToolCommandName>fsopenxmldsl-mcp</ToolCommandName>
-    <Version>0.6.1</Version>
+    <Version>0.6.2</Version>
     <Authors>Kookerella</Authors>
     <Company>Kookerella Ltd</Company>
     <Description>MCP (Model Context Protocol) server exposing Kookerella.FsOpenXmlDsl's Excel capabilities as tools any MCP-compatible AI agent can call directly: build a workbook, read one back, decompile an existing one into idiomatic F# or C# source, or translate to/from plain XML or JSON, each against a real schema. The XML/JSON directions each have two uses beyond code generation: build an .xlsx directly from XML/JSON a transform engine (e.g. XSLT) or generation script already produces, no code required; or convert an existing .xlsx to XML/JSON for text-based diffing and version control in systems like git, with deterministically ordered output so real content changes stay isolated in the diff. The same conversions are available as plain CLI commands (fsopenxmldsl-mcp convert/build) for anyone not going through an MCP client.</Description>
