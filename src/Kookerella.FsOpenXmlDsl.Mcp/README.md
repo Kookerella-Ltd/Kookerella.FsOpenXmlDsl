@@ -14,7 +14,8 @@ XML or JSON, each against a real schema) that rebuilds an equivalent file, and b
 one from that XML/JSON directly. A decompiler for spreadsheets, not just a writer. That's
 available three ways from this one binary: as MCP tools (`generate_fsharp_script`/
 `generate_csharp_script`/`generate_xml`/`create_workbook_from_xml`/`generate_json`/
-`create_workbook_from_json`) for an AI agent, as a plain CLI (`fsopenxmldsl-mcp
+`create_workbook_from_json`, plus `generate_xml_schema`/`generate_json_schema` for the
+schemas themselves) for an AI agent, as a plain CLI (`fsopenxmldsl-mcp
 convert`/`build`) for anyone who isn't going through an MCP client, and as direct library
 calls (`Workbook.generateScript`/`CsCodeGen.Generate`/`Xml.ofWorkbook`/`Xml.toWorkbook`/
 `Json.ofWorkbook`/`Json.toWorkbook`) for either to call themselves.
@@ -123,13 +124,24 @@ fsopenxmldsl-mcp build report.json rebuilt.xlsx                 # JSON -> .xlsx
   modeled feature can be expressed in the XML, since it goes through the same schema
   `generate_xml` produces.
 - **`generate_json(path)`** — the JSON equivalent of `generate_xml`: reads an existing
-  workbook and returns it as JSON. Unlike `generate_xml`, there's no embedded runtime
-  schema for this direction - `Json.schema.json` (in the main project's repo) is test-suite
-  only, not a public API.
+  workbook and returns it as JSON. Unlike `generate_xml`, there's no runtime JSON Schema
+  validation built into the core library itself (see `generate_json_schema` below for why),
+  but the documented shape is still retrievable.
 - **`create_workbook_from_json(json, path)`** — the inverse of `generate_json`: builds a new
   workbook from JSON matching the shape `generate_json` produces and saves it to `path`.
   Same relationship to `create_workbook` as `create_workbook_from_xml` has - not limited to
   plain cell values.
+- **`generate_xml_schema()`** — returns the raw XSD (`Xml.xsd`) that `generate_xml`/
+  `create_workbook_from_xml` conform to, so a caller authoring XML by hand or by transform
+  (e.g. an XSLT stylesheet) can get real schema validation/autocomplete in their own editor
+  or pipeline instead of reverse-engineering the shape from an example.
+- **`generate_json_schema()`** — the JSON equivalent: returns the raw JSON Schema
+  (`Json.schema.json`) that `generate_json`/`create_workbook_from_json` conform to. This
+  schema isn't validated against at runtime by the core library the way `Xml.xsd` is - JSON
+  Schema has no .NET-built-in equivalent to `System.Xml.Schema`, so wiring that up there
+  would mean adding a runtime dependency (`JsonSchema.Net`) to every consumer of the core
+  library just for this. It's bundled in this Mcp tool specifically, purely to hand back on
+  request.
 
 ## Scope
 
@@ -138,8 +150,10 @@ the whole thing: plain cell values and formulas only, addressed by a row/column 
 sheet. Cell styling, tables, charts, images, pivot tables, sparklines, conditional
 formatting, and everything else `Kookerella.FsOpenXmlDsl` supports aren't exposed through
 those two tools — an agent that needs those should reference the library directly, or use
-one of the other six tools on a file that already has them to see it represented as
-source or data. All six cover the full worksheet/workbook-level feature set:
+one of the other six workbook-decompiling tools on a file that already has them to see it
+represented as source or data (`generate_xml_schema`/`generate_json_schema` are a separate
+pair - they don't take a workbook at all, just hand back the schema itself). All six cover
+the full worksheet/workbook-level feature set:
 `generate_fsharp_script` the full F# core, `generate_csharp_script`/`generate_xml`/
 `create_workbook_from_xml`/`generate_json`/`create_workbook_from_json` everything
 `Kookerella.CsOpenXmlDsl`/`Xml.fs`/`Json.fs` model, which are now the same feature set as

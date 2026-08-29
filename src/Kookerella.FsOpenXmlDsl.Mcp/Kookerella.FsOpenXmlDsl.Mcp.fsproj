@@ -13,7 +13,7 @@
          rather than as a hosted service). -->
     <PackAsTool>true</PackAsTool>
     <ToolCommandName>fsopenxmldsl-mcp</ToolCommandName>
-    <Version>0.6.2</Version>
+    <Version>0.6.3</Version>
     <Authors>Kookerella</Authors>
     <Company>Kookerella Ltd</Company>
     <Description>MCP (Model Context Protocol) server exposing Kookerella.FsOpenXmlDsl's Excel capabilities as tools any MCP-compatible AI agent can call directly: build a workbook, read one back, decompile an existing one into idiomatic F# or C# source, or translate to/from plain XML or JSON, each against a real schema. The XML/JSON directions each have two uses beyond code generation: build an .xlsx directly from XML/JSON a transform engine (e.g. XSLT) or generation script already produces, no code required; or convert an existing .xlsx to XML/JSON for text-based diffing and version control in systems like git, with deterministically ordered output so real content changes stay isolated in the diff. The same conversions are available as plain CLI commands (fsopenxmldsl-mcp convert/build) for anyone not going through an MCP client.</Description>
@@ -28,6 +28,15 @@
   <ItemGroup>
     <None Include="..\..\LICENSE" Pack="true" PackagePath="/" />
     <None Include="README.md" Pack="true" PackagePath="/" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Linked (not copied) so this can't drift from the core project's own copy - see
+         generate_json_schema's own doc string for why this lives here and not embedded in
+         Kookerella.FsOpenXmlDsl itself. -->
+    <EmbeddedResource Include="..\Kookerella.FsOpenXmlDsl\Json.schema.json" Link="Json.schema.json">
+      <LogicalName>Kookerella.FsOpenXmlDsl.Mcp.Json.schema.json</LogicalName>
+    </EmbeddedResource>
   </ItemGroup>
 
   <ItemGroup>

@@ -3,6 +3,7 @@ namespace Kookerella.FsOpenXmlDsl.Mcp
 open System
 open System.ComponentModel
 open System.Globalization
+open System.IO
 open System.Text.Json
 open System.Text.Json.Nodes
 open System.Xml.Linq
@@ -38,7 +39,9 @@ type SheetOutput() =
 /// oversight. The other six tools (`generate_fsharp_script`/`generate_csharp_script`/
 /// `generate_xml`/`create_workbook_from_xml`/`generate_json`/`create_workbook_from_json`)
 /// aren't limited that way - they cover the full worksheet/workbook-level feature set, just
-/// via generated source/XML/JSON rather than a plain grid.
+/// via generated source/XML/JSON rather than a plain grid. `generate_xml_schema`/
+/// `generate_json_schema` are a separate pair again - they take no workbook at all, they
+/// just hand back the schema those two directions conform to.
 [<McpServerToolType>]
 type WorkbookTools =
 
@@ -236,8 +239,9 @@ type WorkbookTools =
         "Reads an existing Excel workbook and returns it as JSON. The JSON-side equivalent of generate_xml, \
          for a caller whose tooling speaks JSON rather than XML - same use cases (inspect, transform, or \
          archive a workbook's structure without any F#/C# source involved) and the same worksheet/workbook- \
-         level feature set. There is no embedded runtime schema for this direction the way generate_xml has \
-         Xml.xsd - see the main library repo's Json.schema.json (test-suite only) for the documented shape."
+         level feature set. Unlike generate_xml, there's no runtime JSON Schema validation built into the \
+         core library itself (see generate_json_schema's own doc string for why) - but generate_json_schema \
+         still returns the documented shape this produces."
     )>]
     static member GenerateJson([<Description("Path to an existing .xlsx/.xlsm file to convert to JSON.")>] path: string) : string =
         let wb = Workbook.load path
@@ -261,3 +265,33 @@ type WorkbookTools =
         let wb = JsonNode.Parse(json).AsObject() |> Json.toWorkbook
         Workbook.save path wb
         sprintf "Wrote %s (%d sheet%s)." path wb.Sheets.Length (if wb.Sheets.Length = 1 then "" else "s")
+
+    [<McpServerTool(Name = "generate_xml_schema")>]
+    [<Description(
+        "Returns the raw XSD (Xml.xsd) that generate_xml's output and create_workbook_from_xml's input both \
+         conform to. Meant for a caller authoring XML by hand or by transform (e.g. an XSLT stylesheet) who \
+         wants real schema validation/autocomplete in their own editor or pipeline, rather than reverse- \
+         engineering the shape from a generate_xml example."
+    )>]
+    static member GenerateXmlSchema() : string =
+        let assembly = typeof<Workbook>.Assembly
+        use stream = assembly.GetManifestResourceStream("Kookerella.FsOpenXmlDsl.Xml.xsd")
+        use reader = new StreamReader(stream)
+        reader.ReadToEnd()
+
+    [<McpServerTool(Name = "generate_json_schema")>]
+    [<Description(
+        "Returns the raw JSON Schema (Json.schema.json) that generate_json's output and \
+         create_workbook_from_json's input both conform to. Meant for a caller authoring JSON by hand or by \
+         a generation script who wants real schema validation/autocomplete in their own editor or pipeline, \
+         rather than reverse-engineering the shape from a generate_json example. This schema isn't validated \
+         against at runtime by the core library itself the way Xml.xsd is (JSON Schema has no .NET-built-in \
+         equivalent to System.Xml.Schema, so wiring that up would mean adding a runtime dependency - \
+         JsonSchema.Net - to every consumer of the core library just for this) - it's bundled here, in the \
+         Mcp tool specifically, purely to hand back on request."
+    )>]
+    static member GenerateJsonSchema() : string =
+        let assembly = Reflection.Assembly.GetExecutingAssembly()
+        use stream = assembly.GetManifestResourceStream("Kookerella.FsOpenXmlDsl.Mcp.Json.schema.json")
+        use reader = new StreamReader(stream)
+        reader.ReadToEnd()
