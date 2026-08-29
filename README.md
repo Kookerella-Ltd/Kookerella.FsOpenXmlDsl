@@ -30,6 +30,14 @@ dotnet tool install -g Kookerella.FsOpenXmlDsl.Mcp
 fsopenxmldsl-mcp convert your-file.xlsx --lang csharp
 ```
 
+## Demos
+
+Full worked examples of the decompile-then-extend workflow above - reverse-engineering
+the same invoice template into C#, F#, an XSLT transform, and a plain JSON-generation
+script, each wired up to real data and real tests proving the result stays schema-valid -
+live in a companion repo:
+[Kookerella.Demo.DecompileToSource](https://github.com/Kookerella-Ltd/Kookerella.Demo.DecompileToSource).
+
 ## Layout
 
 - `src/Kookerella.FsOpenXmlDsl` — the library.
