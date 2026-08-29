@@ -363,6 +363,63 @@ Target.create "VerifyDependencyFreshness" (fun _ -> verifyDependencyFreshness ()
 // that it did.
 Target.create "PublishAll" (fun _ -> verifyDependencyFreshness ())
 
+// A second, additional distribution channel for the Mcp server, alongside (not replacing)
+// the `dotnet tool` package PushMcp/PublishAll publish: a self-contained, single-file
+// build per platform that needs no .NET runtime pre-installed at all, for exactly the
+// audience `dotnet tool install` can't serve. Native AOT (smaller, faster) was tried first
+// and rejected - not a maybe, an empirically confirmed crash: F#'s own sprintf/printf/
+// failwithf machinery parses format strings and builds typed handlers via reflection
+// (`MakeGenericMethod`) at runtime, which Native AOT's trimmer can't resolve statically.
+// The ILC compile step itself succeeded and produced a native executable; running it
+// against a real file crashed immediately on the first sprintf-driven code path hit
+// (CsCodeGen's own `#:package` line rendering). Since sprintf/failwithf are idiomatic and
+// pervasive throughout ordinary F# code, not one isolated call site, fixing this for real
+// AOT support would mean auditing and rewriting every such usage across the F# core - a
+// large, separate undertaking, not a quick fix. Self-contained *without* AOT sidesteps the
+// whole problem: it bundles the full JIT-capable runtime (no trimming involved at all), so
+// sprintf's reflection works exactly as it does today - verified by actually running the
+// published binary against a real file, not just checking it compiled.
+let private selfContainedRids = [ "win-x64"; "win-arm64"; "linux-x64"; "linux-arm64"; "osx-x64"; "osx-arm64" ]
+
+let private selfContainedDir = (Fake.IO.Path.getDirectory mcpProj) @@ "bin" @@ "Release" @@ "self-contained"
+
+let private mcpExeName (rid: string) =
+    if rid.StartsWith "win" then "Kookerella.FsOpenXmlDsl.Mcp.exe" else "Kookerella.FsOpenXmlDsl.Mcp"
+
+/// PublishSingleFile bundles the whole self-contained output into one executable per RID
+/// (~80-85MB, the full runtime included) rather than the ~250 loose files a plain
+/// self-contained publish produces - confirmed this doesn't break anything (verified
+/// against a real file) since nothing here does its own file-system introspection of the
+/// app's own directory.
+let private publishSelfContained (rid: string) =
+    let outDir = selfContainedDir @@ rid
+    dotnet (sprintf "publish \"%s\" -c Release -r %s --self-contained -p:PublishSingleFile=true -o \"%s\"" mcpProj rid outDir) "."
+
+/// Zips just the one executable (renamed to the tool's own command name, not the assembly
+/// name) - not the loose .pdb/.xml files publish also drops alongside it, which are debug
+/// symbols/doc comments, not needed to run. Unix RIDs lose the executable bit across a zip
+/// (a real, known limitation of .NET's ZipFile API, not this script) - document
+/// `chmod +x` as a required step for those platforms rather than reaching for a tar.gz
+/// writer just to preserve one bit.
+let private archiveSelfContained (version: string) (rid: string) =
+    let outDir = selfContainedDir @@ rid
+    let exeName = mcpExeName rid
+    let archivePath = selfContainedDir @@ sprintf "fsopenxmldsl-mcp-%s-%s.zip" version rid
+
+    if System.IO.File.Exists archivePath then
+        System.IO.File.Delete archivePath
+
+    use archive = ZipFile.Open(archivePath, ZipArchiveMode.Create)
+    archive.CreateEntryFromFile(outDir @@ exeName, exeName) |> ignore
+    Trace.tracefn "Wrote %s" archivePath
+
+Target.create "PackMcpSelfContained" (fun _ ->
+    let version = localProjectVersion mcpProj
+
+    for rid in selfContainedRids do
+        publishSelfContained rid
+        archiveSelfContained version rid)
+
 "Clean" ==> "Restore" ==> "Build" ==> "TestFast" ==> "TestSlow" |> ignore
 
 // Every Pack target depends on the full test gate, not just Build - so `fake build -t
@@ -371,5 +428,12 @@ Target.create "PublishAll" (fun _ -> verifyDependencyFreshness ())
 "TestSlow" ==> "PackCore" ==> "PushCore" ==> "PublishAll" |> ignore
 "TestSlow" ==> "PackWrapper" ==> "PushWrapper" ==> "PublishAll" |> ignore
 "TestSlow" ==> "PackMcp" ==> "PushMcp" ==> "PublishAll" |> ignore
+
+// Deliberately NOT chained into PublishAll - uploading these as GitHub Release assets is
+// its own separate, explicitly-triggered step (same reasoning as the MCP Registry sync
+// needing a human login: this one needs a human decision about where these get hosted and
+// when a new platform build is worth cutting, not something that should happen on every
+// NuGet release automatically).
+"TestSlow" ==> "PackMcpSelfContained" |> ignore
 
 Target.runOrDefaultWithArguments "Build"
