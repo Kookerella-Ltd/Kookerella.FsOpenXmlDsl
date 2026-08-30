@@ -947,3 +947,10 @@ dotnet test --filter "Category=Slow"
 ```
 
 Plain `dotnet test` (no filter) runs both groups.
+
+## Sponsorship
+
+If this project is useful to you, [sponsoring it](https://github.com/sponsors/Kookerella-Ltd)
+helps fund ongoing development. Sponsorship supports the project - it doesn't include support
+SLAs, feature guarantees, or priority response times. The software is provided as-is under the
+[MIT license](LICENSE), with or without sponsorship.
