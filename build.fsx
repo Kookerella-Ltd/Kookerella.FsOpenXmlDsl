@@ -408,7 +408,7 @@ let private publishSelfContained (rid: string) =
 let private archiveSelfContained (version: string) (rid: string) =
     let outDir = selfContainedDir @@ rid
     let exeName = mcpExeName rid
-    let archivePath = selfContainedDir @@ sprintf "fsopenxmldsl-mcp-%s-%s.zip" version rid
+    let archivePath = selfContainedDir @@ sprintf "fsopenxmldsl-mcp-%s-standalone-%s.zip" version rid
 
     if System.IO.File.Exists archivePath then
         System.IO.File.Delete archivePath
