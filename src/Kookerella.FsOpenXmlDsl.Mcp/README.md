@@ -34,6 +34,30 @@ hosted service, no network address, and no account to sign up for. It's distribu
 [.NET tool](https://learn.microsoft.com/dotnet/core/tools/global-tools) for exactly that
 reason: an MCP client just needs a command it can run, the same way it'd run any other CLI.
 
+## How this compares
+
+Reviewing the ~19 Excel-focused MCP servers listed on Glama at the time of writing: most are
+either Python/`openpyxl`-based generate-only tools, or COM/AppleScript controllers that
+automate an actually-open, visible Excel window. A handful cover formulas, charts, or pivot
+tables the way this one does. None of the ones we reviewed mention decompiling a workbook
+into runnable source code, and none offer a schema-validated XML/JSON round trip - the two
+things this server leads with:
+
+- **Round-trip fidelity as a tested guarantee, not a claim** - build, save, read back,
+  identical structure, validated against the real OOXML schema in the core library's own
+  test suite. The generate-only tools we found have no equivalent check, by construction.
+- **Decompile to runnable source** - `generate_fsharp_script`/`generate_csharp_script` turn
+  an *existing* `.xlsx` into code that rebuilds it. We didn't find this capability in any of
+  the servers we reviewed.
+- **Schema-validated XML/JSON surfaces** - `Xml.xsd`/`Json.schema.json`, so any language (not
+  just .NET) can drive this server, and a workbook becomes real, `git diff`-able text.
+- **No Excel install required** - several of the servers we reviewed need a live, visible
+  desktop Excel session running via COM/AppleScript; this one is a pure OOXML library and
+  needs nothing but the .NET runtime.
+- Listed in the official [MCP Registry](https://registry.modelcontextprotocol.io) as
+  `io.github.MarkNicholls/fsopenxmldsl-mcp` - none of the servers in either directory pass
+  we reviewed showed this status.
+
 ## Install
 
 ```bash
