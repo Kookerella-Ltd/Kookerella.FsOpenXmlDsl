@@ -343,6 +343,38 @@ and only emits an explicit `.AtIndex`/`.AtColumn` where a row or cell's position
 deviates from strict sequential numbering - so it reads close to how a human would write it
 by hand.
 
+`FsCodeGen.Generate` is the F#-side equivalent of `CsCodeGen.Generate` - same signature,
+same "reverse of `WorkbookIO.Load`" relationship, but emitting a self-contained F# script
+(`dotnet fsi script.fsx`) instead of C#, for a caller who built a `Workbook` through this
+wrapper but wants F# source out rather than C#:
+
+```csharp
+var script = FsCodeGen.Generate(
+    ["#r \"path/to/Kookerella.FsOpenXmlDsl.dll\""],
+    "regenerated.xlsx",
+    loadedWorkbook);
+
+File.WriteAllText("regenerate.fsx", script);
+// then: dotnet fsi regenerate.fsx
+```
+
+`WorkbookXml`/`WorkbookJson` convert a `Workbook` to/from XML or JSON matching the F# core's
+own schemas (`Xml.xsd`/`Json.schema.json`) - the same two extra "ways in and out" the F# core
+and the MCP server already expose, now available directly from this wrapper without going
+through either of those:
+
+```csharp
+var xml = WorkbookXml.ToXml(workbook);       // System.Xml.Linq.XElement
+var json = WorkbookJson.ToJson(workbook);    // System.Text.Json.Nodes.JsonObject
+
+var fromXml = WorkbookXml.FromXml(xml);
+var fromJson = WorkbookJson.FromJson(json);
+```
+
+Unlike the XML side, nothing validates JSON against its schema at runtime - see the F# core's
+own `Json.fs` doc comment for why (no .NET-built-in JSON Schema validator the way
+`System.Xml.Schema` exists for XML).
+
 See [`tests/Kookerella.CsOpenXmlDsl.Tests/Examples/`](../../tests/Kookerella.CsOpenXmlDsl.Tests/Examples/)
 for a real, openable `output.xlsx` plus a runnable `script.cs` per feature covered above -
 open any single example in Excel, or `cd` into its folder and run `dotnet run script.cs` to
@@ -360,8 +392,9 @@ cell values (text/number/boolean/date/formula), basic styling (font/fill/border/
 number format), per-cell lock/hide protection, merged ranges, freeze panes, autofilter,
 tables, charts, images, pivot tables (single row/column/value field only), sparklines,
 conditional formatting, data validation, hyperlinks, comments, print settings, defined
-names, sheet/workbook protection, VBA (as opaque bytes), `Save`/`Load`, and code generation
-(`CsCodeGen`, covering everything this wrapper itself models).
+names, sheet/workbook protection, VBA (as opaque bytes), `Save`/`Load`, code generation to
+C# (`CsCodeGen`) or F# (`FsCodeGen`), and conversion to/from XML (`WorkbookXml`) or JSON
+(`WorkbookJson`) - all covering everything this wrapper itself models.
 
 Formula cells never carry a cached value from this API beyond what you explicitly pass to
 `Cell.Formula` - see the main project's README for why that matters for anything that isn't

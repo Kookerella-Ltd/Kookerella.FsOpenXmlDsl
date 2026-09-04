@@ -180,9 +180,15 @@ workbook-level, not sheet-level; `Of(name, formula)` is workbook-scoped,
 `LockStructure`/`LockWindows` needed no renaming. Both `Password` fields are hashed with a
 legacy, non-reversible algorithm on save and always read back `null` after load), VBA as
 opaque bytes (`Workbook.WithVbaProject(byte[])`, save to an `.xlsm` path), `WorkbookIO.Save`/
-`Load`, and code generation (`CsCodeGen.Generate(referenceLines, outputFileName, workbook)` -
-the C# equivalent of `Workbook.generateScript`, covering everything this wrapper models;
-emits a .NET 10 "file-based app" runnable via `dotnet run script.cs`, not an F# script).
+`Load`, code generation to C# (`CsCodeGen.Generate(referenceLines, outputFileName, workbook)` -
+emits a .NET 10 "file-based app" runnable via `dotnet run script.cs`) or F#
+(`FsCodeGen.Generate(referenceLines, outputFileName, workbook)` - same signature, emits a
+`dotnet fsi`-runnable script instead; both are thin wrappers over the F# core's own
+`CodeGen`/`Workbook.generateScript`, not separate reimplementations for the F# case), and
+conversion to/from XML (`WorkbookXml.ToXml`/`.FromXml`, matching `Xml.xsd`) or JSON
+(`WorkbookJson.ToJson`/`.FromJson`, matching `Json.schema.json` - not runtime-validated
+against it the way XML is, same reason as the F# core's own `Json.fs`: no .NET-built-in
+JSON Schema validator).
 
 ### Building a workbook
 

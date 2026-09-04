@@ -476,4 +476,45 @@ public class WorkbookTests
                 File.Delete(path);
         }
     }
+
+    [Fact]
+    public void WorkbookXml_round_trips_a_workbook_built_via_the_fluent_API()
+    {
+        var sheet = Sheet.Create("Sheet1", Row.Of(Cell.Text("hello"), Cell.Number(42.5)));
+        var workbook = Workbook.Create(sheet);
+
+        var xml = WorkbookXml.ToXml(workbook);
+        var roundTripped = WorkbookXml.FromXml(xml);
+
+        var cells = roundTripped.Sheets.Single().Rows.Single().Cells;
+        Assert.Equal("hello", ((CellValue.Text)cells[0].Value).Value);
+        Assert.Equal(42.5, ((CellValue.Number)cells[1].Value).Value);
+    }
+
+    [Fact]
+    public void WorkbookJson_round_trips_a_workbook_built_via_the_fluent_API()
+    {
+        var sheet = Sheet.Create("Sheet1", Row.Of(Cell.Text("hello"), Cell.Number(42.5)));
+        var workbook = Workbook.Create(sheet);
+
+        var json = WorkbookJson.ToJson(workbook);
+        var roundTripped = WorkbookJson.FromJson(json);
+
+        var cells = roundTripped.Sheets.Single().Rows.Single().Cells;
+        Assert.Equal("hello", ((CellValue.Text)cells[0].Value).Value);
+        Assert.Equal(42.5, ((CellValue.Number)cells[1].Value).Value);
+    }
+
+    [Fact]
+    public void FsCodeGen_generates_a_script_referencing_the_cell_values()
+    {
+        var sheet = Sheet.Create("Sheet1", Row.Of(Cell.Text("hello")));
+        var workbook = Workbook.Create(sheet);
+
+        var script = FsCodeGen.Generate(["#r \"Kookerella.FsOpenXmlDsl.dll\""], "output.xlsx", workbook);
+
+        Assert.Contains("hello", script);
+        Assert.Contains("output.xlsx", script);
+        Assert.Contains("#r \"Kookerella.FsOpenXmlDsl.dll\"", script);
+    }
 }
