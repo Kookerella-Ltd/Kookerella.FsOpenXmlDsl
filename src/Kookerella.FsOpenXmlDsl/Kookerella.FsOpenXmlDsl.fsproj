@@ -10,7 +10,7 @@
          the project filename (Kookerella.FsOpenXmlDsl), so they're intentionally not
          overridden here. Version is a plain field to bump by hand per release - there's
          no CI/release pipeline driving it yet. -->
-    <Version>0.3.1</Version>
+    <Version>0.3.2</Version>
     <Authors>Kookerella</Authors>
     <Company>Kookerella Ltd</Company>
     <Description>A typesafe F# DSL for building and reading Excel workbooks (.xlsx/.xlsm), interpreted into calls against the DocumentFormat.OpenXml SDK. Unlike write-only Excel generators, this round-trips and can decompile an existing file into equivalent, runnable F# source (Workbook.generateScript), plain XML against a real embedded schema (Xml.ofWorkbook/Xml.toWorkbook, Xml.xsd), or plain JSON (Json.ofWorkbook/Json.toWorkbook) - read a real spreadsheet, get back the code or data that rebuilds it. Both the XML and JSON directions double as a way to build an .xlsx from data a transform engine (e.g. XSLT) or generation script already produces, and to convert an existing .xlsx to XML/JSON for text-based diffing/version control, with deterministically ordered output so real content changes stay isolated in the diff. Covers cells, styles, formulas (including shared-formula reconstruction on read), conditional formatting, data validation, tables, charts, images, pivot tables (with real aggregation), sparklines, and VBA macro embedding.</Description>
