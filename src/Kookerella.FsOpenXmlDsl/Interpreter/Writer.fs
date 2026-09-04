@@ -805,7 +805,14 @@ module internal Writer =
 
                 ws.AppendChild(mergeCells) |> ignore
 
+            // Sorted by position rather than processed in raw list order - otherwise two
+            // workbooks with the same rules added in a different order would silently swap
+            // which dxfId/priority each rule's style gets, even though the file renders
+            // identically in Excel either way. `Xml.fs`/`Json.fs` already treat this same
+            // field as order-incidental (their own `sortedByCell`); this makes the real
+            // .xlsx writer agree with that, not just the XML/JSON export surfaces.
             worksheet.ConditionalFormats
+            |> List.sortBy (fun c -> c.TopLeft)
             |> List.iteri (fun idx entry ->
                 ws.AppendChild(conditionalFormattingElement registry (idx + 1) entry) |> ignore)
 

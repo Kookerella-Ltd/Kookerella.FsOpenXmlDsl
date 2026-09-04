@@ -162,6 +162,12 @@ type internal StyleRegistry() =
     let borderList = ResizeArray<BorderStyle>()
     let borderIndex = Dictionary<BorderStyle, uint32>()
     let customNumFmts = Dictionary<string, uint32>()
+    // Insertion order, paired with `customNumFmts` the same way every other interned
+    // collection here pairs a lookup Dictionary with an ordered ResizeArray - Dictionary
+    // enumeration order isn't part of its contract (it happens to match insertion order
+    // under the current CoreCLR implementation, but that's not a guarantee), so emission
+    // must iterate this, not `customNumFmts` directly.
+    let customNumFmtOrder = ResizeArray<string>()
     let mutable nextCustomNumFmtId = 164u
     // (fontId, fillId, borderId, numFmtId, alignment, protection)
     let cellFormats = ResizeArray<uint32 * uint32 * uint32 * uint32 * AlignmentStyle option * CellProtection option>()
@@ -223,6 +229,7 @@ type internal StyleRegistry() =
             let id = nextCustomNumFmtId
             nextCustomNumFmtId <- nextCustomNumFmtId + 1u
             customNumFmts.[code] <- id
+            customNumFmtOrder.Add code
             id
 
     /// Resolves a `NumberFormat` to both its numFmtId and its format code string - the
@@ -442,9 +449,9 @@ type internal StyleRegistry() =
         if customNumFmts.Count > 0 then
             let numFmts = NumberingFormats(Count = UInt32Value(uint32 customNumFmts.Count))
 
-            customNumFmts
-            |> Seq.iter (fun kv ->
-                numFmts.AppendChild(NumberingFormat(NumberFormatId = UInt32Value(kv.Value), FormatCode = StringValue(kv.Key)))
+            customNumFmtOrder
+            |> Seq.iter (fun code ->
+                numFmts.AppendChild(NumberingFormat(NumberFormatId = UInt32Value(customNumFmts.[code]), FormatCode = StringValue(code)))
                 |> ignore)
 
             stylesheet.AppendChild(numFmts) |> ignore

@@ -468,6 +468,57 @@ let ``example: conditional format cell value rule`` () =
     verifyScenario "ConditionalFormat_CellValueRule" (workbook [ data ])
 
 [<Fact>]
+let ``conditional format dxfId/priority is independent of rule insertion order`` () =
+    // Two rules, same styles, same ranges - only the order they're added in differs
+    // between the two workbooks below. Both files should be visually and behaviorally
+    // identical in Excel, so each rule's dxfId/priority must come out the same regardless
+    // of which one was authored first - a regression test for a real bug where
+    // `Writer.fs` processed `ConditionalFormats` in raw list order rather than sorted by
+    // position the way `Xml.fs`/`Json.fs` already do, silently swapping which dxfId/
+    // priority each rule got depending on insertion order alone.
+    let makeWorkbook (rules: (string * ConditionalFormatRule) list) =
+        let items =
+            [ row [ cell (Number 50.0) ]; row [ cell (Number 150.0) ] ]
+            @ (rules |> List.map (fun (a1, rule) -> conditionalFormat (CellRef.ofA1 a1, CellRef.ofA1 a1, rule)))
+
+        workbook [ sheet "Sheet1" items ]
+
+    let pathFor (suffix: string) =
+        Path.Combine(Path.GetTempPath(), sprintf "Kookerella.FsOpenXmlDslDxfOrderTest_%s_%s.xlsx" suffix (Guid.NewGuid().ToString("N")))
+
+    let pathA = pathFor "A"
+    let pathB = pathFor "B"
+
+    try
+        Workbook.save
+            pathA
+            (makeWorkbook
+                [ "A1", CellValueRule(GreaterThan, "0", None, redFillStyle)
+                  "A2", CellValueRule(GreaterThan, "0", None, greenFillStyle) ])
+
+        Workbook.save
+            pathB
+            (makeWorkbook
+                [ "A2", CellValueRule(GreaterThan, "0", None, greenFillStyle)
+                  "A1", CellValueRule(GreaterThan, "0", None, redFillStyle) ])
+
+        let ruleInfoByRange (path: string) : Map<string, uint32 * int> =
+            use document = SpreadsheetDocument.Open(path, false)
+            let worksheet = (document.WorkbookPart.WorksheetParts |> Seq.head).Worksheet
+
+            worksheet.Descendants<Spreadsheet.ConditionalFormatting>()
+            |> Seq.map (fun cf ->
+                let range = cf.SequenceOfReferences.InnerText
+                let rule = cf.Descendants<Spreadsheet.ConditionalFormattingRule>() |> Seq.head
+                range, (rule.FormatId.Value, rule.Priority.Value))
+            |> Map.ofSeq
+
+        Assert.Equal<Map<string, uint32 * int>>(ruleInfoByRange pathA, ruleInfoByRange pathB)
+    finally
+        if File.Exists pathA then File.Delete pathA
+        if File.Exists pathB then File.Delete pathB
+
+[<Fact>]
 let ``example: conditional format formula rule`` () =
     let data =
         sheet
@@ -574,6 +625,54 @@ let ``example: custom number format alongside a conditional format`` () =
               conditionalFormat (CellRef.ofA1 "A2", CellRef.ofA1 "A2", CellValueRule(GreaterThan, "0", None, redFillStyle)) ]
 
     verifyScenario "CustomNumberFormatWithConditionalFormat" (workbook [ data ])
+
+/// Regression test for the same class of bug the `ConditionalFormats` ordering test above
+/// guards against, found in a separate collection: `StyleRegistry`'s `customNumFmts` is a
+/// bare `Dictionary<string, uint32>`, emitted by iterating it directly - unlike every other
+/// interned collection in that file (fonts, fills, borders, cellFormats, dxfs), which pairs
+/// its lookup Dictionary with an ordered `ResizeArray` and emits from that instead.
+/// Dictionary enumeration order isn't part of its documented contract (it happens to match
+/// insertion order under the current CoreCLR implementation, but that's not guaranteed), so
+/// this locks in the actual invariant directly: with several distinct custom formats first
+/// encountered in a known row-major cell order, the emitted `<numFmt>` elements - and their
+/// assigned `numFmtId`s - must appear in exactly that same order, proving emission follows
+/// the ordered structure and not incidental Dictionary enumeration.
+[<Fact>]
+let ``custom number formats are emitted in first-encountered cell order`` () =
+    let path = Path.Combine(Path.GetTempPath(), sprintf "Kookerella.FsOpenXmlDslCustomNumFmtOrderTest_%s.xlsx" (Guid.NewGuid().ToString("N")))
+
+    let styleFor (code: string) =
+        { CellStyle.Default with NumberFormat = Some(Custom code) }
+
+    // Four distinct custom formats, one per cell, in a known row-major order (A1, A2, A3, A4).
+    let formatCodes = [ "0.000%"; "#,##0.00 \"USD\""; "0.0000"; "yyyy-mm-dd" ]
+
+    let data =
+        sheet
+            "Sheet1"
+            (formatCodes |> List.map (fun code -> row [ cell (Number 1.0, style = styleFor code) ]))
+
+    try
+        Workbook.save path (workbook [ data ])
+
+        use document = SpreadsheetDocument.Open(path, false)
+        let stylesheet = document.WorkbookPart.WorkbookStylesPart.Stylesheet
+
+        let actualCodes =
+            stylesheet.NumberingFormats.Elements<Spreadsheet.NumberingFormat>()
+            |> Seq.map (fun nf -> nf.FormatCode.Value)
+            |> List.ofSeq
+
+        Assert.Equal<string list>(formatCodes, actualCodes)
+
+        let actualIds =
+            stylesheet.NumberingFormats.Elements<Spreadsheet.NumberingFormat>()
+            |> Seq.map (fun nf -> nf.NumberFormatId.Value)
+            |> List.ofSeq
+
+        Assert.Equal<uint32 list>([ 164u; 165u; 166u; 167u ], actualIds)
+    finally
+        if File.Exists path then File.Delete path
 
 // --- Data validation ----------------------------------------------------------------
 
