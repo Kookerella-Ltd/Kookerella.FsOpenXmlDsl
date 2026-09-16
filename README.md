@@ -30,6 +30,10 @@ dotnet tool install -g Kookerella.FsOpenXmlDsl.Mcp
 fsopenxmldsl-mcp convert your-file.xlsx --lang csharp
 ```
 
+Don't have .NET installed? Download a self-contained build for your platform from the
+[Releases page](https://github.com/Kookerella-Ltd/Kookerella.FsOpenXmlDsl/releases) - no
+install required.
+
 ## Demos
 
 Full worked examples of the decompile-then-extend workflow above - reverse-engineering

@@ -66,6 +66,10 @@ dotnet tool install -g Kookerella.FsOpenXmlDsl.Mcp
 
 This installs the `fsopenxmldsl-mcp` command onto your PATH.
 
+Don't have .NET installed? Download a self-contained build for your platform from the
+[Releases page](https://github.com/Kookerella-Ltd/Kookerella.FsOpenXmlDsl/releases) - no
+install required.
+
 ## Configure your MCP client
 
 Point your client at the installed command. For example, in a client that reads a JSON
