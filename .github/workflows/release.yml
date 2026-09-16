@@ -6,6 +6,8 @@ on:
 jobs:
   publish:
     runs-on: windows-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
 
@@ -26,3 +28,15 @@ jobs:
         run: dotnet fake run build.fsx -t PublishAll
         env:
           NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+
+      # --single-target on both of these: PublishAll above already ran the full test gate in
+      # this same job, so re-running PublishMcpSelfContained's normal dependency chain
+      # (TestSlow -> PackMcpSelfContained -> PublishMcpSelfContained) would redo Clean/
+      # Restore/Build/TestFast/TestSlow a second time for no reason.
+      - name: Build self-contained binaries
+        run: dotnet fake run build.fsx -t PackMcpSelfContained --single-target
+
+      - name: Publish self-contained binaries
+        run: dotnet fake run build.fsx -t PublishMcpSelfContained --single-target
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

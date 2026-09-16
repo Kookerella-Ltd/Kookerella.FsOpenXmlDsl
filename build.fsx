@@ -500,8 +500,15 @@ let private mcpbManifestJson (version: string) (rid: string) : string =
 /// `Process.Start("mcpb", ...)` with `UseShellExecute = false` fails outright there ("the
 /// system cannot find the file specified"), since it doesn't try PATHEXT resolution the way
 /// a real shell does. Routing through `cmd.exe /c` fixes it there; plain invocation
-/// elsewhere, where npm installs a real executable/shebang script instead.
-let private runProcess (fileName: string) (args: string list) (workingDir: string) =
+/// elsewhere, where npm installs a real executable/shebang script instead. Also fine for a
+/// real .exe/shebang script (e.g. `gh`), not just `.cmd` shims - cmd.exe happily execs
+/// either - so every external-CLI caller below goes through this one helper.
+///
+/// Returns the exit code plus captured stdout/stderr rather than throwing, so a caller that
+/// wants to treat a particular nonzero exit as "not found" (e.g. `gh release view` on a tag
+/// that doesn't exist yet) can do that itself - `runProcess` below is the throw-on-failure
+/// wrapper most callers actually want.
+let private tryRunProcess (fileName: string) (args: string list) (workingDir: string) : int * string * string =
     let psi =
         if System.OperatingSystem.IsWindows() then
             let p = System.Diagnostics.ProcessStartInfo("cmd.exe")
@@ -529,12 +536,16 @@ let private runProcess (fileName: string) (args: string list) (workingDir: strin
             System.Diagnostics.Process.Start(psi)
         with _ ->
             failwithf
-                "Couldn't start '%s' - is it installed and on PATH? (For mcpb: npm install -g @anthropic-ai/mcpb)"
+                "Couldn't start '%s' - is it installed and on PATH? (For mcpb: npm install -g @anthropic-ai/mcpb; for gh: https://cli.github.com)"
                 fileName
 
     let stdout = proc.StandardOutput.ReadToEnd()
     let stderr = proc.StandardError.ReadToEnd()
     proc.WaitForExit()
+    proc.ExitCode, stdout, stderr
+
+let private runProcess (fileName: string) (args: string list) (workingDir: string) =
+    let exitCode, stdout, stderr = tryRunProcess fileName args workingDir
 
     if stdout <> "" then
         Trace.log stdout
@@ -542,8 +553,52 @@ let private runProcess (fileName: string) (args: string list) (workingDir: strin
     if stderr <> "" then
         Trace.log stderr
 
-    if proc.ExitCode <> 0 then
-        failwithf "%s %s failed (exit %d) in %s - see output above." fileName (String.concat " " args) proc.ExitCode workingDir
+    if exitCode <> 0 then
+        failwithf "%s %s failed (exit %d) in %s - see output above." fileName (String.concat " " args) exitCode workingDir
+
+/// True if a GitHub release with this tag already exists - lets `PublishMcpSelfContained`
+/// stay safe to re-run for the same version, the same way `push` skips an already-published
+/// NuGet version instead of failing on it (e.g. if a prior CI run got this far and then hit
+/// a transient network error partway through uploading assets).
+let private ghReleaseExists (tag: string) : bool =
+    let exitCode, _, _ = tryRunProcess "gh" [ "release"; "view"; tag ] "."
+    exitCode = 0
+
+/// Publishes the six zips `PackMcpSelfContained` just built as a GitHub release, tagged to
+/// match the Mcp package's own version - relies on `gh` already being authenticated (a
+/// logged-in `gh auth login` locally, or the Actions runner's own token via `GH_TOKEN` in
+/// CI) the same way `PublishAll`'s NuGet push relies on `NUGET_API_KEY` already being set.
+let private ghReleaseCreate (version: string) =
+    let tag = sprintf "v%s" version
+
+    if ghReleaseExists tag then
+        Trace.tracefn "GitHub release %s already exists - skipping." tag
+    else
+
+    let title = sprintf "%s - standalone binaries" tag
+
+    let notes =
+        "Self-contained, single-file builds of the MCP server for machines with no .NET runtime "
+        + "installed - one per platform. Matches Kookerella.FsOpenXmlDsl.Mcp "
+        + version
+        + " on NuGet. Unzip and run directly; no install required. Linux/macOS: `chmod +x` the "
+        + "extracted binary first (the zip doesn't preserve the executable bit for those "
+        + "platforms when built on Windows)."
+
+    let assetPaths =
+        selfContainedRids
+        |> List.map (fun rid -> selfContainedDir @@ sprintf "fsopenxmldsl-mcp-%s-standalone-%s.zip" version rid)
+
+    runProcess "gh" ([ "release"; "create"; tag; "--title"; title; "--notes"; notes ] @ assetPaths) "."
+    Trace.tracefn "Created GitHub release %s with %d asset(s)." tag assetPaths.Length
+
+Target.create "PublishMcpSelfContained" (fun _ -> ghReleaseCreate (localProjectVersion mcpProj))
+
+// Depends on PackMcpSelfContained having just built fresh zips for the current version, not
+// on PublishAll - kept as a separate step in release.yml, run after PublishAll rather than
+// merged into it, so PublishAll itself still means exactly "publish the three NuGet/tool
+// packages" with no wider blast radius added to it.
+"PackMcpSelfContained" ==> "PublishMcpSelfContained" |> ignore
 
 /// Stages manifest.json + server/<exe> in a throwaway directory, then shells out to the
 /// real `mcpb pack` CLI rather than hand-rolling the zip - not for the executable-bit
@@ -588,11 +643,14 @@ Target.create "PackMcpMcpb" (fun _ ->
 "TestSlow" ==> "PackWrapper" ==> "PushWrapper" ==> "PublishAll" |> ignore
 "TestSlow" ==> "PackMcp" ==> "PushMcp" ==> "PublishAll" |> ignore
 
-// Deliberately NOT chained into PublishAll - uploading these as GitHub Release assets is
-// its own separate, explicitly-triggered step (same reasoning as the MCP Registry sync
-// needing a human login: this one needs a human decision about where these get hosted and
-// when a new platform build is worth cutting, not something that should happen on every
-// NuGet release automatically).
+// PublishMcpSelfContained (which actually creates the GitHub release) is kept as its own
+// target rather than chained into PublishAll itself, so PublishAll's own meaning stays
+// exactly "publish the three NuGet/tool packages" - release.yml runs this as a second,
+// separate step straight after PublishAll succeeds. It used to be a fully manual, easy-to-
+// forget local step (the standalone binaries drifted a full version behind NuGet for weeks
+// before anyone noticed) - now automated the same way NuGet publishing itself is, just
+// still not the same target, and still not the MCP Registry sync below it, which genuinely
+// can't run non-interactively (device-flow login needs a human in a browser).
 "TestSlow" ==> "PackMcpSelfContained" |> ignore
 
 Target.runOrDefaultWithArguments "Build"

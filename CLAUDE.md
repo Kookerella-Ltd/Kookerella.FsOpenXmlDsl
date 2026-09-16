@@ -187,7 +187,8 @@ version string before considering a bump finished.
 - `dotnet tool restore` once (restores `fake-cli` from `.config/dotnet-tools.json`).
 - `dotnet fake run build.fsx -t <Target>` — see `build.fsx` for the full target list
   (`Clean`, `Restore`, `Build`, `TestFast`, `TestSlow`, `PackCore`/`PackWrapper`/`PackMcp`,
-  `PushCore`/`PushWrapper`/`PushMcp`, `PublishAll`, `PackMcpSelfContained`).
+  `PushCore`/`PushWrapper`/`PushMcp`, `PublishAll`, `PackMcpSelfContained`,
+  `PublishMcpSelfContained`).
 - `PackMcpSelfContained` produces a self-contained, single-file build of the Mcp server per
   platform (win/linux/osx × x64/arm64) - a second distribution channel alongside the
   `dotnet tool` package, for a machine with no .NET runtime pre-installed at all. Native AOT
@@ -195,9 +196,17 @@ version string before considering a bump finished.
   compiles and produces a native binary, but crashes at runtime the first time it hits any
   `sprintf`/`printf`/`failwithf` call - F#'s own formatting machinery is reflection-based
   (`MakeGenericMethod`) in a way Native AOT's trimmer can't resolve statically, and those
-  three are used pervasively throughout ordinary F# code, not one isolated call site. Not
-  wired into `PublishAll` - uploading these as release assets is a separate, manual step
-  (same reasoning as the MCP Registry sync needing a human login).
+  three are used pervasively throughout ordinary F# code, not one isolated call site.
+  `PublishMcpSelfContained` uploads those zips as GitHub Release assets, tagged to match the
+  Mcp package's own version (`gh release create`, idempotent the same way `push` is - skips
+  if that tag's release already exists rather than failing). `release.yml` runs both, as
+  their own `--single-target` steps straight after `PublishAll` succeeds - not merged into
+  `PublishAll` itself, so that target's own meaning stays exactly "publish the three NuGet/
+  tool packages," but no longer a manual local step either: this used to be forgotten
+  entirely for a full release cycle (the standalone binaries sat stale on the Releases page
+  a full version behind NuGet for weeks before anyone noticed), which is what prompted
+  automating it. Still deliberately separate from the MCP Registry sync below, which
+  genuinely can't be automated the same way - device-flow login needs a human in a browser.
 - Fast tests only: `dotnet test --filter "Category!=Slow"`. The slow group actually
   executes each generated example script via `dotnet run`/`dotnet fsi` and diffs the
   result against the committed file — always run this before any release, not just fast
